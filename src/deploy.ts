@@ -1,4 +1,4 @@
-import { chmodSync } from "node:fs";
+import { chmod, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import type { LoadedConfig } from "./config.ts";
 import type { DeployPlan } from "./planner.ts";
@@ -23,8 +23,10 @@ export async function deploy(plan: DeployPlan, loaded: LoadedConfig): Promise<nu
   let envLocalFile: string | null = null;
   if (loaded.envContent && m.envRemotePath) {
     envLocalFile = tmpdir() + "/bundant-" + m.service + "-" + m.role + ".env";
-    await Bun.write(envLocalFile, loaded.envContent);
-    chmodSync(envLocalFile, 0o600);
+    // The merged env file may carry secrets: create it 0600 and chmod afterwards
+    // (writeFile mode only applies when the file is created).
+    await writeFile(envLocalFile, loaded.envContent, { mode: 0o600 });
+    await chmod(envLocalFile, 0o600);
   }
 
   const local = m.localImage ? new LocalExecutor() : null;

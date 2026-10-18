@@ -1,11 +1,10 @@
 #!/usr/bin/env bun
 import { parseArgs } from "node:util";
 import { dirname } from "node:path";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { loadConfig } from "./config.ts";
 import { buildDeployPlan, renderPlan } from "./planner.ts";
 import { resolveRevision, sanitizeRevision } from "./revision.ts";
+import { cliVersion } from "./version.ts";
 
 const USAGE = [
   "usage: bundant <command> [options]",
@@ -15,6 +14,7 @@ const USAGE = [
   "  rollback [n]          roll back to the nth previous revision (default 1)",
   "  status                per-host containers, proxy targets, health",
   "  prune                 remove stopped revisions beyond the newest K (--keep, default 3)",
+  "  delete [--yes] [--images]  remove the service: proxy route, containers, env file",
   "",
   "options:",
   "  -f, --file <path>     deploy.yml path (default: ./deploy.yml)",
@@ -22,6 +22,8 @@ const USAGE = [
   "      --rev <id>        override revision id (testing hook; default: git short sha)",
   "      --local-image <name:tag>  stream a locally built image to hosts (no registry)",
   "      --keep <k>        prune: revisions to keep (default 3)",
+  "      --yes             delete: required confirmation for the destructive path",
+  "      --images          delete: also remove the image refs of the deleted revisions",
   "",
   "env:",
   "  BUNDANT_HOSTS=a,b     override deploy.yml hosts",
@@ -33,24 +35,13 @@ function usage(): never {
   process.exit(2);
 }
 
-function packageVersion(): string {
-  try {
-    const pkg = JSON.parse(
-      readFileSync(join(import.meta.dir, "..", "package.json"), "utf8"),
-    ) as { version?: string };
-    return pkg.version ?? "0.0.0";
-  } catch {
-    return "0.0.0";
-  }
-}
-
 async function main(): Promise<number> {
   if (process.argv.includes("--help") || process.argv.includes("-h")) {
     console.log(USAGE);
     return 0;
   }
   if (process.argv.includes("--version") || process.argv.includes("-v")) {
-    console.log(packageVersion());
+    console.log(cliVersion());
     return 0;
   }
   const args = parseArgs({
@@ -61,6 +52,8 @@ async function main(): Promise<number> {
       rev: { type: "string" },
       "local-image": { type: "string" },
       keep: { type: "string", default: "3" },
+      yes: { type: "boolean", default: false },
+      images: { type: "boolean", default: false },
     },
   });
   const sub = args.positionals[0];
@@ -100,6 +93,16 @@ async function main(): Promise<number> {
     const loaded = loadConfig(args.values.file ?? "deploy.yml");
     const { status } = await import("./status.ts");
     return status(loaded);
+  }
+
+  if (sub === "delete") {
+    const loaded = loadConfig(args.values.file ?? "deploy.yml");
+    const { remove } = await import("./delete.ts");
+    return remove(loaded, {
+      yes: args.values.yes === true,
+      images: args.values.images === true,
+      dryRun: args.values["dry-run"] === true,
+    });
   }
 
   if (sub === "prune") {

@@ -36,6 +36,8 @@ export const RawConfigSchema = z.object({
   image: z.string().min(1),
   role: z.string().regex(NAME_RE, "must match [a-z0-9-]").optional(),
   hosts: z.array(z.string().min(1)).min(1, "at least one host is required"),
+  /** Default ssh user for hosts without their own user@ prefix. */
+  user: z.string().regex(/^[A-Za-z0-9._-]+$/, "must be a plain ssh user name").optional(),
   runtime: z.enum(["docker", "podman"]).optional(),
   env: EnvSchema.optional(),
   healthcheck: HealthSchema.optional(),
@@ -50,6 +52,8 @@ export interface BundantConfig {
   image: string;
   role: string;
   hosts: string[];
+  /** Default ssh user; per-host user@ prefixes win. */
+  user?: string;
   /** Container runtime on the target hosts (default: docker). */
   runtime: RuntimeKind;
   env: { file?: string; vars: Record<string, string> };
@@ -75,6 +79,7 @@ export function normalize(raw: RawConfig): BundantConfig {
     image: raw.image,
     role: raw.role ?? "web",
     hosts: raw.hosts,
+    user: raw.user,
     runtime: raw.runtime ?? "docker",
     env: { file: raw.env?.file, vars: raw.env?.vars ?? {} },
     healthcheck: {
