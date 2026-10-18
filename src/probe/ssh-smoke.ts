@@ -5,6 +5,8 @@
  *
  * usage: bun run src/probe/ssh-smoke.ts <host> [docker|podman]
  */
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { SshExecutor } from "../exec/ssh.ts";
 import { ensure as ensureProxy, PROXY_CONTAINER } from "../commands/proxy.ts";
 import { ensureNetwork } from "../commands/docker.ts";
@@ -52,7 +54,8 @@ if (help.code !== 0) {
   console.error("kamal-proxy help failed: " + help.stderr.trim());
   process.exit(1);
 }
-await Bun.write(HELP_PATH, help.stdout);
+await mkdir(dirname(HELP_PATH), { recursive: true });
+await writeFile(HELP_PATH, help.stdout);
 const lines = help.stdout.trim().split("\n").length;
 const hasHealthFlag = help.stdout.includes("--health-check-path");
 console.log("proxy-help captured: " + lines + " lines -> " + HELP_PATH);

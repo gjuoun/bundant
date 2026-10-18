@@ -1,16 +1,22 @@
 import type { Executor } from "./types.ts";
 
+// Plain field assignments, not TS parameter properties: node's strip-only
+// type stripping rejects parameter properties, and these classes are imported
+// by the CLI under both runtimes.
 export class HealthGateError extends Error {
-  constructor(
-    public readonly probeCmd: string,
-    public readonly attempts: number,
-    public readonly lastCode: string,
-  ) {
+  readonly probeCmd: string;
+  readonly attempts: number;
+  readonly lastCode: string;
+
+  constructor(probeCmd: string, attempts: number, lastCode: string) {
     super(
       "health gate failed after " + attempts + " attempt(s); last status [" +
       lastCode + "] from: " + probeCmd,
     );
     this.name = "HealthGateError";
+    this.probeCmd = probeCmd;
+    this.attempts = attempts;
+    this.lastCode = lastCode;
   }
 }
 

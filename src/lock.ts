@@ -38,17 +38,22 @@ export function releaseCmd(service: string): string {
   return "rm -rf " + lockDir(service);
 }
 
+// Plain field assignments (see health.ts): parameter properties are not
+// supported by node's strip-only type stripping.
 export class LockHeldError extends Error {
-  constructor(
-    public readonly service: string,
-    public readonly owner: string,
-    public readonly ageSeconds: number,
-  ) {
+  readonly service: string;
+  readonly owner: string;
+  readonly ageSeconds: number;
+
+  constructor(service: string, owner: string, ageSeconds: number) {
     super(
       "deploy lock for " + service + " is held by " + owner +
       " (age " + ageSeconds + "s; BUNDANT_LOCK_TTL_S reclaims stale locks)",
     );
     this.name = "LockHeldError";
+    this.service = service;
+    this.owner = owner;
+    this.ageSeconds = ageSeconds;
   }
 }
 

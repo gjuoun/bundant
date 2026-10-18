@@ -1,6 +1,8 @@
+import { mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import type { Runtime } from "../runtime.ts";
 import type { Executor, ExecResult } from "../types.ts";
+import { runProcess } from "./process.ts";
 
 /**
  * SSH backend using the native ssh binary (decision Q1=A):
@@ -17,10 +19,7 @@ export interface SshConnectOptions {
 }
 
 /** ssh argv prefix incl. multiplexing; cmd (when given) is the final single argument. */
-export function buildSshArgs(
-  opts: SshConnectOptions,
-  cmd?: string,
-): string[] {
+export function buildSshArgs(opts: SshConnectOptions, cmd?: string): string[] {
   const args = [
     "-o", "BatchMode=yes",
     "-o", "StrictHostKeyChecking=accept-new",
@@ -44,19 +43,15 @@ export function sshOptsStr(opts: Partial<SshConnectOptions> = {}): string {
  * the multiplexed ssh connection into a runtime load on the host. Podman
  * saves with an explicit docker-archive format so the archive stays portable.
  * The literal {HOST} token is substituted per host by the planner / deploy.
+ *
+ * The pipeline streams: the caller spawns one shell whose processes pipe into
+ * each other (docker save | gzip | ssh "gunzip | docker load"), so image bytes
+ * never pass through this process's memory.
  */
 export function pushImagePipeline(image: string, rt: Runtime): string {
   const fmt = rt.saveFormatArgs.length > 0 ? " " + rt.saveFormatArgs.join(" ") : "";
   return rt.bin + " save" + fmt + " " + image + " | gzip -1 | ssh " + sshOptsStr() +
     ' {HOST} "gunzip | ' + rt.bin + ' load"';
-}
-
-function capture(proc: ReturnType<typeof Bun.spawn>): Promise<ExecResult> {
-  return Promise.all([
-    proc.exited as Promise<number>,
-    new Response(proc.stdout as ReadableStream).text(),
-    new Response(proc.stderr as ReadableStream).text(),
-  ]).then(([code, stdout, stderr]) => ({ code, stdout, stderr }));
 }
 
 export class SshExecutor implements Executor {
@@ -69,16 +64,12 @@ export class SshExecutor implements Executor {
 
   /** Ensure the multiplex socket dir exists (cheap, idempotent). */
   private async ensureControlDir(): Promise<void> {
-    const proc = Bun.spawn(["mkdir", "-p", CONTROL_DIR]);
-    await proc.exited;
+    await mkdir(CONTROL_DIR, { recursive: true });
   }
 
   async run(cmd: string): Promise<ExecResult> {
     await this.ensureControlDir();
-    return capture(Bun.spawn(["ssh", ...buildSshArgs(this.opts, cmd)], {
-      stdout: "pipe",
-      stderr: "pipe",
-    }));
+    return runProcess(["ssh", ...buildSshArgs(this.opts, cmd)]);
   }
 
   async putFile(localPath: string, destPath: string, mode?: string): Promise<void> {
@@ -91,8 +82,12 @@ export class SshExecutor implements Executor {
       localPath,
       this.opts.host + ":" + destPath,
     ];
-    const r = await capture(Bun.spawn(["scp", ...scpArgs], { stdout: "pipe", stderr: "pipe" }));
-    if (r.code !== 0) throw new Error("scp " + localPath + " -> " + this.opts.host + ":" + destPath + " failed: " + r.stderr);
+    const r = await runProcess(["scp", ...scpArgs]);
+    if (r.code !== 0) {
+      throw new Error(
+        "scp " + localPath + " -> " + this.opts.host + ":" + destPath + " failed: " + r.stderr,
+      );
+    }
     if (mode) {
       const c = await this.run("chmod " + mode + " " + destPath);
       if (c.code !== 0) throw new Error("chmod " + mode + " " + destPath + " failed: " + c.stderr);
@@ -101,12 +96,11 @@ export class SshExecutor implements Executor {
 
   /** Tear down the multiplexed connection. */
   async close(): Promise<void> {
-    const proc = Bun.spawn([
+    await runProcess([
       "ssh",
       "-o", "ControlPath=" + CONTROL_DIR + "/cm-%r@%h-%p",
       "-O", "exit",
       this.opts.host,
-    ], { stdout: "pipe", stderr: "pipe" });
-    await proc.exited;
+    ]);
   }
 }
