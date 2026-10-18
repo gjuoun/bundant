@@ -110,3 +110,53 @@ export function imagePrune(rt: Runtime): string {
 export function start(rt: Runtime, container: string): string {
   return rt.bin + " start " + container;
 }
+
+/**
+ * Monitoring surface — read-only queries, all pull-based over the same ssh
+ * connection. Field sets were verified live on podman 5.7 and docker 29.
+ */
+
+/** Every container on the host: name|image|status|ports|createdAt. */
+export function listAll(rt: Runtime): string {
+  return rt.bin + ' ps -a --format "{{.Names}}|{{.Image}}|{{.Status}}|{{.Ports}}|{{.CreatedAt}}"';
+}
+
+/** One-shot resource snapshot: name|cpu%|mem used/limit|mem%|pids. */
+export function statsSnapshot(rt: Runtime): string {
+  return rt.bin + ' stats --no-stream --format "{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.MemPerc}}|{{.PIDs}}"';
+}
+
+export function logsTail(rt: Runtime, container: string, tail: number, follow = false): string {
+  return rt.bin + " logs" + (follow ? " -f" : "") + " --tail " + tail + " " + container;
+}
+
+export function containerNames(rt: Runtime): string {
+  return rt.bin + ' ps --format "{{.Names}}"';
+}
+
+/** Every container name, running or not — the fallback for selectors. */
+export function allContainerNames(rt: Runtime): string {
+  return rt.bin + ' ps -a --format "{{.Names}}"';
+}
+
+/** State line for one container: see parseInspect for the field order. */
+export function inspectLine(rt: Runtime, container: string): string {
+  return (
+    rt.bin + " inspect " + container + ' --format "' +
+    "{{.Name}}|{{.State.Status}}|{{.RestartCount}}|{{.State.StartedAt}}|" +
+    "{{if .State.Health}}{{.State.Health.Status}}{{else}}-{{end}}|{{.Config.Image}}|" +
+    '{{.HostConfig.RestartPolicy.Name}}|{{.HostConfig.LogConfig.Type}}|{{.State.ExitCode}}"'
+  );
+}
+
+/**
+ * Events since an RFC3339 timestamp or a duration (journald/json-file backend).
+ * `events` streams forever by default, so it is bounded by `timeout` and the
+ * exit code is neutralised: the caller wants the window, not a follow stream.
+ */
+export function eventsSince(rt: Runtime, since: string): string {
+  return (
+    "timeout 3 " + rt.bin + ' events --since ' + since +
+    ' --format "{{.Time}}|{{.Type}}|{{.Status}}|{{.Name}}" 2>/dev/null || true'
+  );
+}

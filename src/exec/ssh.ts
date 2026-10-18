@@ -1,4 +1,5 @@
 import { mkdir } from "node:fs/promises";
+import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import type { HostConnection } from "../hosts.ts";
 import type { Runtime } from "../runtime.ts";
@@ -92,6 +93,50 @@ export class SshExecutor implements Executor {
   async run(cmd: string): Promise<ExecResult> {
     await this.ensureControlDir();
     return runProcess(["ssh", ...buildSshArgs(this.opts, cmd)]);
+  }
+
+  /**
+   * Streaming command: logs -f and interactive exec must not be buffered.
+   * With a tty the child owns the terminal (interactive exec); without one the
+   * child's stdout/stderr are piped so the caller can prefix per-host lines.
+   */
+  async stream(
+    cmd: string,
+    opts: { tty?: boolean; onLine?: (line: string) => void } = {},
+  ): Promise<number> {
+    await this.ensureControlDir();
+    const base = buildSshArgs(this.opts); // ends with the target
+    const target = base[base.length - 1]!;
+    const argv = ["ssh", ...base.slice(0, -1)];
+    if (opts.tty) argv.push("-tt");
+    argv.push(target, cmd);
+
+    return await new Promise<number>((resolve) => {
+      const child = spawn(argv[0], argv.slice(1), {
+        stdio: opts.tty ? ["inherit", "inherit", "inherit"] : ["ignore", "pipe", "pipe"],
+      });
+      let pending = "";
+      const feed = (chunk: Buffer): void => {
+        if (opts.onLine === undefined) {
+          process.stdout.write(chunk);
+          return;
+        }
+        pending += chunk.toString("utf8");
+        const lines = pending.split("\n");
+        pending = lines.pop() ?? "";
+        for (const line of lines) opts.onLine(line);
+      };
+      child.stdout?.on("data", feed);
+      child.stderr?.on("data", (chunk: Buffer) => {
+        if (opts.onLine === undefined) process.stderr.write(chunk);
+        else feed(chunk);
+      });
+      child.on("error", () => resolve(127));
+      child.on("close", (code, signal) => {
+        if (pending !== "" && opts.onLine !== undefined) opts.onLine(pending);
+        resolve(code ?? (signal ? 128 : 1));
+      });
+    });
   }
 
   async putFile(localPath: string, destPath: string, mode?: string): Promise<void> {

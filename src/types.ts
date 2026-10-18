@@ -11,6 +11,8 @@ export interface Executor {
   run(cmd: string): Promise<ExecResult>;
   putFile(localPath: string, remotePath: string, mode?: string): Promise<void>;
   close(): Promise<void>;
+  /** Optional: streaming command (logs -f, interactive exec). ssh provides it. */
+  stream?(cmd: string, opts?: { tty?: boolean; onLine?: (line: string) => void }): Promise<number>;
 }
 
 /** Lifecycle phase of a planned command — consumed by the dry-run renderer and orchestrators. */
