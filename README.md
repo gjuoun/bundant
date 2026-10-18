@@ -1,10 +1,58 @@
 # bundant
 
-First-principles deployment tool: **docker + tailscale + a thin Bun control plane**.
-Single-host deploys with zero downtime and no runtime daemon — inspired by Kamal,
-implemented in TypeScript for Bun. No Kubernetes, no scheduler, no self-built proxy,
-and **no registry needed**: bundant can stream a locally built image straight to the
-host over the same ssh connection it uses for everything else.
+**Zero-downtime single-host deploys over SSH.** docker or podman + kamal-proxy + a thin
+Bun control plane. No Kubernetes, no scheduler, no daemon on the host, **no registry
+required**: bundant can stream a locally built image straight to the host over the same
+ssh connection it uses for everything else.
+
+```sh
+npm install -g bundant      # or: bun add -g bundant
+bundant deploy -f deploy.yml
+```
+
+## Install
+
+```sh
+bun add -g bundant          # preferred
+npm install -g bundant      # works too
+bundant --help
+```
+
+- The machine you deploy **from** needs [Bun](https://bun.sh) ≥ 1.2 (the CLI is
+  TypeScript, run by Bun) and `docker` if you use `--local-image`.
+- The **target host** needs nothing but sshd + docker or podman. Ports 80/443 must be
+  free (kamal-proxy owns them).
+- A passwordless ssh login to the host (`ssh box.example.com docker version` should
+  work without a prompt); anything in `~/.ssh/config` — including tailscale MagicDNS
+  names — is honoured as-is.
+
+## 60-second quickstart
+
+```sh
+# 1. a deploy.yml (this is the whole contract — see reference below)
+cat > deploy.yml <<'YAML'
+service: hello
+image: traefik/whoami:v1.10
+hosts: [box.example.com]
+proxy:
+  host: hello.example.com
+YAML
+
+# 2. see the exact command sequence, no host contact
+bundant deploy --dry-run -f deploy.yml
+
+# 3. ship it — zero downtime, health-gated, rollback-ready
+bundant deploy -f deploy.yml
+
+# 4. verify (kamal-proxy routes by Host header)
+curl -H 'Host: hello.example.com' http://box.example.com/
+
+# 5. back out in one command
+bundant rollback 1 -f deploy.yml
+```
+
+No registry? Add `--local-image <name:tag>` and bundant streams the image from your
+machine (`docker save | gzip | ssh 'gunzip | docker load'`) before deploying.
 
 ## Architecture
 
@@ -52,16 +100,6 @@ until the new target is healthy and old connections drained) -> stop old revisio
 
 **Rollback:** `rollback [n]` = start the nth-previous revision container, re-gate
 health, re-point kamal-proxy, stop the current one.
-
-## Install
-
-```sh
-bun add -g bundant        # or: npm install -g bundant
-bundant --help            # deploy / rollback / status / prune
-```
-
-Requires Bun ≥ 1.2 on the machine you deploy **from** (the CLI is TypeScript
-run by Bun). The target host only needs SSH + docker or podman.
 
 ## Quickstart — zero registry (recommended)
 
