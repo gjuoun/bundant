@@ -1,0 +1,22 @@
+# bundant example: zero-downtime hello service.
+# traefik/whoami echoes its container hostname — deploy twice and watch the
+# backend id change while curl keeps getting 200s.
+service: hello
+runtime: podman
+image: traefik/whoami:v1.10
+role: web
+# Real hosts are supplied at deploy time: BUNDANT_HOSTS=box.tail1234.ts.net
+# overrides this list (also the hook the E2E scripts use).
+hosts:
+  - replace-me.example.ts.net
+env:
+  vars:
+    BUNDANT_DEMO: "1"
+healthcheck:
+  path: /
+  timeout: 30
+proxy:
+  enabled: true
+  host: hello.bundant.test
+  port: 80
+  tls: false

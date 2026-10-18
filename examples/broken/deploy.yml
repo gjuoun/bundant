@@ -1,0 +1,14 @@
+# Negative fixture: whoami answers 200 on every path, so the gate is forced
+# red by probing a port nothing listens on. Deploy must abort, remove the
+# failed container, and never touch the proxy or other services.
+service: broken
+image: traefik/whoami:v1.10
+role: web
+hosts:
+  - replace-me.example.ts.net
+healthcheck:
+  path: /definitely-not-here
+  port: 59999
+  timeout: 5
+proxy:
+  enabled: false
