@@ -1,0 +1,46 @@
+{
+  "name": "bundant",
+  "version": "0.1.0",
+  "description": "Zero-downtime single-host deploys over SSH — docker/podman + kamal-proxy + a thin Bun control plane. No Kubernetes.",
+  "type": "module",
+  "module": "src/cli.ts",
+  "bin": { "bundant": "src/cli.ts" },
+  "license": "MIT",
+  "author": "Jun Guo",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/gjuoun/bundant.git"
+  },
+  "homepage": "https://github.com/gjuoun/bundant#readme",
+  "bugs": {
+    "url": "https://github.com/gjuoun/bundant/issues"
+  },
+  "keywords": [
+    "deploy",
+    "deployment",
+    "zero-downtime",
+    "docker",
+    "podman",
+    "ssh",
+    "kamal",
+    "bun",
+    "tailscale",
+    "self-hosted"
+  ],
+  "engines": {
+    "bun": ">=1.2.0"
+  },
+  "scripts": {
+    "start": "bun src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "yaml": "^2.6.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.0",
+    "typescript": "^5.7.0"
+  }
+}
