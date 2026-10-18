@@ -25,6 +25,36 @@ proxy: { enabled: true, host: hello-podman.example.com, port: 80 }
    `--sysctl net.ipv4.ip_unprivileged_port_start=0` on podman. Docker never gets that
    flag.
 
+## `bundant bootstrap` — install podman on the host
+
+A host that has nothing but sshd (and root) needs one command before its first deploy:
+
+```sh
+bundant bootstrap -f deploy.yml          # per host in deploy.yml (BUNDANT_HOSTS overrides)
+bundant bootstrap --dry-run              # print the exact commands, touch nothing
+bundant bootstrap --skip-smoke           # skip the pull+run check
+```
+
+One probe round trip reads `/etc/os-release` plus the tools actually installed, then:
+
+1. **installs podman** when missing, choosing the manager the distro ships:
+   `apt-get` (Debian/Ubuntu/Mint/Raspberry Pi OS/Kali), `dnf` (Fedora/RHEL 8+/CentOS 8+/
+   Rocky/Alma/Oracle/Amazon Linux 2023), `yum` (CentOS 7), `apk` (Alpine), `pacman`
+   (Arch/Manjaro/EndeavourOS), `zypper` (openSUSE/SLES). The distro id wins, `ID_LIKE` is
+   the fallback, and it degrades to whatever manager is installed; a distro we cannot map
+   fails with `install podman manually` instead of guessing.
+2. **writes the registry search path** `/etc/containers/registries.conf.d/999-bundant.conf`
+   (`unqualified-search-registries = ["docker.io"]`) — once, never clobbered; without it
+   `podman run alpine` dies with `short-name … did not resolve`.
+3. **enables `podman-restart.service`** so `--restart unless-stopped` containers come back
+   after a reboot (skipped on non-systemd hosts).
+4. **smoke-tests** `podman run --rm docker.io/library/hello-world`, and inside LXC the
+   failure text names `nesting=1`.
+
+Everything is idempotent: a ready host costs one probe and reports
+`registry search path already configured` / `podman version …` / `smoke test passed`.
+Step output is shown only when a step fails, so apt's noise never floods the terminal.
+
 ## Hosts that are themselves containers (Proxmox / LXC)
 
 - Create the LXC with **`nesting=1`** (and `keyctl=1` for rootless) — podman needs them

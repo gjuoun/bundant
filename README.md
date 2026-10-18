@@ -62,6 +62,7 @@ registry).
 | `status` | per-host containers, proxy targets, live health probe |
 | `prune [--keep k]` | drop stopped revisions beyond the newest k (default 3) + dangling layers |
 | `delete [--yes] [--images]` | remove the service everywhere: proxy route, `<service>-<role>-*` containers, rendered env file (images kept unless `--images`); prints the plan and refuses without `--yes` |
+| `bootstrap [--dry-run] [--skip-smoke]` | make each host ready: install podman when missing (apt/dnf/yum/apk/pacman/zypper), enable `podman-restart.service`, set the registry search path, smoke-test one container |
 
 Env hooks: `BUNDANT_HOSTS=a,b` overrides hosts, `BUNDANT_LOCK_TTL_S` sets the stale-lock
 threshold.
@@ -74,6 +75,9 @@ threshold.
 - Target host: sshd + docker or podman, ports 80/443 free, passwordless ssh login.
   `~/.ssh/config` is used when present, but a deploy can also carry its own
   `ssh:` block (user/port/identity/options) and need no local ssh setup at all.
+  Nothing installed yet? `bundant bootstrap` installs podman on Debian/Ubuntu, Fedora/RHEL/
+  CentOS/Rocky/Alma/Amazon Linux, Alpine, Arch and openSUSE, then enables the boot-time
+  restart unit and smoke-tests a container.
 
 ## More
 
