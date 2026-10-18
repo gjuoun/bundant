@@ -5,7 +5,8 @@
   "type": "module",
   "module": "src/cli.ts",
   "bin": {
-    "bundant": "src/cli.ts"
+    "bundant": "bin/bundant",
+    "bundant-bun": "bin/bundant-bun"
   },
   "license": "MIT",
   "author": "Jun Guo",
@@ -30,10 +31,14 @@
     "self-hosted"
   ],
   "engines": {
-    "bun": ">=1.2.0"
+    "bun": ">=1.2.0",
+    "node": ">=22.6.0"
   },
   "scripts": {
     "start": "bun src/cli.ts",
+    "start:node": "node src/cli.ts",
+    "build": "bun build src/cli.ts --target=node --outfile=dist/cli.mjs --external zod --external yaml",
+    "prepack": "bun run build",
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },
@@ -46,6 +51,8 @@
     "typescript": "^5.7.0"
   },
   "files": [
+    "bin",
+    "dist",
     "src",
     "!src/**/*.test.ts",
     "README.md",
