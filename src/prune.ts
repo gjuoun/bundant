@@ -1,6 +1,7 @@
 import type { LoadedConfig } from "./config.ts";
 import * as docker from "./commands/docker.ts";
 import { SshExecutor } from "./exec/ssh.ts";
+import { hostTargets } from "./hosts.ts";
 import { runtimeFor } from "./runtime.ts";
 
 export interface PruneEntry {
@@ -44,7 +45,7 @@ export async function prune(
   const { config } = loaded;
   const rt = runtimeFor(config.runtime);
 
-  for (const host of config.hosts) {
+  for (const host of hostTargets(config)) {
     if (opts.dryRun) {
       console.log("== " + host + " ==");
       console.log("  (dry-run) " + docker.listForSelection(rt, config.service, config.role));

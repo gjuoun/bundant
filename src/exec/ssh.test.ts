@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, statSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LocalExecutor } from "./local.ts";
@@ -13,6 +13,12 @@ describe("buildSshArgs", () => {
     expect(args).toContain("ControlMaster=auto");
     expect(args).toContain("ControlPath=" + CONTROL_DIR + "/cm-%r@%h-%p");
     expect(args).toContain("ControlPersist=60");
+  });
+
+  test("an explicit login user rides through the ssh argv", () => {
+    const args = buildSshArgs({ host: "root@10.0.0.5" }, "true");
+    expect(args).toContain("root@10.0.0.5");
+    expect(args[args.length - 2]).toBe("root@10.0.0.5");
   });
 
   test("command rides as one final argv element (remote shell parses it)", () => {
@@ -39,7 +45,7 @@ describe("LocalExecutor", () => {
     writeFileSync(src, "A=1\n");
     const ex = new LocalExecutor();
     await ex.putFile(src, dir + "/dest.env", "600");
-    expect(await Bun.file(dir + "/dest.env").text()).toBe("A=1\n");
+    expect(readFileSync(dir + "/dest.env", "utf8")).toBe("A=1\n");
     const mode = (statSync(dir + "/dest.env").mode & 0o777).toString(8);
     expect(mode).toBe("600");
   });

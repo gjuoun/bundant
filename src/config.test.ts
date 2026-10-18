@@ -102,6 +102,15 @@ describe("loadConfig", () => {
     expect(offline.config.proxy.image).toBe("docker.io/basecamp/kamal-proxy:offline-2026-10");
   });
 
+  test("top-level user is optional and validated", () => {
+    expect(loadConfig(writeYml("u1.yml", minimal)).config.user).toBeUndefined();
+    const withUser = loadConfig(writeYml("u2.yml", [minimal, "user: root"].join("\n")));
+    expect(withUser.config.user).toBe("root");
+    expect(() =>
+      loadConfig(writeYml("u3.yml", [minimal, "user: root@box"].join("\n"))),
+    ).toThrow(/user/);
+  });
+
   test("missing env file is a clear error", () => {
     expect(() =>
       loadConfig(

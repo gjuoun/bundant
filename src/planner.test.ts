@@ -213,6 +213,18 @@ describe("buildDeployPlan", () => {
     expect(ensure).not.toContain(":latest");
   });
 
+  test("per-host and top-level ssh users reach the plan and the transfer pipeline", () => {
+    const plan = buildDeployPlan(cfg({ user: "root", hosts: ["admin@a.ts.net", "b.ts.net"] }), REV, {
+      localImage: "hello:local",
+    });
+    expect(plan.meta.hosts).toEqual(["admin@a.ts.net", "root@b.ts.net"]);
+    expect(plan.lockStep.desc).toContain("on admin@a.ts.net");
+    const text = renderPlan(plan);
+    expect(text).toContain("hosts: admin@a.ts.net, root@b.ts.net");
+    expect(text).toContain("host root@b.ts.net:");
+    expect(text).toContain('root@b.ts.net "gunzip | docker load"');
+  });
+
   test("registry path unchanged when no local image is given", () => {
     const plan = buildDeployPlan(cfg(), REV);
     expect(step(plan, "pull").cmds[0]).toBe("docker pull traefik/whoami:v1.10");

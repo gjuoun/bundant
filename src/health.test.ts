@@ -5,7 +5,10 @@ import { HealthGateError, waitUntilHealthy } from "./health.ts";
 class FakeExecutor implements Executor {
   readonly kind = "fake";
   public calls: string[] = [];
-  constructor(private results: ExecResult[]) {}
+  private results: ExecResult[];
+  constructor(results: ExecResult[]) {
+    this.results = results;
+  }
   run(cmd: string): Promise<ExecResult> {
     this.calls.push(cmd);
     const r = this.results.shift() ?? { code: 1, stdout: "000", stderr: "" };

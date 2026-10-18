@@ -1,0 +1,4 @@
+#!/usr/bin/env -S node --experimental-strip-types
+// Node entry point. The flag keeps this working on node 22.6-22.x; the bundle it
+// loads is plain JS, so node 24 (and anything newer) needs no stripping at all.
+import "../dist/cli.mjs";

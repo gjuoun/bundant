@@ -2,6 +2,7 @@ import type { LoadedConfig } from "./config.ts";
 import * as docker from "./commands/docker.ts";
 import * as proxy from "./commands/proxy.ts";
 import { SshExecutor } from "./exec/ssh.ts";
+import { hostTargets } from "./hosts.ts";
 import { runtimeFor } from "./runtime.ts";
 
 /** Per-host truth: containers of this service, proxy routing, live health probe. */
@@ -10,7 +11,7 @@ export async function status(loaded: LoadedConfig): Promise<number> {
   const rt = runtimeFor(config.runtime);
   let exit = 0;
 
-  for (const host of config.hosts) {
+  for (const host of hostTargets(config)) {
     const exec = new SshExecutor({ host });
     console.log("== " + host + " ==");
 

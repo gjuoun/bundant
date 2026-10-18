@@ -1,2 +1,4 @@
 node_modules/
 .bundant/
+# generated node bundle (npm prepack)
+dist/

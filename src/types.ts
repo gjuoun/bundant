@@ -28,7 +28,10 @@ export type Phase =
   | "proxy-ensure"
   | "proxy-swap"
   | "stop-old"
-  | "status";
+  | "status"
+  | "proxy-remove"
+  | "containers"
+  | "env-remove";
 
 /** One planned action: description plus the exact host-shell commands that implement it. */
 export interface CmdStep {

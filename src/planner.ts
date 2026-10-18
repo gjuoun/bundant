@@ -2,6 +2,7 @@ import type { BundantConfig } from "./config.ts";
 import * as docker from "./commands/docker.ts";
 import * as proxy from "./commands/proxy.ts";
 import { pushImagePipeline } from "./exec/ssh.ts";
+import { hostTargets } from "./hosts.ts";
 import { acquireCmd, releaseCmd } from "./lock.ts";
 import {
   PORT_FLOOR_KEY,
@@ -57,6 +58,7 @@ export function buildDeployPlan(
   opts: DeployPlanOptions = {},
 ): DeployPlan {
   const rt = runtimeFor(config.runtime);
+  const targets = hostTargets(config);
   const image = opts.localImage ?? config.image;
   const name = containerName(config, revision);
   const svcId = proxy.serviceId(config.service, config.role);
@@ -171,7 +173,7 @@ export function buildDeployPlan(
       runtime: config.runtime,
       containerName: name,
       serviceId: svcId,
-      hosts: config.hosts,
+      hosts: targets,
       envRemotePath: envPath,
       envCount: Object.keys(config.env.vars).length,
       envHasFile: config.env.file !== undefined,
@@ -179,7 +181,7 @@ export function buildDeployPlan(
     },
     lockStep: {
       phase: "lock",
-      desc: "acquire deploy lock for " + config.service + " on " + config.hosts[0],
+      desc: "acquire deploy lock for " + config.service + " on " + targets[0],
       cmds: [acquireCmd(config.service)],
     },
     unlockStep: {

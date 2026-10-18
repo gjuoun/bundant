@@ -3,6 +3,7 @@ import * as docker from "./commands/docker.ts";
 import * as proxy from "./commands/proxy.ts";
 import { SshExecutor } from "./exec/ssh.ts";
 import { waitUntilHealthy } from "./health.ts";
+import { hostTargets } from "./hosts.ts";
 import { runtimeFor } from "./runtime.ts";
 
 export interface RevisionEntry {
@@ -41,7 +42,7 @@ export async function rollback(loaded: LoadedConfig, n: number): Promise<number>
   const rt = runtimeFor(config.runtime);
   const svcId = proxy.serviceId(config.service, config.role);
 
-  for (const host of config.hosts) {
+  for (const host of hostTargets(config)) {
     const exec = new SshExecutor({ host });
     try {
       const listing = await exec.run(docker.listForSelection(rt, config.service, config.role));
