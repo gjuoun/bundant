@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
 import { parseArgs } from "node:util";
 import { dirname } from "node:path";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { loadConfig } from "./config.ts";
 import { buildDeployPlan, renderPlan } from "./planner.ts";
 import { resolveRevision, sanitizeRevision } from "./revision.ts";
@@ -31,7 +33,26 @@ function usage(): never {
   process.exit(2);
 }
 
+function packageVersion(): string {
+  try {
+    const pkg = JSON.parse(
+      readFileSync(join(import.meta.dir, "..", "package.json"), "utf8"),
+    ) as { version?: string };
+    return pkg.version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+
 async function main(): Promise<number> {
+  if (process.argv.includes("--help") || process.argv.includes("-h")) {
+    console.log(USAGE);
+    return 0;
+  }
+  if (process.argv.includes("--version") || process.argv.includes("-v")) {
+    console.log(packageVersion());
+    return 0;
+  }
   const args = parseArgs({
     allowPositionals: true,
     options: {
