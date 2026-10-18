@@ -119,3 +119,60 @@ describe("loadConfig", () => {
     ).toThrow(/does-not-exist\.env/);
   });
 });
+
+describe("shared ssh file", () => {
+  test("ssh: <path> loads defaults and inherits the host pool", () => {
+    writeFileSync(
+      join(tmp, "prod-ssh.yaml"),
+      ["user: deploy", "port: 2222", "identity: ~/.ssh/prod", "hosts:", "  - a.example.com", "  - b.example.com"].join("\n"),
+    );
+    const cfg = loadConfig(
+      writeYml(
+        "shared1.yml",
+        ["service: api", "image: x:1", "ssh: ./prod-ssh.yaml", "proxy: {enabled: false}"].join("\n"),
+      ),
+    );
+    expect(cfg.config.hosts).toEqual(["a.example.com", "b.example.com"]);
+    expect(cfg.config.ssh?.user).toBe("deploy");
+    expect(cfg.config.ssh?.port).toBe(2222);
+    expect(cfg.config.ssh?.identity).toBe("~/.ssh/prod");
+  });
+
+  test("explicit hosts in deploy.yml win over the ssh file pool", () => {
+    writeFileSync(join(tmp, "pool-only.yaml"), ["user: deploy", "hosts: [ignored.example.com]"].join("\n"));
+    const cfg = loadConfig(
+      writeYml(
+        "shared2.yml",
+        [
+          "service: api",
+          "image: x:1",
+          "ssh: ./pool-only.yaml",
+          "hosts: [chosen.example.com]",
+          "proxy: {enabled: false}",
+        ].join("\n"),
+      ),
+    );
+    expect(cfg.config.hosts).toEqual(["chosen.example.com"]);
+    expect(cfg.config.ssh?.user).toBe("deploy");
+  });
+
+  test("a missing ssh file names the resolved path", () => {
+    expect(() =>
+      loadConfig(writeYml("shared3.yml", ["service: api", "image: x:1", "ssh: ./nope.yaml"].join("\n"))),
+    ).toThrow(/nope\.yaml/);
+  });
+
+  test("a malformed ssh file reports the field path", () => {
+    writeFileSync(join(tmp, "bad-ssh.yaml"), ["port: 99999"].join("\n"));
+    expect(() =>
+      loadConfig(writeYml("shared4.yml", ["service: api", "image: x:1", "ssh: ./bad-ssh.yaml"].join("\n"))),
+    ).toThrow(/ssh file.*port/);
+  });
+
+  test("no hosts anywhere is a clear error", () => {
+    writeFileSync(join(tmp, "hostless.yaml"), ["user: deploy"].join("\n"));
+    expect(() =>
+      loadConfig(writeYml("shared5.yml", ["service: api", "image: x:1", "ssh: ./hostless.yaml"].join("\n"))),
+    ).toThrow(/hosts is required/);
+  });
+});

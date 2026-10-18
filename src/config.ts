@@ -38,14 +38,22 @@ export const SshSchema = z.object({
   options: z.array(z.string()).optional(),
 });
 
+/** A shared ssh file may also carry the default host pool. */
+export const SshFileSchema = SshSchema.extend({
+  hosts: z.array(z.string().min(1)).optional(),
+});
+
 /** deploy.yml as written (sections optional); defaults are applied by normalize(). */
 export const RawConfigSchema = z.object({
   service: z.string().regex(NAME_RE, "must match [a-z0-9-]"),
   image: z.string().min(1),
   role: z.string().regex(NAME_RE, "must match [a-z0-9-]").optional(),
-  hosts: z.array(z.string().min(1)).min(1, "at least one host is required"),
-  /** ssh connection defaults; per-host user@/:port entries win. */
-  ssh: SshSchema.optional(),
+  hosts: z.array(z.string().min(1)).optional(),
+  /**
+   * ssh connection defaults: an inline block, or a path to a shared YAML file
+   * (multiple deployments can reference the same one).
+   */
+  ssh: z.union([SshSchema, z.string().min(1)]).optional(),
   /** Legacy alias for ssh.user (still honoured when ssh.user is absent). */
   user: z.string().regex(/^[A-Za-z0-9._-]+$/, "must be a plain ssh user name").optional(),
   runtime: z.enum(["docker", "podman"]).optional(),
@@ -73,7 +81,7 @@ export interface BundantConfig {
   proxy: { enabled: boolean; host?: string; port: number; tls: boolean; image: string };
 }
 
-export function normalize(raw: RawConfig): BundantConfig {
+export function normalize(raw: RawConfig, hosts?: string[]): BundantConfig {
   const proxy = {
     enabled: raw.proxy?.enabled ?? true,
     host: raw.proxy?.host,
@@ -90,9 +98,9 @@ export function normalize(raw: RawConfig): BundantConfig {
     service: raw.service,
     image: raw.image,
     role: raw.role ?? "web",
-    hosts: raw.hosts,
+    hosts: hosts ?? raw.hosts ?? [],
     user: raw.user,
-    ssh: raw.ssh ?? {},
+    ssh: typeof raw.ssh === "object" ? raw.ssh ?? {} : {},
     runtime: raw.runtime ?? "docker",
     env: { file: raw.env?.file, vars: raw.env?.vars ?? {} },
     healthcheck: {
@@ -124,6 +132,33 @@ function parseEnvFile(text: string): Map<string, string> {
   return out;
 }
 
+/**
+ * Resolve `ssh:` into defaults plus an optional host pool: inline mapping, or a
+ * path (relative to deploy.yml) to a shared ssh YAML file.
+ */
+export function resolveSshBlock(
+  ssh: RawConfig["ssh"],
+  configDir: string,
+): { sshDefaults: z.infer<typeof SshSchema>; fileHosts?: string[] } {
+  if (ssh === undefined) return { sshDefaults: {} };
+  if (typeof ssh !== "string") return { sshDefaults: ssh };
+
+  const path = resolve(configDir, ssh);
+  let doc: unknown;
+  try {
+    doc = parseYaml(readFileSync(path, "utf8"));
+  } catch (e) {
+    throw new ConfigError("cannot read ssh file " + path + ": " + (e as Error).message);
+  }
+  const parsed = SshFileSchema.safeParse(doc);
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((i) => i.path.join(".") + ": " + i.message).join("; ");
+    throw new ConfigError("invalid ssh file (" + path + "): " + issues);
+  }
+  const { hosts, ...defaults } = parsed.data;
+  return { sshDefaults: defaults, fileHosts: hosts };
+}
+
 export function loadConfig(
   path: string,
   env: Record<string, string | undefined> = process.env,
@@ -140,7 +175,15 @@ export function loadConfig(
     const issues = parsed.error.issues.map((i) => i.path.join(".") + ": " + i.message).join("; ");
     throw new ConfigError("invalid deploy.yml (" + abs + "): " + issues);
   }
-  let config = normalize(parsed.data);
+  const { sshDefaults, fileHosts } = resolveSshBlock(parsed.data.ssh, dirname(abs));
+  const hosts = parsed.data.hosts ?? fileHosts;
+  if (!hosts || hosts.length === 0) {
+    throw new ConfigError(
+      "invalid deploy.yml (" + abs + "): hosts is required (set it here or in the referenced ssh file)",
+    );
+  }
+  const merged: RawConfig = { ...parsed.data, hosts, ssh: sshDefaults };
+  let config = normalize(merged, hosts);
 
   const override = env.BUNDANT_HOSTS;
   if (override !== undefined && override.trim() !== "") {

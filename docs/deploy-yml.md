@@ -75,3 +75,28 @@ business; bundant does not manage registry credentials).
 
 `--local-image <name:tag>`: the image is streamed from your machine over the same ssh
 connection and loaded into the host's runtime before the plan runs.
+
+## Shared ssh config
+
+Several deployments can point at one file instead of repeating the connection
+details (and, optionally, the host pool):
+
+```yaml
+# ssh/prod.yaml
+user: deploy
+port: 2222
+identity: ~/.ssh/prod_deploy
+options: ["-o", "StrictHostKeyChecking=accept-new"]
+hosts: [10.0.0.5, 10.0.0.6]     # optional default pool
+```
+
+```yaml
+# api/deploy.yml          # worker/deploy.yml — same line, same host pool
+service: api
+image: registry.internal/api:1.2.3
+ssh: ./ssh/prod.yaml
+```
+
+`ssh:` takes an inline block or a path (resolved relative to the deploy.yml
+that names it). Hosts declared in deploy.yml win over the file's pool; a
+per-host `user@host:port` wins over both.
