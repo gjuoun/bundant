@@ -1,4 +1,39 @@
-#!/usr/bin/env -S node --experimental-strip-types
-// Node entry point. The flag keeps this working on node 22.6-22.x; the bundle it
-// loads is plain JS, so node 24 (and anything newer) needs no stripping at all.
-import "../dist/cli.mjs";
+#!/usr/bin/env node
+// Single entry point for both ecosystems.
+//
+// The bundle it loads is plain JS, so any modern node can run it directly; when
+// a bun binary is on PATH we hand over to bun instead (faster startup, and the
+// runtime the project is developed on). No experimental flags anywhere.
+import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const here = dirname(fileURLToPath(import.meta.url));
+const bundle = join(here, "..", "dist", "cli.mjs");
+
+function bunOnPath() {
+  const dirs = (process.env.PATH ?? "").split(process.platform === "win32" ? ";" : ":");
+  const exe = process.platform === "win32" ? "bun.exe" : "bun";
+  return dirs.some((dir) => dir !== "" && existsSync(join(dir, exe)));
+}
+
+if (!existsSync(bundle)) {
+  console.error("bundant: missing bundle at " + bundle + " (run `npm run prepack` or use a release tarball)");
+  process.exit(1);
+}
+
+if (bunOnPath()) {
+  const child = spawn("bun", [bundle, ...process.argv.slice(2)], { stdio: "inherit" });
+  child.on("exit", (code, signal) => process.exit(signal ? 1 : (code ?? 0)));
+  child.on("error", () => runInProcess()); // bun vanished between probe and spawn
+} else {
+  runInProcess();
+}
+
+function runInProcess() {
+  import(bundle).catch((e) => {
+    console.error("bundant: " + (e instanceof Error ? e.message : String(e)));
+    process.exit(1);
+  });
+}
