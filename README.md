@@ -63,6 +63,11 @@ registry).
 | `prune [--keep k]` | drop stopped revisions beyond the newest k (default 3) + dangling layers |
 | `delete [--yes] [--images]` | remove the service everywhere: proxy route, `<service>-<role>-*` containers, rendered env file (images kept unless `--images`); prints the plan and refuses without `--yes` |
 | `bootstrap [--dry-run] [--skip-smoke]` | make each host ready: install podman when missing (apt/dnf/yum/apk/pacman/zypper), enable `podman-restart.service`, set the registry search path, smoke-test one container |
+| `ps` / `stats` / `events [--since 2h]` | read-only monitoring: every container with state and ports, one resource snapshot per host, a bounded runtime-event window |
+| `logs [--host h] [--container c] [--tail n] [--follow]` | tail logs (all hosts in parallel, host-prefixed) or stream them with `--follow` |
+| `inspect <selector>` | state, restarts, health, image, restart policy, log driver |
+| `exec --host h [--container c] -- <cmd...>` | PTY into a container through the same ssh connection |
+| `ui [--port 8787]` | local read-only monitoring page; binds 127.0.0.1 (tunnel or tailnet for remote) |
 
 Env hooks: `BUNDANT_HOSTS=a,b` overrides hosts, `BUNDANT_LOCK_TTL_S` sets the stale-lock
 threshold.
@@ -82,7 +87,8 @@ threshold.
 ## More
 
 - [`docs/deploy-yml.md`](docs/deploy-yml.md) — every field, env handling, revisions
-- [`docs/podman.md`](docs/podman.md) — rootless podman, LXC nesting, boot persistence
+- [`docs/podman.md`](docs/podman.md) — rootless podman, LXC nesting, boot persistence, `bundant bootstrap`
+- [`docs/monitoring.md`](docs/monitoring.md) — CLI + local UI monitoring, and what it deliberately leaves out
 - [`docs/architecture.md`](docs/architecture.md) — internals, proxy integration, design rules
 - [`examples/hello`](examples/hello) — runnable fixture
 

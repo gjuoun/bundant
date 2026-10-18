@@ -17,6 +17,13 @@ const USAGE = [
   "  prune                 remove stopped revisions beyond the newest K (--keep, default 3)",
   "  delete [--yes] [--images]  remove the service: proxy route, containers, env file",
   "  bootstrap             install/verify podman and its host prerequisites on every host",
+  "  ps                    every container on every host, with state and ports",
+  "  stats                 one resource snapshot per host (cpu / mem / pids)",
+  "  logs [--follow]       tail logs (all hosts in parallel; --follow streams them)",
+  "  inspect <selector>    state, restarts, health, image, restart policy",
+  "  exec <cmd...>         shell into a container (--host required, PTY through ssh)",
+  "  ui                    local read-only monitoring page (pull-on-demand)",
+  "  events                runtime events since a duration (default 2h)",
   "",
   "options:",
   "  -f, --file <path>     deploy.yml path (default: ./deploy.yml)",
@@ -38,11 +45,16 @@ function usage(): never {
 }
 
 async function main(): Promise<number> {
-  if (process.argv.includes("--help") || process.argv.includes("-h")) {
+  // Global flags are only global before a `--` passthrough separator, so
+  // `bundant exec --container c -- sh --version` stays a command, not a version print.
+  const raw = process.argv.slice(2);
+  const sep = raw.indexOf("--");
+  const head = sep === -1 ? raw : raw.slice(0, sep);
+  if (head.includes("--help") || head.includes("-h")) {
     console.log(USAGE);
     return 0;
   }
-  if (process.argv.includes("--version") || process.argv.includes("-v")) {
+  if (head.includes("--version") || head.includes("-v")) {
     console.log(cliVersion());
     return 0;
   }
@@ -58,6 +70,12 @@ async function main(): Promise<number> {
       images: { type: "boolean", default: false },
       "to-revision": { type: "string" },
       "skip-smoke": { type: "boolean", default: false },
+      host: { type: "string" },
+      container: { type: "string" },
+      tail: { type: "string", default: "200" },
+      follow: { type: "boolean", default: false },
+      since: { type: "string", default: "2h" },
+      port: { type: "string", default: "8787" },
     },
   });
   const sub = args.positionals[0];
@@ -128,6 +146,82 @@ async function main(): Promise<number> {
       dryRun: args.values["dry-run"] === true,
       smoke: args.values["skip-smoke"] !== true,
     });
+  }
+
+  if (sub === "ps" || sub === "stats" || sub === "inspect" || sub === "logs" || sub === "events") {
+    const loaded = loadConfig(args.values.file ?? "deploy.yml");
+    const { monitorFor } = await import("./monitor.ts");
+    const monitor = monitorFor(loaded);
+    const host = args.values.host;
+    const container = args.values.container;
+
+    if (sub === "ps") {
+      const { renderContainers } = await import("./monitor-render.ts");
+      console.log(renderContainers(await monitor.containers()));
+      return 0;
+    }
+    if (sub === "stats") {
+      const { renderStats } = await import("./monitor-render.ts");
+      console.log(renderStats(await monitor.stats()));
+      return 0;
+    }
+    if (sub === "inspect") {
+      const selector = args.positionals[1] ?? container;
+      if (selector === undefined) {
+        console.error("bundant: inspect needs a container name (or --container)");
+        return 2;
+      }
+      const { renderInspect } = await import("./monitor-render.ts");
+      console.log(renderInspect(await monitor.inspect(selector)));
+      return 0;
+    }
+    if (sub === "logs") {
+      const tail = Number(args.values.tail ?? "200");
+      if (!Number.isInteger(tail) || tail <= 0) {
+        console.error("bundant: --tail must be a positive integer");
+        return 2;
+      }
+      if (args.values.follow === true) {
+        return await monitor.followLogs({ host, container, tail });
+      }
+      const hosts = host === undefined ? monitor.hosts : [host];
+      for (const h of hosts) {
+        process.stdout.write("== " + h + " ==\n");
+        process.stdout.write(await monitor.logs(h, container ?? "", tail));
+      }
+      return 0;
+    }
+    const since = args.values.since ?? "2h";
+    const hosts = host === undefined ? monitor.hosts : [host];
+    for (const h of hosts) {
+      const lines = await monitor.events(h, since);
+      console.log("== " + h + " ==");
+      for (const line of lines.slice(-80)) console.log("  " + line);
+    }
+    return 0;
+  }
+
+  if (sub === "exec") {
+    const loaded = loadConfig(args.values.file ?? "deploy.yml");
+    const host = args.values.host;
+    if (host === undefined) {
+      console.error("bundant: exec needs --host <host>");
+      return 2;
+    }
+    const { monitorFor } = await import("./monitor.ts");
+    const argv = args.positionals.slice(1);
+    return await monitorFor(loaded).execShell(host, args.values.container ?? "", argv);
+  }
+
+  if (sub === "ui") {
+    const loaded = loadConfig(args.values.file ?? "deploy.yml");
+    const port = Number(args.values.port ?? "8787");
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      console.error("bundant: --port must be a valid port number");
+      return 2;
+    }
+    const { ui } = await import("./ui.ts");
+    return await ui(loaded, { port });
   }
 
   usage();
