@@ -30,13 +30,23 @@ const ProxySchema = z.object({
   image: z.string().min(1).optional(),
 });
 
+/** ssh block: enough to reach a host without any ~/.ssh/config entry. */
+export const SshSchema = z.object({
+  user: z.string().regex(/^[A-Za-z0-9._-]+$/, "must be a plain ssh user name").optional(),
+  port: z.number().int().min(1).max(65535).optional(),
+  identity: z.string().min(1).optional(),
+  options: z.array(z.string()).optional(),
+});
+
 /** deploy.yml as written (sections optional); defaults are applied by normalize(). */
 export const RawConfigSchema = z.object({
   service: z.string().regex(NAME_RE, "must match [a-z0-9-]"),
   image: z.string().min(1),
   role: z.string().regex(NAME_RE, "must match [a-z0-9-]").optional(),
   hosts: z.array(z.string().min(1)).min(1, "at least one host is required"),
-  /** Default ssh user for hosts without their own user@ prefix. */
+  /** ssh connection defaults; per-host user@/:port entries win. */
+  ssh: SshSchema.optional(),
+  /** Legacy alias for ssh.user (still honoured when ssh.user is absent). */
   user: z.string().regex(/^[A-Za-z0-9._-]+$/, "must be a plain ssh user name").optional(),
   runtime: z.enum(["docker", "podman"]).optional(),
   env: EnvSchema.optional(),
@@ -52,7 +62,9 @@ export interface BundantConfig {
   image: string;
   role: string;
   hosts: string[];
-  /** Default ssh user; per-host user@ prefixes win. */
+  /** ssh connection defaults (user/port/identity/options); per-host entries win. */
+  ssh?: { user?: string; port?: number; identity?: string; options?: string[] };
+  /** Legacy alias for ssh.user. */
   user?: string;
   /** Container runtime on the target hosts (default: docker). */
   runtime: RuntimeKind;
@@ -80,6 +92,7 @@ export function normalize(raw: RawConfig): BundantConfig {
     role: raw.role ?? "web",
     hosts: raw.hosts,
     user: raw.user,
+    ssh: raw.ssh ?? {},
     runtime: raw.runtime ?? "docker",
     env: { file: raw.env?.file, vars: raw.env?.vars ?? {} },
     healthcheck: {
