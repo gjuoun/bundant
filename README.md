@@ -53,6 +53,16 @@ until the new target is healthy and old connections drained) -> stop old revisio
 **Rollback:** `rollback [n]` = start the nth-previous revision container, re-gate
 health, re-point kamal-proxy, stop the current one.
 
+## Install
+
+```sh
+bun add -g bundant        # or: npm install -g bundant
+bundant --help            # deploy / rollback / status / prune
+```
+
+Requires Bun ≥ 1.2 on the machine you deploy **from** (the CLI is TypeScript
+run by Bun). The target host only needs SSH + docker or podman.
+
 ## Quickstart — zero registry (recommended)
 
 Prereqs: a docker host reachable over tailscale SSH by MagicDNS name
