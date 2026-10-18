@@ -33,7 +33,7 @@ YAML
 bundant deploy --dry-run -f deploy.yml   # print the exact command sequence
 bundant deploy -f deploy.yml             # health-gated, zero downtime
 curl -H 'Host: hello.example.com' http://box.example.com/
-bundant rollback 1 -f deploy.yml         # one command back
+bundant rollback -f deploy.yml           # back to the previous revision
 ```
 
 Anything ssh can reach works — LAN, VPN, cloud, tailscale. The login user comes from
@@ -57,7 +57,8 @@ registry).
 | command | what it does |
 |---|---|
 | `deploy [--dry-run] [--local-image n:t] [--rev ID] [-f path]` | full deploy; `--dry-run` prints every command without executing |
-| `rollback [n]` | stop new, start the nth-previous revision, re-gate, re-swap |
+| `rollback [--to-revision rev]` | previous revision, or the exact one named by `--to-revision`: re-gate then re-swap |
+| `history` | revisions newest-first with state, current one marked |
 | `status` | per-host containers, proxy targets, live health probe |
 | `prune [--keep k]` | drop stopped revisions beyond the newest k (default 3) + dangling layers |
 | `delete [--yes] [--images]` | remove the service everywhere: proxy route, `<service>-<role>-*` containers, rendered env file (images kept unless `--images`); prints the plan and refuses without `--yes` |

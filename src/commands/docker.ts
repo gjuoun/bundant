@@ -75,6 +75,14 @@ export function listForSelection(rt: Runtime, service: string, role: string): st
   );
 }
 
+/** name|createdAt|state — the full picture `history` and `rollback` need. */
+export function listHistory(rt: Runtime, service: string, role: string): string {
+  return (
+    rt.bin + ' ps -a --filter "name=' + service + "-" + role +
+    '-" --format "{{.Names}}|{{.CreatedAt}}|{{.Status}}"'
+  );
+}
+
 export function listForStatus(rt: Runtime, service: string, role: string): string {
   return (
     rt.bin + ' ps -a --filter "name=' + service + "-" + role +

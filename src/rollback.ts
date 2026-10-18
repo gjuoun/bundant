@@ -4,40 +4,39 @@ import * as proxy from "./commands/proxy.ts";
 import { SshExecutor } from "./exec/ssh.ts";
 import { waitUntilHealthy } from "./health.ts";
 import { hostTargets } from "./hosts.ts";
+import {
+  type RevisionEntry,
+  RevisionNotFoundError,
+  parseHistory,
+  selectByRevision,
+  selectPrevious,
+} from "./revisions.ts";
 import { runtimeFor } from "./runtime.ts";
 
-export interface RevisionEntry {
-  name: string;
-  createdAt: string;
+export interface RollbackOptions {
+  /** Exact revision id (the kubectl --to-revision equivalent); omitted = previous revision. */
+  toRevision?: string;
 }
 
-/** Parse docker ps -a listing output ("name createdAt" per line). */
-export function parseListing(stdout: string): RevisionEntry[] {
-  return stdout
-    .trim()
-    .split("\n")
-    .filter((l) => l.trim() !== "")
-    .map((line) => {
-      const sp = line.indexOf(" ");
-      return { name: line.slice(0, sp), createdAt: line.slice(sp + 1).trim() };
-    })
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)); // same host TZ -> consistent order
+/** Read this service's revisions on one host, newest first. */
+export async function listRevisions(
+  exec: SshExecutor,
+  loaded: LoadedConfig,
+): Promise<RevisionEntry[]> {
+  const { config } = loaded;
+  const rt = runtimeFor(config.runtime);
+  const listing = await exec.run(docker.listHistory(rt, config.service, config.role));
+  if (listing.code !== 0) {
+    throw new Error("cannot list revisions: " + listing.stderr.trim());
+  }
+  return parseHistory(listing.stdout);
 }
 
 /**
- * Pure selection: entries sorted newest-first; current = entries[0],
- * rollback target = entries[n] (n = 1 means the previous revision).
+ * Stop new, start old: start the target revision, re-gate its health, re-point
+ * the proxy, then stop the revision that was serving.
  */
-export function selectRollbackTarget(
-  entries: RevisionEntry[],
-  n: number,
-): { current: RevisionEntry; target: RevisionEntry } | null {
-  if (entries.length < 2 || n >= entries.length) return null;
-  return { current: entries[0], target: entries[n] };
-}
-
-/** Stop new, start old: docker start on the stopped revision, re-gate, re-swap. */
-export async function rollback(loaded: LoadedConfig, n: number): Promise<number> {
+export async function rollback(loaded: LoadedConfig, opts: RollbackOptions = {}): Promise<number> {
   const { config } = loaded;
   const rt = runtimeFor(config.runtime);
   const svcId = proxy.serviceId(config.service, config.role);
@@ -45,19 +44,32 @@ export async function rollback(loaded: LoadedConfig, n: number): Promise<number>
   for (const host of hostTargets(config)) {
     const exec = new SshExecutor({ host });
     try {
-      const listing = await exec.run(docker.listForSelection(rt, config.service, config.role));
-      if (listing.code !== 0) {
-        console.error("[" + host + "] cannot list revisions: " + listing.stderr.trim());
-        return 1;
+      const entries = await listRevisions(exec, loaded);
+
+      let sel;
+      try {
+        sel = opts.toRevision !== undefined
+          ? selectByRevision(entries, opts.toRevision)
+          : selectPrevious(entries);
+      } catch (e) {
+        if (e instanceof RevisionNotFoundError) {
+          console.error("[" + host + "] " + e.message);
+          return 1;
+        }
+        throw e;
       }
-      const entries = parseListing(listing.stdout);
-      const sel = selectRollbackTarget(entries, n);
+
       if (!sel) {
         console.error(
-          "[" + host + "] nothing to roll back to (need " + (n + 1) +
-            "+ revisions, found " + entries.length + ")",
+          "[" + host + "] nothing to roll back to (found " + entries.length + " revision" +
+            (entries.length === 1 ? "" : "s") + ")",
         );
         return 1;
+      }
+
+      if (sel.target.name === sel.current.name) {
+        console.log("[" + host + "] " + sel.target.name + " is already the current revision");
+        return 0;
       }
 
       console.log("[" + host + "] rollback: " + sel.current.name + " -> " + sel.target.name);
@@ -91,10 +103,11 @@ export async function rollback(loaded: LoadedConfig, n: number): Promise<number>
         }
       }
 
-      if (sel.current.name !== sel.target.name) {
-        await exec.run(docker.stop(rt, sel.current.name));
-      }
+      await exec.run(docker.stop(rt, sel.current.name));
       console.log("[" + host + "] rolled back to " + sel.target.name);
+    } catch (e) {
+      console.error("[" + host + "] " + (e as Error).message);
+      return 1;
     } finally {
       await exec.close();
     }
