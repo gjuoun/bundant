@@ -16,6 +16,7 @@ const USAGE = [
   "  status                per-host containers, proxy targets, health",
   "  prune                 remove stopped revisions beyond the newest K (--keep, default 3)",
   "  delete [--yes] [--images]  remove the service: proxy route, containers, env file",
+  "  bootstrap             install/verify podman and its host prerequisites on every host",
   "",
   "options:",
   "  -f, --file <path>     deploy.yml path (default: ./deploy.yml)",
@@ -56,6 +57,7 @@ async function main(): Promise<number> {
       yes: { type: "boolean", default: false },
       images: { type: "boolean", default: false },
       "to-revision": { type: "string" },
+      "skip-smoke": { type: "boolean", default: false },
     },
   });
   const sub = args.positionals[0];
@@ -117,6 +119,15 @@ async function main(): Promise<number> {
     const loaded = loadConfig(args.values.file ?? "deploy.yml");
     const { prune } = await import("./prune.ts");
     return prune(loaded, { keep, dryRun: args.values["dry-run"] === true });
+  }
+
+  if (sub === "bootstrap") {
+    const loaded = loadConfig(args.values.file ?? "deploy.yml");
+    const { bootstrap } = await import("./bootstrap.ts");
+    return bootstrap(loaded, {
+      dryRun: args.values["dry-run"] === true,
+      smoke: args.values["skip-smoke"] !== true,
+    });
   }
 
   usage();
