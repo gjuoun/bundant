@@ -11,7 +11,8 @@ const USAGE = [
   "",
   "commands:",
   "  deploy [n]            deploy current revision to all hosts",
-  "  rollback [n]          roll back to the nth previous revision (default 1)",
+  "  rollback [--to-revision <rev>]  previous revision, or the one named by --to-revision",
+  "  history                revisions newest-first, with state and the current one",
   "  status                per-host containers, proxy targets, health",
   "  prune                 remove stopped revisions beyond the newest K (--keep, default 3)",
   "  delete [--yes] [--images]  remove the service: proxy route, containers, env file",
@@ -54,6 +55,7 @@ async function main(): Promise<number> {
       keep: { type: "string", default: "3" },
       yes: { type: "boolean", default: false },
       images: { type: "boolean", default: false },
+      "to-revision": { type: "string" },
     },
   });
   const sub = args.positionals[0];
@@ -79,14 +81,15 @@ async function main(): Promise<number> {
   }
 
   if (sub === "rollback") {
-    const n = args.positionals[1] !== undefined ? Number(args.positionals[1]) : 1;
-    if (!Number.isInteger(n) || n < 1) {
-      console.error("bundant: rollback argument must be a positive integer (steps back)");
-      return 2;
-    }
     const loaded = loadConfig(args.values.file ?? "deploy.yml");
     const { rollback } = await import("./rollback.ts");
-    return rollback(loaded, n);
+    return rollback(loaded, { toRevision: args.values["to-revision"] });
+  }
+
+  if (sub === "history") {
+    const loaded = loadConfig(args.values.file ?? "deploy.yml");
+    const { history } = await import("./history.ts");
+    return history(loaded);
   }
 
   if (sub === "status") {

@@ -31,8 +31,9 @@ deploy.yml (git) + image = truth; hosts are cattle
 6. **stop old** — the previous revision is stopped, not removed: that is the rollback
    material
 
-`rollback [n]` walks the same sequence backwards: start the nth-previous container,
-re-gate it, re-point the proxy, stop the current one.
+`rollback` walks the same sequence backwards: start the previous (or the exact
+`--to-revision`) container, re-gate it, re-point the proxy, stop the running one.
+`history` lists every retained revision newest-first with its state.
 
 ## kamal-proxy integration
 
