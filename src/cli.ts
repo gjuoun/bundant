@@ -10,7 +10,7 @@ const USAGE = [
   "usage: bundant <command> [options]",
   "",
   "commands:",
-  "  deploy [n]            deploy current revision to all hosts",
+  "  deploy                deploy the current revision to every host",
   "  rollback [--to-revision <rev>]  previous revision, or the one named by --to-revision",
   "  history                revisions newest-first, with state and the current one",
   "  status                per-host containers, proxy targets, health",
