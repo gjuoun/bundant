@@ -2,7 +2,7 @@ import type { BundantConfig } from "./config.ts";
 import * as docker from "./commands/docker.ts";
 import * as proxy from "./commands/proxy.ts";
 import { pushImagePipeline } from "./exec/ssh.ts";
-import { hostTargets } from "./hosts.ts";
+import { expandHome, hostTargets } from "./hosts.ts";
 import { acquireCmd, releaseCmd } from "./lock.ts";
 import {
   PORT_FLOOR_KEY,
@@ -95,7 +95,13 @@ export function buildDeployPlan(
       desc:
         "push local image " + opts.localImage +
         " to host (" + rt.kind + " save | gzip | ssh | load, no registry)",
-      cmds: [pushImagePipeline(opts.localImage, rt)],
+      cmds: [
+        pushImagePipeline(opts.localImage, rt, {
+          port: config.ssh?.port,
+          identity: config.ssh?.identity ? expandHome(config.ssh.identity) : undefined,
+          options: config.ssh?.options,
+        }),
+      ],
     });
   } else {
     hostSteps.push({

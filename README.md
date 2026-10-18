@@ -72,7 +72,8 @@ threshold.
   `docker` if you use `--local-image`. Node users run the sources directly:
   `node src/cli.ts deploy -f deploy.yml` (add `--experimental-strip-types` on node 22.6-22.x).
 - Target host: sshd + docker or podman, ports 80/443 free, passwordless ssh login.
-  That is all — anything in `~/.ssh/config` is used as-is.
+  `~/.ssh/config` is used when present, but a deploy can also carry its own
+  `ssh:` block (user/port/identity/options) and need no local ssh setup at all.
 
 ## More
 

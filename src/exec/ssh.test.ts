@@ -7,7 +7,7 @@ import { buildSshArgs, CONTROL_DIR } from "./ssh.ts";
 
 describe("buildSshArgs", () => {
   test("multiplexing and safety options are always present", () => {
-    const args = buildSshArgs({ host: "box.ts.net" });
+    const args = buildSshArgs({ target: "box.ts.net" });
     expect(args).toContain("BatchMode=yes");
     expect(args).toContain("StrictHostKeyChecking=accept-new");
     expect(args).toContain("ControlMaster=auto");
@@ -16,13 +16,13 @@ describe("buildSshArgs", () => {
   });
 
   test("an explicit login user rides through the ssh argv", () => {
-    const args = buildSshArgs({ host: "root@10.0.0.5" }, "true");
+    const args = buildSshArgs({ target: "root@10.0.0.5" }, "true");
     expect(args).toContain("root@10.0.0.5");
     expect(args[args.length - 2]).toBe("root@10.0.0.5");
   });
 
   test("command rides as one final argv element (remote shell parses it)", () => {
-    const args = buildSshArgs({ host: "box.ts.net" }, 'docker run --rm x -w "%{http_code}"');
+    const args = buildSshArgs({ target: "box.ts.net" }, 'docker run --rm x -w "%{http_code}"');
     expect(args[args.length - 1]).toBe('docker run --rm x -w "%{http_code}"');
     expect(args.indexOf("box.ts.net")).toBe(args.length - 2);
   });

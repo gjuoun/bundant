@@ -1,9 +1,9 @@
 import type { LoadedConfig } from "./config.ts";
 import * as docker from "./commands/docker.ts";
 import * as proxy from "./commands/proxy.ts";
-import { SshExecutor } from "./exec/ssh.ts";
+import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
 import { waitUntilHealthy } from "./health.ts";
-import { hostTargets } from "./hosts.ts";
+import { resolveConnections } from "./hosts.ts";
 import {
   type RevisionEntry,
   RevisionNotFoundError,
@@ -41,8 +41,9 @@ export async function rollback(loaded: LoadedConfig, opts: RollbackOptions = {})
   const rt = runtimeFor(config.runtime);
   const svcId = proxy.serviceId(config.service, config.role);
 
-  for (const host of hostTargets(config)) {
-    const exec = new SshExecutor({ host });
+  for (const conn of resolveConnections(config)) {
+    const host = conn.sshTarget;
+    const exec = new SshExecutor(connectOptionsFor(conn));
     try {
       const entries = await listRevisions(exec, loaded);
 

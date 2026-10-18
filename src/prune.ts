@@ -1,7 +1,7 @@
 import type { LoadedConfig } from "./config.ts";
 import * as docker from "./commands/docker.ts";
-import { SshExecutor } from "./exec/ssh.ts";
-import { hostTargets } from "./hosts.ts";
+import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
+import { connectionForTarget, hostTargets } from "./hosts.ts";
 import { runtimeFor } from "./runtime.ts";
 
 export interface PruneEntry {
@@ -57,7 +57,7 @@ export async function prune(
       continue;
     }
 
-    const exec = new SshExecutor({ host });
+    const exec = new SshExecutor(connectOptionsFor(connectionForTarget(config, host)));
     try {
       console.log("== " + host + " ==");
       const all = await exec.run(docker.listForSelection(rt, config.service, config.role));

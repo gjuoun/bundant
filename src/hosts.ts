@@ -1,32 +1,58 @@
 /**
- * Host parsing and precedence for ssh targets.
+ * Host parsing and connection resolution.
  *
- * deploy.yml may name hosts as "box.example.com", "root@box.example.com" or
- * "root@[2001:db8::1]". A top-level user: applies to every host that does not
- * carry its own prefix:
+ * deploy.yml may name hosts as:
  *
- *   per-host user@  >  top-level user  >  ssh config default
+ *   box.example.com            root@box.example.com
+ *   root@box.example.com:2222  root@[2001:db8::1]:2222
+ *
+ * The `ssh:` block supplies defaults for the whole deployment:
+ *
+ *   ssh:
+ *     user: deploy
+ *     port: 22
+ *     identity: ~/.ssh/prod_deploy
+ *     options: ["-o", "StrictHostKeyChecking=accept-new"]
+ *
+ * Precedence: per-host (user@, :port) > ssh block > ssh defaults (~/.ssh/config).
  */
+
+import { homedir } from "node:os";
 
 export class HostParseError extends Error {}
 
-export interface ParsedHost {
-  /** Login user from a user@ prefix (or the top-level user after resolution). */
+export interface SshDefaults {
   user?: string;
-  /** Host alone, IPv6 brackets removed. */
-  host: string;
-  /** The value that goes on the ssh command line: user@host when a user is set. */
-  sshTarget: string;
+  port?: number;
+  identity?: string;
+  options?: string[];
 }
 
 export interface HostConfigLike {
   hosts: string[];
   user?: string;
+  ssh?: SshDefaults;
+}
+
+/** Everything needed to reach one host: one object, one ssh argv. */
+export interface HostConnection {
+  /** Login user from user@ (or ssh.user); undefined = ssh config default. */
+  user?: string;
+  /** Hostname or IP, IPv6 brackets removed. */
+  host: string;
+  /** Port from host:port (or ssh.port); undefined = ssh default 22. */
+  port?: number;
+  /** Private key path (ssh.identity), ~ expanded; undefined = agent/config. */
+  identity?: string;
+  /** Extra raw ssh args (ssh.options). */
+  options: string[];
+  /** user@host, for ssh argv and plan display. */
+  sshTarget: string;
 }
 
 const USER_RE = /^[A-Za-z0-9._-]+$/;
 
-export function parseHost(entry: string): ParsedHost {
+export function parseHost(entry: string): { user?: string; host: string; port?: number } {
   const trimmed = entry.trim();
   if (trimmed === "") throw new HostParseError("empty host entry");
 
@@ -39,12 +65,12 @@ export function parseHost(entry: string): ParsedHost {
     if (user === "" || rest === "") {
       throw new HostParseError("malformed host entry (expected user@host): " + entry);
     }
-    if (!USER_RE.test(user)) {
-      throw new HostParseError("invalid ssh user in host entry: " + entry);
-    }
+    if (!USER_RE.test(user)) throw new HostParseError("invalid ssh user in host entry: " + entry);
   }
 
   let host = rest;
+  let port: number | undefined;
+
   if (rest.startsWith("[")) {
     const close = rest.indexOf("]");
     if (close === -1) throw new HostParseError("unterminated IPv6 bracket in host entry: " + entry);
@@ -52,32 +78,69 @@ export function parseHost(entry: string): ParsedHost {
     if (host === "") throw new HostParseError("empty IPv6 bracket in host entry: " + entry);
     const after = rest.slice(close + 1);
     if (after !== "") {
-      throw new HostParseError(
-        "ports are not supported in hosts entries (use ~/.ssh/config): " + entry,
-      );
+      if (!after.startsWith(":")) {
+        throw new HostParseError("unexpected text after IPv6 address: " + entry);
+      }
+      port = parsePort(after.slice(1), entry);
     }
-  } else if (/:[0-9]+$/.test(rest) && rest.split(":").length === 2) {
-    throw new HostParseError(
-      "ports are not supported in hosts entries (use ~/.ssh/config): " + entry,
-    );
+  } else {
+    const colon = rest.lastIndexOf(":");
+    // A bare IPv6 address contains several colons: only a single-colon form is host:port.
+    if (rest.split(":").length === 2 && colon !== -1 && /^[0-9]+$/.test(rest.slice(colon + 1))) {
+      host = rest.slice(0, colon);
+      port = parsePort(rest.slice(colon + 1), entry);
+      if (host === "") throw new HostParseError("empty host in entry: " + entry);
+    }
   }
 
-  return { user, host, sshTarget: user ? user + "@" + host : host };
+  return { user, host, port };
 }
 
-/** Apply the precedence chain to every configured host. */
-export function resolveHosts(config: HostConfigLike): ParsedHost[] {
-  const fallback = config.user !== undefined && config.user !== "" ? config.user : undefined;
+function parsePort(raw: string, entry: string): number {
+  const port = Number(raw);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new HostParseError("invalid port in host entry: " + entry);
+  }
+  return port;
+}
+
+/** Expand a leading ~ so the ssh child gets a usable path. */
+export function expandHome(path: string): string {
+  return path === "~" ? homedir() : path.startsWith("~/") ? homedir() + path.slice(1) : path;
+}
+
+/** Resolve every configured host into a complete connection descriptor. */
+export function resolveConnections(config: HostConfigLike): HostConnection[] {
+  const ssh = config.ssh ?? {};
+  const fallbackUser = ssh.user ?? config.user;
   return config.hosts.map((raw) => {
     const parsed = parseHost(raw);
-    if (parsed.user === undefined && fallback !== undefined) {
-      return { ...parsed, user: fallback, sshTarget: fallback + "@" + parsed.host };
-    }
-    return parsed;
+    const user =
+      parsed.user ?? (fallbackUser !== undefined && fallbackUser !== "" ? fallbackUser : undefined);
+    const port = parsed.port ?? ssh.port;
+    return {
+      user,
+      host: parsed.host,
+      port,
+      identity: ssh.identity !== undefined ? expandHome(ssh.identity) : undefined,
+      options: ssh.options ?? [],
+      sshTarget: user ? user + "@" + parsed.host : parsed.host,
+    };
   });
 }
 
-/** Just the ssh targets, ready for SshExecutor({ host }) and plan rendering. */
+/** Just the ssh targets (plan rendering, log prefixes). */
 export function hostTargets(config: HostConfigLike): string[] {
-  return resolveHosts(config).map((h) => h.sshTarget);
+  return resolveConnections(config).map((c) => c.sshTarget);
+}
+
+/**
+ * Look up the full connection for a target string that came out of a plan
+ * ({HOST} substituted to user@host). Falls back to a bare connection so an
+ * unknown target still yields a usable (if under-specified) ssh argv.
+ */
+export function connectionForTarget(config: HostConfigLike, target: string): HostConnection {
+  const found = resolveConnections(config).find((c) => c.sshTarget === target);
+  if (found) return found;
+  return { host: target, options: [], sshTarget: target };
 }

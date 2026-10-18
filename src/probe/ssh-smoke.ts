@@ -25,7 +25,7 @@ if (runtimeArg !== "docker" && runtimeArg !== "podman") {
 const rt = runtimeFor(runtimeArg);
 
 const HELP_PATH = "/tmp/jun/bundant-mvp/proxy-live-help.txt";
-const exec = new SshExecutor({ host });
+const exec = new SshExecutor({ target: host });
 let failed = 0;
 
 const version = await exec.run(rt.bin + " version --format '{{.Server.Version}}'");

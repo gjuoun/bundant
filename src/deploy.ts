@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import type { LoadedConfig } from "./config.ts";
 import type { DeployPlan } from "./planner.ts";
 import { LocalExecutor } from "./exec/local.ts";
-import { SshExecutor } from "./exec/ssh.ts";
+import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
+import { connectionForTarget } from "./hosts.ts";
 import { acquireLock, releaseLock } from "./lock.ts";
 import { waitUntilHealthy } from "./health.ts";
 import { runtimeFor } from "./runtime.ts";
@@ -16,7 +17,7 @@ import { runtimeFor } from "./runtime.ts";
 export async function deploy(plan: DeployPlan, loaded: LoadedConfig): Promise<number> {
   const m = plan.meta;
   const rt = runtimeFor(m.runtime);
-  const primary = new SshExecutor({ host: m.hosts[0] });
+  const primary = new SshExecutor(connectOptionsFor(connectionForTarget(loaded.config, m.hosts[0]!)));
   const execs = new Set<SshExecutor>([primary]);
   let locked = false;
 
@@ -49,7 +50,7 @@ export async function deploy(plan: DeployPlan, loaded: LoadedConfig): Promise<nu
     );
 
     for (const host of m.hosts) {
-      const exec = new SshExecutor({ host });
+      const exec = new SshExecutor(connectOptionsFor(connectionForTarget(loaded.config, host)));
       execs.add(exec);
       console.log("[" + host + "] deploying " + m.containerName);
       let containerStarted = false;

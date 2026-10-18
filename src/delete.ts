@@ -1,8 +1,8 @@
 import type { BundantConfig, LoadedConfig } from "./config.ts";
 import * as docker from "./commands/docker.ts";
 import * as proxy from "./commands/proxy.ts";
-import { SshExecutor } from "./exec/ssh.ts";
-import { hostTargets } from "./hosts.ts";
+import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
+import { connectionForTarget, hostTargets } from "./hosts.ts";
 import { acquireLock, releaseLock } from "./lock.ts";
 import { runtimeFor } from "./runtime.ts";
 import type { CmdStep } from "./types.ts";
@@ -124,7 +124,7 @@ export async function remove(loaded: LoadedConfig, opts: DeleteOptions): Promise
     return 0;
   }
 
-  const primary = new SshExecutor({ host: targets[0] });
+  const primary = new SshExecutor(connectOptionsFor(connectionForTarget(config, targets[0]!)));
   const execs = new Set<SshExecutor>([primary]);
   let locked = false;
   try {
@@ -132,7 +132,9 @@ export async function remove(loaded: LoadedConfig, opts: DeleteOptions): Promise
     locked = true;
 
     for (const host of targets) {
-      const exec = host === targets[0] ? primary : new SshExecutor({ host });
+      const exec = host === targets[0]
+        ? primary
+        : new SshExecutor(connectOptionsFor(connectionForTarget(config, host)));
       execs.add(exec);
       console.log("== " + host + " ==");
       for (const step of steps) {

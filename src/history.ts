@@ -1,6 +1,6 @@
 import type { LoadedConfig } from "./config.ts";
-import { SshExecutor } from "./exec/ssh.ts";
-import { hostTargets } from "./hosts.ts";
+import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
+import { resolveConnections } from "./hosts.ts";
 import { runningEntry } from "./revisions.ts";
 import { listRevisions } from "./rollback.ts";
 
@@ -10,8 +10,9 @@ import { listRevisions } from "./rollback.ts";
  * serving traffic.
  */
 export async function history(loaded: LoadedConfig): Promise<number> {
-  for (const host of hostTargets(loaded.config)) {
-    const exec = new SshExecutor({ host });
+  for (const conn of resolveConnections(loaded.config)) {
+    const host = conn.sshTarget;
+    const exec = new SshExecutor(connectOptionsFor(conn));
     try {
       const entries = await listRevisions(exec, loaded);
       const running = runningEntry(entries);

@@ -7,8 +7,13 @@ and never stores state of its own on the host.
 service: hello                 # [a-z0-9-]
 image: traefik/whoami:v1.10    # registry ref, or overridden by --local-image
 role: web                      # default: web (containers are <service>-<role>-<rev>)
-hosts: [box.example.com]       # any ssh-reachable name; user@host allowed; BUNDANT_HOSTS=a,b overrides
-user: root                     # optional default ssh user (a per-host user@ prefix wins)
+hosts: [box.example.com]       # user@host:port forms allowed; BUNDANT_HOSTS=a,b overrides
+
+ssh:                           # optional: reach a host with NO ~/.ssh/config entry
+  user: deploy                 # default login user (per-host user@ wins)
+  port: 22                     # default port (per-host :port wins)
+  identity: ~/.ssh/prod_deploy # private key; ~ is expanded
+  options: ["-o", "StrictHostKeyChecking=accept-new"]
 runtime: docker                # or podman (see podman.md)
 
 env:                           # optional; rendered remotely as mode-0600 file
@@ -27,6 +32,15 @@ proxy:
   tls: false                   # pass --tls to kamal-proxy (ACME)
   image: docker.io/basecamp/kamal-proxy:latest   # override for air-gapped hosts
 ```
+
+## Hosts and ssh
+
+Hosts accept `root@box.example.com`, `root@box.example.com:2222` and
+`root@[2001:db8::1]:2222`. Precedence is **per-host > `ssh:` block > ssh
+defaults**, so a deployment can be fully self-describing and does not depend on
+`~/.ssh/config` having an alias for the machine. The same connection parameters
+are used for control commands, the env-file upload and the `--local-image`
+pipeline.
 
 ## Field notes
 
