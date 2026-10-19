@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { stat } from "node:fs/promises";
 import http from "node:http";
 import type { IncomingMessage } from "node:http";
 import type { Readable } from "node:stream";
@@ -194,7 +195,9 @@ export class ApiClient {
         { socketPath: this.socketPath, method, path: path + buildQuery(query), headers },
         (res) => resolve(res),
       );
-      req.on("error", reject);
+      req.on("error", (err) => {
+        void normalizeConnectError(err, this.socketPath).then(reject);
+      });
       if (buffered) {
         req.setTimeout(30_000, () => req.destroy(new Error("engine API timeout: " + method + " " + path)));
       }
@@ -202,6 +205,23 @@ export class ApiClient {
       req.end();
     });
   }
+}
+
+/**
+ * Bun reports every unix-socket connect failure as "FailedToOpenSocket", which
+ * cannot distinguish "no socket" from "nobody listening". Stat the path so the
+ * detector can tell absent from inactive on both runtimes.
+ */
+async function normalizeConnectError(err: Error, socketPath: string): Promise<Error> {
+  const coded = err as NodeJS.ErrnoException;
+  if (coded.code !== undefined && coded.code !== "FailedToOpenSocket") return err;
+  try {
+    await stat(socketPath);
+    coded.code = "ECONNREFUSED";
+  } catch {
+    coded.code = "ENOENT";
+  }
+  return err;
 }
 
 export interface DemuxFrame {
