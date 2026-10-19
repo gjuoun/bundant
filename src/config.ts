@@ -6,6 +6,8 @@ import { ConfigError } from "./config/errors.ts";
 import {
   ConfigVersionError,
   defaultRegistry,
+  moduleForVersion,
+  type ConfigRegistry,
   type VersionModule,
 } from "./config/registry.ts";
 import {
@@ -89,8 +91,14 @@ export function issuesOf(error: z.ZodError): ConfigIssue[] {
   return zodIssues(error);
 }
 
-function versionError(file: string, abs: string, e: ConfigVersionError): ConfigError {
-  return new ConfigError("invalid " + file + " (" + abs + "): version: " + e.message);
+function versionError(file: string, abs: string, e: ConfigVersionError): ConfigVersionError {
+  return new ConfigVersionError("invalid " + file + " (" + abs + "): version: " + e.message);
+}
+
+/** Injectable loading context: tests can supply a registry with a dummy v2. */
+export interface LoadOptions {
+  env?: Record<string, string | undefined>;
+  registry?: ConfigRegistry;
 }
 
 function parseEnvFile(text: string): Map<string, string> {
@@ -132,10 +140,9 @@ export function resolveSshBlock(
   return { sshDefaults: defaults, fileHosts: hosts };
 }
 
-export function loadConfig(
-  path: string,
-  env: Record<string, string | undefined> = process.env,
-): LoadedConfig {
+export function loadConfig(path: string, options: LoadOptions = {}): LoadedConfig {
+  const env = options.env ?? process.env;
+  const registry = options.registry ?? defaultRegistry;
   const abs = resolve(path);
   let doc: unknown;
   try {
@@ -146,12 +153,13 @@ export function loadConfig(
 
   let resolved;
   try {
-    resolved = defaultRegistry.resolve(doc);
+    resolved = registry.resolve(doc);
   } catch (e) {
     if (e instanceof ConfigVersionError) throw versionError("deploy.yml", abs, e);
     throw e;
   }
-  const module: VersionModule = resolved.module;
+  // Resolve through the same injectable function the rest of the code uses.
+  const module: VersionModule = moduleForVersion(resolved.version, registry);
   const parsed = module.deploySchema.safeParse(doc);
   if (!parsed.success) {
     const issues = zodIssues(parsed.error).map((i) => i.field + ": " + i.message).join("; ");
@@ -218,10 +226,9 @@ export function inferGroupForMember(path: string): string | undefined {
 }
 
 /** Parse and load a group manifest plus every member file it names. */
-export function loadGroup(
-  path: string,
-  env: Record<string, string | undefined> = process.env,
-): LoadedGroup {
+export function loadGroup(path: string, options: LoadOptions = {}): LoadedGroup {
+  const env = options.env ?? process.env;
+  const registry = options.registry ?? defaultRegistry;
   const abs = resolve(path);
   let doc: unknown;
   try {
@@ -232,12 +239,13 @@ export function loadGroup(
 
   let resolved;
   try {
-    resolved = defaultRegistry.resolve(doc);
+    resolved = registry.resolve(doc);
   } catch (e) {
     if (e instanceof ConfigVersionError) throw versionError("group.yml", abs, e);
     throw e;
   }
-  const parsed = resolved.module.groupSchema.safeParse(doc);
+  const module: VersionModule = moduleForVersion(resolved.version, registry);
+  const parsed = module.groupSchema.safeParse(doc);
   if (!parsed.success) {
     const issues = zodIssues(parsed.error).map((i) => i.field + ": " + i.message).join("; ");
     throw new ConfigError("invalid group.yml (" + abs + "): " + issues);
@@ -255,7 +263,7 @@ export function loadGroup(
 
   const members: GroupMember[] = groupFile.services.map((s) => {
     const file = resolve(dir, s.file);
-    const loaded = loadConfig(file, env);
+    const loaded = loadConfig(file, { env, registry });
     if (loaded.config.service !== s.name) {
       throw new ConfigError(
         "invalid group.yml (" + abs + "): member '" + s.name + "' declares service '" +

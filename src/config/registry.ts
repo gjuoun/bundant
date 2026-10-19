@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import { ConfigError } from "./errors.ts";
 import type { BundantConfig, LoadedConfig, RawConfig, ValidationIssue } from "./types.ts";
 import { normalize, preflight, RawConfigSchema } from "./v1/deploy.ts";
 import { GroupFileSchema } from "./v1/group.ts";
@@ -20,7 +21,7 @@ export interface VersionModule {
   preflight(loaded: LoadedConfig): ValidationIssue[];
 }
 
-export class ConfigVersionError extends Error {
+export class ConfigVersionError extends ConfigError {
   readonly field = "version";
   constructor(message: string) {
     super(message);
@@ -107,7 +108,14 @@ export class ConfigRegistry {
 
 export const defaultRegistry = new ConfigRegistry();
 
-/** Version module for an already-loaded file (defaults to implicit v1). */
-export function moduleForVersion(version: number | undefined): VersionModule {
-  return defaultRegistry.get(version ?? 1);
+/**
+ * Version module for an already-loaded file (defaults to implicit v1).
+ * The registry is injectable so a caller/test can exercise a non-production
+ * registry through the same resolution path the loaders use.
+ */
+export function moduleForVersion(
+  version: number | undefined,
+  registry: ConfigRegistry = defaultRegistry,
+): VersionModule {
+  return registry.get(version ?? 1);
 }

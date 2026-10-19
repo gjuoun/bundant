@@ -22,6 +22,38 @@ const base = [
   "proxy: { enabled: false }",
 ].join("\n");
 
+/** A minimal v2 whose schema and normalize are observably different from v1. */
+function dummyV2(): VersionModule {
+  const schema = z
+    .object({
+      version: z.literal(2),
+      service: z.string().min(1),
+      image: z.string().min(1),
+      hosts: z.array(z.string()).optional(),
+      proxy: z
+        .object({
+          enabled: z.boolean().optional(),
+          host: z.string().optional(),
+          port: z.number().optional(),
+        })
+        .optional(),
+      v2Only: z.boolean().optional(),
+    })
+    .strict();
+  return {
+    version: 2,
+    grammar: v1Module.grammar,
+    deploySchema: schema,
+    accessorySchema: schema,
+    groupSchema: schema,
+    normalize: (raw, hosts) => ({
+      ...v1Module.normalize(raw, hosts),
+      image: "v2-normalized",
+    }),
+    preflight: v1Module.preflight,
+  };
+}
+
 describe("config versions", () => {
   test("missing version is accepted as implicit v1", async () => {
     const path = write("implicit.yml", base);
@@ -75,27 +107,13 @@ describe("config versions", () => {
   });
 
   test("a dummy v2 can be registered without touching v1", () => {
-    const v2Schema = z
-      .object({
-        version: z.literal(2),
-        service: z.string().min(1),
-        image: z.string().min(1),
-      })
-      .strict();
-    const dummyV2: VersionModule = {
-      version: 2,
-      grammar: v1Module.grammar,
-      deploySchema: v2Schema,
-      accessorySchema: v2Schema,
-      groupSchema: v2Schema,
-      normalize: v1Module.normalize,
-      preflight: v1Module.preflight,
-    };
-    const registry = new ConfigRegistry([v1Module, dummyV2]);
+    const v2 = dummyV2();
+    const registry = new ConfigRegistry([v1Module, v2]);
 
     expect(registry.supported()).toEqual([1, 2]);
     expect(registry.resolve({ version: 1 }).module).toBe(v1Module);
     expect(registry.resolve({ version: 2 }).module.version).toBe(2);
+    expect(registry.resolve({ version: 2 }).module).toBe(v2);
     expect(registry.resolve({}).version).toBe(1);
 
     // v1 behaviour is untouched by the extra registration.
@@ -107,6 +125,29 @@ describe("config versions", () => {
 
     expect(() => registry.resolve({ version: 3 })).toThrow(ConfigVersionError);
     expect(() => registry.resolve({ version: 3 })).toThrow(/supported: 1, 2/);
+  });
+
+  test("loadConfig dispatches v2 through the real loader entry point", () => {
+    const registry = new ConfigRegistry([v1Module, dummyV2()]);
+    const file = write(
+      "load-v2.yml",
+      [
+        "version: 2",
+        "service: hello",
+        "image: x:1",
+        "hosts: [box.test]",
+        "proxy: { enabled: false }",
+        "v2Only: true",
+      ].join("\n"),
+    );
+
+    const loaded = loadConfig(file, { registry });
+    expect(loaded.version).toBe(2);
+    expect(loaded.config.image).toBe("v2-normalized");
+
+    // The same file without a registered v2 fails in the real loader.
+    expect(() => loadConfig(file)).toThrow(ConfigVersionError);
+    expect(() => loadConfig(file)).toThrow(/unsupported config version 2 \(supported: 1\)/);
   });
 
   test("group.yml carries its own version", async () => {

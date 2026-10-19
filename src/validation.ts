@@ -303,8 +303,8 @@ export async function validatePath(
   const isGroup =
     typeof doc === "object" && doc !== null && Array.isArray((doc as Record<string, unknown>).services);
   return isGroup
-    ? await validateGroup(abs, doc, env, resolved.version, resolved.explicit, resolved.module)
-    : await validateDeploy(abs, doc, env, resolved.version, resolved.explicit, resolved.module);
+    ? await validateGroup(abs, doc, env, resolved.version, resolved.explicit, resolved.module, registry)
+    : await validateDeploy(abs, doc, env, resolved.version, resolved.explicit, resolved.module, registry);
 }
 
 async function validateDeploy(
@@ -314,6 +314,7 @@ async function validateDeploy(
   version: number,
   explicit: boolean,
   module: VersionModule,
+  registry: ConfigRegistry,
 ): Promise<ValidationReport> {
   const notes = versionNote(version, explicit);
   const errors: ValidationIssue[] = [];
@@ -327,7 +328,7 @@ async function validateDeploy(
   let loaded: LoadedConfig | undefined;
   if (parsed.success) {
     try {
-      loaded = loadConfig(abs, env);
+      loaded = loadConfig(abs, { env, registry });
     } catch (e) {
       if (e instanceof ConfigError) errors.push(issue(errorField(e), e.message));
       else throw e;
@@ -359,6 +360,7 @@ async function validateGroup(
   version: number,
   explicit: boolean,
   module: VersionModule,
+  registry: ConfigRegistry,
 ): Promise<ValidationReport> {
   const notes = versionNote(version, explicit);
   const errors: ValidationIssue[] = [];
@@ -368,7 +370,7 @@ async function validateGroup(
   let group: LoadedGroup | undefined;
   if (parsed.success) {
     try {
-      group = loadGroup(abs, env);
+      group = loadGroup(abs, { env, registry });
     } catch (e) {
       if (e instanceof ConfigError) errors.push(issue(errorField(e), e.message));
       else throw e;
@@ -381,7 +383,9 @@ async function validateGroup(
     }
     for (const member of group.members) {
       // Each member file declares its own version, independent of the manifest.
-      errors.push(...collectLoadedIssues(member.loaded));
+      errors.push(
+        ...collectLoadedIssues(member.loaded, moduleForVersion(member.loaded.version, registry)),
+      );
     }
   }
   const unique = dedupe(errors);
@@ -400,7 +404,7 @@ async function validateGroup(
         m.loaded,
         rev.revision,
         rev.source,
-        moduleForVersion(m.loaded.version).grammar,
+        moduleForVersion(m.loaded.version, registry).grammar,
       ),
     ),
   };
