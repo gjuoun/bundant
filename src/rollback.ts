@@ -90,7 +90,7 @@ export async function rollback(loaded: LoadedConfig, opts: RollbackOptions = {})
 
       if (config.proxy.enabled) {
         const swap = await exec.run(
-          proxy.deploy(rt, svcId, sel.target.name + ":" + config.proxy.port, {
+          proxy.deploy(rt, svcId, [sel.target.name + ":" + config.proxy.port], {
             host: config.proxy.host,
             tls: config.proxy.tls,
             healthCheckPath: config.healthcheck.path,

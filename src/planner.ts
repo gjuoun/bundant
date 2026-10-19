@@ -210,7 +210,7 @@ export function buildDeployPlan(
         (config.proxy.host ? " (host " + config.proxy.host + ")" : "") +
         " [blocks until healthy + old drained]",
       cmds: [
-        proxy.deploy(rt, svcId, name + ":" + config.proxy.port, {
+        proxy.deploy(rt, svcId, [name + ":" + config.proxy.port], {
           host: config.proxy.host,
           tls: config.proxy.tls,
           healthCheckPath: config.healthcheck.path,
