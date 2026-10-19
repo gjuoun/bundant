@@ -24,6 +24,8 @@ const USAGE = [
   "  exec <cmd...>         shell into a container (--host required, PTY through ssh)",
   "  ui                    local read-only monitoring page (pull-on-demand)",
   "  events                runtime events since a duration (default 2h)",
+  "  group <install|uninstall|status|rollback>  namespace lifecycle: -f group.yml",
+  "  accessory <boot|reboot|stop|logs|status|remove>  stateful member: -f accessory.yml",
   "",
   "options:",
   "  -f, --file <path>     deploy.yml path (default: ./deploy.yml)",
@@ -31,8 +33,10 @@ const USAGE = [
   "      --rev <id>        override revision id (testing hook; default: git short sha)",
   "      --local-image <name:tag>  stream a locally built image to hosts (no registry)",
   "      --keep <k>        prune: revisions to keep (default 3)",
-  "      --yes             delete: required confirmation for the destructive path",
+  "      --yes             delete / accessory remove: required confirmation",
   "      --images          delete: also remove the image refs of the deleted revisions",
+  "      --volumes         accessory remove: also delete the declared named volumes",
+  "      --to-revision <rev>  group rollback: the shared git sha for every service",
   "",
   "env:",
   "  BUNDANT_HOSTS=a,b     override deploy.yml hosts",
@@ -61,13 +65,14 @@ async function main(): Promise<number> {
   const args = parseArgs({
     allowPositionals: true,
     options: {
-      file: { type: "string", short: "f", default: "deploy.yml" },
+      file: { type: "string", short: "f" },
       "dry-run": { type: "boolean", default: false },
       rev: { type: "string" },
       "local-image": { type: "string" },
       keep: { type: "string", default: "3" },
       yes: { type: "boolean", default: false },
       images: { type: "boolean", default: false },
+      volumes: { type: "boolean", default: false },
       "to-revision": { type: "string" },
       "skip-smoke": { type: "boolean", default: false },
       host: { type: "string" },
@@ -83,6 +88,12 @@ async function main(): Promise<number> {
 
   if (sub === "deploy") {
     const loaded = loadConfig(args.values.file ?? "deploy.yml");
+    if (loaded.config.kind === "accessory") {
+      console.error(
+        "bundant: " + loaded.config.service + " is an accessory — use `bundant accessory boot`",
+      );
+      return 2;
+    }
     const revision = args.values.rev
       ? sanitizeRevision(args.values.rev)
       : await resolveRevision(dirname(loaded.path));
@@ -211,6 +222,52 @@ async function main(): Promise<number> {
     const { monitorFor } = await import("./monitor.ts");
     const argv = args.positionals.slice(1);
     return await monitorFor(loaded).execShell(host, args.values.container ?? "", argv);
+  }
+
+  if (sub === "group") {
+    const action = args.positionals[1] ?? "install";
+    if (!["install", "uninstall", "status", "rollback"].includes(action)) {
+      console.error("bundant: unknown group action '" + action + "'");
+      return 2;
+    }
+    const { loadGroup } = await import("./config.ts");
+    const loadedGroup = loadGroup(args.values.file ?? "group.yml");
+    const { GroupRunner } = await import("./group.ts");
+    const runner = new GroupRunner(loadedGroup);
+    const opts = {
+      dryRun: args.values["dry-run"] === true,
+      yes: args.values.yes === true,
+      toRevision: args.values["to-revision"],
+      rev: args.values.rev,
+    };
+    if (action === "install") return await runner.install(opts);
+    if (action === "uninstall") return await runner.uninstall(opts);
+    if (action === "status") return await runner.status();
+    return await runner.rollback(opts);
+  }
+
+  if (sub === "accessory") {
+    const action = args.positionals[1] ?? "status";
+    if (!["boot", "reboot", "stop", "logs", "status", "remove"].includes(action)) {
+      console.error("bundant: unknown accessory action '" + action + "'");
+      return 2;
+    }
+    const loadedAccessory = loadConfig(args.values.file ?? "accessory.yml");
+    const { Accessory } = await import("./accessory.ts");
+    const tail = Number(args.values.tail ?? "200");
+    if (!Number.isInteger(tail) || tail <= 0) {
+      console.error("bundant: --tail must be a positive integer");
+      return 2;
+    }
+    return await new Accessory(loadedAccessory).run(
+      action as "boot" | "reboot" | "stop" | "logs" | "status" | "remove",
+      {
+        yes: args.values.yes === true,
+        volumes: args.values.volumes === true,
+        tail,
+        dryRun: args.values["dry-run"] === true,
+      },
+    );
   }
 
   if (sub === "ui") {

@@ -3,7 +3,8 @@ import * as docker from "./commands/docker.ts";
 import * as proxy from "./commands/proxy.ts";
 import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
 import { connectionForTarget, hostTargets } from "./hosts.ts";
-import { acquireLock, releaseLock } from "./lock.ts";
+import { acquireLock, lockKey, releaseLock } from "./lock.ts";
+import { envRemotePath } from "./planner.ts";
 import { runtimeFor } from "./runtime.ts";
 import type { CmdStep } from "./types.ts";
 
@@ -25,6 +26,14 @@ export function selectVictims(stdout: string, service: string, role: string): st
     .filter((n) => n.startsWith(prefix));
 }
 
+/** Pure: names the labelled sweep will remove (any state, no prefix guessing). */
+export function selectSweepVictims(stdout: string): string[] {
+  return stdout
+    .split("\n")
+    .map((l) => l.trim().split(/\s+/)[0] ?? "")
+    .filter((n) => n !== "");
+}
+
 export function deleteGuardError(opts: DeleteOptions): string | null {
   if (opts.dryRun || opts.yes) return null;
   return "delete is destructive and removes containers and the env file on every host: pass --yes (or --dry-run to preview)";
@@ -34,19 +43,12 @@ function prefix(config: BundantConfig): string {
   return config.service + "-" + config.role + "-";
 }
 
-/**
- * Pure plan. The container removal is a single runtime loop, so the plan is
- * exact without any ssh call (which is what lets --dry-run stay print-only).
- */
-export function buildDeleteSteps(config: BundantConfig, opts: DeleteOptions): CmdStep[] {
-  const rt = runtimeFor(config.runtime);
+/** Proxy route removal, shared by delete and the group sweep. */
+function proxyRemoveStep(config: BundantConfig, rt: ReturnType<typeof runtimeFor>): CmdStep[] {
+  if (!config.proxy.enabled) return [];
   const svcId = proxy.serviceId(config.service, config.role);
-  const p = prefix(config);
-
-  const steps: CmdStep[] = [];
-
-  if (config.proxy.enabled) {
-    steps.push({
+  return [
+    {
       phase: "proxy-remove",
       desc:
         "remove the kamal-proxy route for " + svcId +
@@ -56,8 +58,27 @@ export function buildDeleteSteps(config: BundantConfig, opts: DeleteOptions): Cm
           " 2>/dev/null | grep -q true && " + rt.bin + " exec " + proxy.PROXY_CONTAINER +
           " kamal-proxy remove " + svcId + " || true",
       ],
-    });
-  }
+    },
+  ];
+}
+
+function envRemoveStep(config: BundantConfig): CmdStep {
+  return {
+    phase: "env-remove",
+    desc: "remove the rendered env file (tolerated when absent)",
+    cmds: ["rm -f " + envRemotePath(config)],
+  };
+}
+
+/**
+ * Pure plan. The container removal is a single runtime loop, so the plan is
+ * exact without any ssh call (which is what lets --dry-run stay print-only).
+ */
+export function buildDeleteSteps(config: BundantConfig, opts: DeleteOptions): CmdStep[] {
+  const rt = runtimeFor(config.runtime);
+  const p = prefix(config);
+
+  const steps: CmdStep[] = [...proxyRemoveStep(config, rt)];
 
   const names =
     "for c in $(" + rt.bin + ' ps -a --filter "name=' + p + '" --format "{{.Names}}"' +
@@ -84,28 +105,61 @@ export function buildDeleteSteps(config: BundantConfig, opts: DeleteOptions): Cm
     });
   }
 
-  steps.push({
-    phase: "env-remove",
-    desc: "remove the rendered env file (tolerated when absent)",
-    cmds: ["rm -f ~/.bundant/env/" + config.service + "-" + config.role + ".env"],
-  });
-
+  steps.push(envRemoveStep(config));
   return steps;
 }
 
 /**
- * Remove a service-role from every host: proxy route, containers, env file
- * (and images with --images). Prints the plan first; without --yes it stops
- * there and never opens ssh.
+ * Pure labelled-sweep plan for a group member: exact label selection instead of
+ * a name prefix. `group uninstall` builds this per **service** member only, so
+ * accessory containers (stateful, unlabelled by this filter) are never touched.
  */
-export async function remove(loaded: LoadedConfig, opts: DeleteOptions): Promise<number> {
+export function buildSweepSteps(
+  config: BundantConfig,
+  labels: Record<string, string>,
+  opts: DeleteOptions,
+): CmdStep[] {
+  const rt = runtimeFor(config.runtime);
+  const steps: CmdStep[] = [...proxyRemoveStep(config, rt)];
+
+  const names =
+    "for c in $(" + rt.bin + " ps -a" + docker.labelFilters(labels) + ' --format "{{.Names}}"); do ';
+  const stopAndRemove = names + rt.bin + ' stop -t 10 "$c" 2>/dev/null; ' + rt.bin + ' rm -f "$c"; done';
+  const collectImages =
+    names + rt.bin + ' inspect -f "{{.Config.Image}}" "$c" 2>/dev/null; done | sort -u';
+
+  if (opts.images) {
+    steps.push({
+      phase: "containers",
+      desc: "stop and remove labelled containers, then remove the images they used",
+      cmds: [
+        "imgs=$(" + collectImages + "); " + stopAndRemove +
+          '; for img in $imgs; do [ -n "$img" ] && ' + rt.bin + ' rmi "$img"; done',
+      ],
+    });
+  } else {
+    steps.push({
+      phase: "containers",
+      desc: "stop and remove every container labelled " + JSON.stringify(labels),
+      cmds: [stopAndRemove],
+    });
+  }
+
+  steps.push(envRemoveStep(config));
+  return steps;
+}
+
+/** Shared executor: prints the plan, guards on --yes, then runs it host by host. */
+async function executeDelete(
+  loaded: LoadedConfig,
+  steps: CmdStep[],
+  opts: DeleteOptions,
+  header: string,
+): Promise<number> {
   const { config } = loaded;
-  const steps = buildDeleteSteps(config, opts);
   const targets = hostTargets(config);
 
-  console.log(
-    "bundant delete — " + config.service + "/" + config.role + " on " + targets.join(", "),
-  );
+  console.log("bundant delete — " + header + " on " + targets.join(", "));
   console.log(
     "runtime=" + config.runtime + " | images=" + (opts.images ? "remove" : "leave alone"),
   );
@@ -128,7 +182,7 @@ export async function remove(loaded: LoadedConfig, opts: DeleteOptions): Promise
   const execs = new Set<SshExecutor>([primary]);
   let locked = false;
   try {
-    await acquireLock(primary, config.service);
+    await acquireLock(primary, lockKey(config.group, config.service));
     locked = true;
 
     for (const host of targets) {
@@ -152,10 +206,39 @@ export async function remove(loaded: LoadedConfig, opts: DeleteOptions): Promise
       }
     }
 
-    console.log("deleted " + config.service + "/" + config.role + " on " + targets.length + " host(s)");
+    console.log("deleted " + header + " on " + targets.length + " host(s)");
     return 0;
   } finally {
-    if (locked) await releaseLock(primary, config.service);
+    if (locked) await releaseLock(primary, lockKey(config.group, config.service));
     for (const e of execs) await e.close();
   }
+}
+
+/**
+ * Remove a service-role from every host: proxy route, containers, env file
+ * (and images with --images). Prints the plan first; without --yes it stops
+ * there and never opens ssh.
+ */
+export async function remove(loaded: LoadedConfig, opts: DeleteOptions): Promise<number> {
+  const { config } = loaded;
+  return executeDelete(
+    loaded,
+    buildDeleteSteps(config, opts),
+    opts,
+    config.service + "/" + config.role,
+  );
+}
+
+/** Remove one group member by its exact labels (accessories are never selected). */
+export async function removeSweep(
+  loaded: LoadedConfig,
+  labels: Record<string, string>,
+  opts: DeleteOptions,
+): Promise<number> {
+  return executeDelete(
+    loaded,
+    buildSweepSteps(loaded.config, labels, opts),
+    opts,
+    "labels " + JSON.stringify(labels),
+  );
 }
