@@ -12,7 +12,7 @@ const USAGE = [
   "usage: bundant <command> [options]",
   "",
   "commands:",
-  "  validate [-f file] [--json]  parse and validate deploy.yml / group.yml / accessory.yml",
+  "  validate [-f file] [--json] [--strict]  parse and validate deploy.yml / group.yml / accessory.yml",
   "  deploy                deploy the current revision to every host",
   "  scale --replicas <n>   add/remove replicas of the running revision (no drops)",
   "  rollback [--to-revision <rev>]  previous revision, or the one named by --to-revision",
@@ -101,6 +101,7 @@ async function main(): Promise<number> {
       json: { type: "boolean", default: false },
       hosts: { type: "string" },
       via: { type: "string", default: "api" },
+      strict: { type: "boolean", default: false },
     },
   });
   const sub = args.positionals[0];
@@ -109,7 +110,7 @@ async function main(): Promise<number> {
   if (sub === "validate") {
     const file = args.values.file ?? "deploy.yml";
     const { renderValidationReport, validatePath } = await import("./validation.ts");
-    const report = await validatePath(file);
+    const report = await validatePath(file, process.env, { strict: args.values.strict === true });
     if (args.values.json === true) {
       console.log(JSON.stringify(report, null, 2));
     } else {

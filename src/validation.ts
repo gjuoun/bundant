@@ -2,37 +2,31 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
+  ConfigError,
+  ConfigVersionError,
   DEFAULT_GROUP,
   GROUP_NAME_RE,
   ROLE_NAME_RE,
   SERVICE_NAME_RE,
-  ConfigError,
-  GroupFileSchema,
-  RawConfigSchema,
+  defaultRegistry,
   loadConfig,
   loadGroup,
+  moduleForVersion,
   zodIssues,
+  type ConfigRegistry,
   type GroupMember,
   type LoadedConfig,
   type LoadedGroup,
+  type ValidationIssue,
+  type VersionModule,
 } from "./config.ts";
-import {
-  REVISION_RE,
-  SEGMENT_NAME_RULE,
-  composeContainerName,
-  parseContainerName,
-  roundTrips,
-  type NameIdentity,
-} from "./name-grammar.ts";
+import type { NameGrammar, NameIdentity } from "./config/v1/grammar.ts";
 import { serviceId } from "./commands/proxy.ts";
 import { envRemotePath } from "./planner.ts";
 import { lockKey } from "./lock.ts";
 import { resolveRevision } from "./revision.ts";
 
-export interface ValidationIssue {
-  field: string;
-  message: string;
-}
+export type { ValidationIssue } from "./config.ts";
 
 export interface ServiceIdentity {
   kind: "service" | "accessory";
@@ -64,8 +58,18 @@ export type ValidationIdentity = ServiceIdentity | GroupIdentity;
 
 export interface ValidationReport {
   ok: boolean;
+  version?: number;
+  versionExplicit?: boolean;
+  notes: string[];
   errors: ValidationIssue[];
   identity?: ValidationIdentity;
+}
+
+export interface ValidateOptions {
+  /** Missing version is an error instead of implicit v1. */
+  strict?: boolean;
+  /** Test seam: an isolated registry (e.g. with a dummy v2). */
+  registry?: ConfigRegistry;
 }
 
 export class PreflightError extends Error {
@@ -81,18 +85,13 @@ function issue(field: string, message: string): ValidationIssue {
   return { field, message };
 }
 
-/** The revision is not a config field; --rev and the fallback go through here. */
-export function validateRevision(revision: string): ValidationIssue | null {
-  if (REVISION_RE.test(revision)) return null;
-  return issue("revision", 'revision "' + revision + '" ' + SEGMENT_NAME_RULE);
-}
-
-function safeParse(name: string, group: string): NameIdentity | null {
-  try {
-    return parseContainerName(name, group);
-  } catch {
-    return null;
-  }
+/** The revision rule also comes from the resolved version's grammar. */
+export function validateRevision(
+  revision: string,
+  grammar: NameGrammar = moduleForVersion(1).grammar,
+): ValidationIssue | null {
+  if (grammar.revision.test(revision)) return null;
+  return issue("revision", 'revision "' + revision + '" ' + grammar.segmentRule);
 }
 
 /** The identity a config resolves to once defaults are applied. */
@@ -100,16 +99,19 @@ export function buildServiceIdentity(
   loaded: LoadedConfig,
   revision: string,
   revisionSource: string,
+  grammar: NameGrammar = moduleForVersion(loaded.version).grammar,
 ): ServiceIdentity {
   const config = loaded.config;
-  const group = config.group ?? DEFAULT_GROUP;
+  const group = config.group ?? grammar.defaultGroup;
   const kind = config.kind ?? "service";
   const role = config.role;
   const replicas = Math.max(1, config.replicas ?? 1);
 
   if (kind === "accessory") {
-    const composed = group === DEFAULT_GROUP ? config.service : group + "-" + config.service;
-    const service = group === DEFAULT_GROUP ? composed : composed.slice(group.length + 1);
+    const composed =
+      group === grammar.defaultGroup ? config.service : group + "-" + config.service;
+    const service =
+      group === grammar.defaultGroup ? composed : composed.slice(group.length + 1);
     return {
       kind,
       group,
@@ -119,7 +121,7 @@ export function buildServiceIdentity(
       lockKey: lockKey(config.group, config.service),
       revision,
       revisionSource,
-      roundTrip: GROUP_NAME_RE.test(group) && SERVICE_NAME_RE.test(service),
+      roundTrip: grammar.group.test(group) && grammar.service.test(service),
       replicas: 1,
     };
   }
@@ -131,15 +133,19 @@ export function buildServiceIdentity(
     revision,
     replica: replicas > 1 ? 1 : undefined,
   };
-  const composed = composeContainerName(identity);
-  const base = composeContainerName({ ...identity, replica: undefined });
-  const parsed = safeParse(composed, group);
-  const roundTrip =
-    parsed !== null &&
-    (parsed.group ?? DEFAULT_GROUP) === group &&
-    parsed.service === config.service &&
-    parsed.role === role &&
-    parsed.revision === revision;
+  const composed = grammar.compose(identity);
+  const base = grammar.compose({ ...identity, replica: undefined });
+  let roundTrip = false;
+  try {
+    const parsed = grammar.parse(composed, group);
+    roundTrip =
+      (parsed.group ?? grammar.defaultGroup) === group &&
+      parsed.service === config.service &&
+      parsed.role === role &&
+      parsed.revision === revision;
+  } catch {
+    roundTrip = false;
+  }
 
   return {
     kind,
@@ -158,83 +164,19 @@ export function buildServiceIdentity(
   };
 }
 
-/** Every cross-field rule that is not expressible as a single zod field. */
-export function collectLoadedIssues(loaded: LoadedConfig): ValidationIssue[] {
-  const config = loaded.config;
-  const errors: ValidationIssue[] = [];
-  const group = config.group ?? DEFAULT_GROUP;
-
-  if (!SERVICE_NAME_RE.test(config.service)) {
-    errors.push(issue("service", 'service "' + config.service + '" is not a valid service name'));
-  }
-  if (!GROUP_NAME_RE.test(group)) {
-    errors.push(issue("group", 'group "' + group + '" is not a valid group name'));
-  }
-  if (!ROLE_NAME_RE.test(config.role)) {
-    errors.push(issue("role", 'role "' + config.role + '" is not a valid role name'));
-  }
-  if (config.image.trim() === "") errors.push(issue("image", "image must not be empty"));
-  if (config.hosts.length === 0) {
-    errors.push(issue("hosts", "hosts must not be empty (set it here or in the referenced ssh file)"));
-  }
-  if (config.proxy.enabled && (config.proxy.host === undefined || config.proxy.host === "")) {
-    errors.push(issue("proxy.host", "proxy.host is required when proxy.enabled is true"));
-  }
-  if (!config.healthcheck.path.startsWith("/")) {
-    errors.push(issue("healthcheck.path", "healthcheck.path must start with /"));
-  }
-  if (config.healthcheck.timeout <= 0) {
-    errors.push(issue("healthcheck.timeout", "healthcheck.timeout must be > 0"));
-  }
-  if (config.healthcheck.port < 1 || config.healthcheck.port > 65535) {
-    errors.push(issue("healthcheck.port", "healthcheck.port must be 1..65535"));
-  }
-  const tcp = config.healthcheck.tcp;
-  if (tcp !== undefined && (tcp < 1 || tcp > 65535)) {
-    errors.push(issue("healthcheck.tcp", "healthcheck.tcp must be 1..65535"));
-  }
-  if (config.kind === "accessory") {
-    if (config.replicas !== 1) {
-      errors.push(issue("replicas", "replicas is not allowed on kind: accessory"));
-    }
-    if (config.proxy.enabled) {
-      errors.push(issue("proxy", "proxy is not allowed on kind: accessory (set proxy.enabled: false)"));
-    }
-  }
-  if (config.replicas > 1 && !config.proxy.enabled) {
-    errors.push(issue("replicas", "replicas > 1 requires proxy.enabled: true"));
-  }
-
-  if (config.kind !== "accessory") {
-    const identity: NameIdentity = {
-      group,
-      service: config.service,
-      role: config.role,
-      revision: "r0",
-      replica: config.replicas > 1 ? 1 : undefined,
-    };
-    if (
-      SERVICE_NAME_RE.test(config.service) &&
-      ROLE_NAME_RE.test(config.role) &&
-      GROUP_NAME_RE.test(group) &&
-      !roundTrips(identity)
-    ) {
-      errors.push(
-        issue(
-          "name",
-          'composed name "' + composeContainerName(identity) +
-            '" does not round-trip to the declared identity',
-        ),
-      );
-    }
-  }
-  return errors;
+/** Cross-field rules of the file's declared version. */
+export function collectLoadedIssues(
+  loaded: LoadedConfig,
+  module: VersionModule = moduleForVersion(loaded.version),
+): ValidationIssue[] {
+  return module.preflight(loaded);
 }
 
 /** Throw unless the fully-loaded config is valid. No host is contacted. */
 export function assertPreflight(loaded: LoadedConfig, revision = "r0"): void {
-  const errors = collectLoadedIssues(loaded);
-  const identity = buildServiceIdentity(loaded, revision, "preflight");
+  const module = moduleForVersion(loaded.version);
+  const errors = module.preflight(loaded);
+  const identity = buildServiceIdentity(loaded, revision, "preflight", module.grammar);
   if (!identity.roundTrip) {
     errors.push(issue("name", "composed name does not round-trip to the declared identity"));
   }
@@ -286,8 +228,9 @@ function topoOrder(members: GroupMember[]): string[] {
 
 /** Validate a whole group before any group mutation. */
 export function assertGroupPreflight(group: LoadedGroup): void {
+  const module = moduleForVersion(group.version);
   const errors: ValidationIssue[] = [];
-  if (!GROUP_NAME_RE.test(group.group)) {
+  if (!module.grammar.group.test(group.group)) {
     errors.push(issue("group", 'group "' + group.group + '" is not a valid group name'));
   }
   const cycle = detectCycle(group.members);
@@ -324,64 +267,110 @@ async function revisionFor(dir: string): Promise<{ revision: string; source: str
   return { revision, source: "git short sha of " + dir };
 }
 
+function versionNote(version: number, explicit: boolean): string[] {
+  return explicit ? [] : ['version: ' + version + ' (implicit — add "version: ' + version + '" to pin it)'];
+}
+
 /** Validate one deploy.yml/accessory.yml/group.yml without touching a host. */
 export async function validatePath(
   path: string,
   env: Record<string, string | undefined> = process.env,
+  opts: ValidateOptions = {},
 ): Promise<ValidationReport> {
   const abs = resolve(path);
+  const registry = opts.registry ?? defaultRegistry;
   let doc: unknown;
   try {
     doc = parseYaml(readFileSync(abs, "utf8"));
   } catch (e) {
-    return { ok: false, errors: [issue("file", "cannot read " + abs + ": " + (e as Error).message)] };
+    return { ok: false, notes: [], errors: [issue("file", "cannot read " + abs + ": " + (e as Error).message)] };
   }
+
+  let resolved;
+  try {
+    resolved = registry.resolve(doc, { strict: opts.strict === true });
+  } catch (e) {
+    if (e instanceof ConfigVersionError) {
+      return {
+        ok: false,
+        notes: [],
+        errors: [issue(e.field, e.message)],
+      };
+    }
+    throw e;
+  }
+
   const isGroup =
     typeof doc === "object" && doc !== null && Array.isArray((doc as Record<string, unknown>).services);
-  return isGroup ? await validateGroup(abs, doc, env) : await validateDeploy(abs, doc, env);
+  return isGroup
+    ? await validateGroup(abs, doc, env, resolved.version, resolved.explicit, resolved.module, registry)
+    : await validateDeploy(abs, doc, env, resolved.version, resolved.explicit, resolved.module, registry);
 }
 
 async function validateDeploy(
   abs: string,
   doc: unknown,
   env: Record<string, string | undefined>,
+  version: number,
+  explicit: boolean,
+  module: VersionModule,
+  registry: ConfigRegistry,
 ): Promise<ValidationReport> {
+  const notes = versionNote(version, explicit);
   const errors: ValidationIssue[] = [];
-  const parsed = RawConfigSchema.safeParse(doc);
+  const kind = typeof doc === "object" && doc !== null
+    ? (doc as Record<string, unknown>).kind
+    : undefined;
+  const schema = kind === "accessory" ? module.accessorySchema : module.deploySchema;
+  const parsed = schema.safeParse(doc);
   if (!parsed.success) errors.push(...zodIssues(parsed.error));
   const rev = await revisionFor(dirname(abs));
   let loaded: LoadedConfig | undefined;
   if (parsed.success) {
     try {
-      loaded = loadConfig(abs, env);
+      loaded = loadConfig(abs, { env, registry });
     } catch (e) {
       if (e instanceof ConfigError) errors.push(issue(errorField(e), e.message));
       else throw e;
     }
   }
-  if (loaded !== undefined) errors.push(...collectLoadedIssues(loaded));
+  if (loaded !== undefined) errors.push(...collectLoadedIssues(loaded, module));
   const unique = dedupe(errors);
-  if (loaded === undefined || unique.length > 0) return { ok: false, errors: unique };
-  const identity = buildServiceIdentity(loaded, rev.revision, rev.source);
+  if (loaded === undefined || unique.length > 0) {
+    return { ok: false, version, versionExplicit: explicit, notes, errors: unique };
+  }
+  const identity = buildServiceIdentity(loaded, rev.revision, rev.source, module.grammar);
   if (!identity.roundTrip) {
     unique.push(issue("name", "composed name does not round-trip to the declared identity"));
   }
-  return { ok: unique.length === 0, errors: unique, identity };
+  return {
+    ok: unique.length === 0,
+    version,
+    versionExplicit: explicit,
+    notes,
+    errors: unique,
+    identity,
+  };
 }
 
 async function validateGroup(
   abs: string,
   doc: unknown,
   env: Record<string, string | undefined>,
+  version: number,
+  explicit: boolean,
+  module: VersionModule,
+  registry: ConfigRegistry,
 ): Promise<ValidationReport> {
+  const notes = versionNote(version, explicit);
   const errors: ValidationIssue[] = [];
-  const parsed = GroupFileSchema.safeParse(doc);
+  const parsed = module.groupSchema.safeParse(doc);
   if (!parsed.success) errors.push(...zodIssues(parsed.error));
   const rev = await revisionFor(dirname(abs));
   let group: LoadedGroup | undefined;
   if (parsed.success) {
     try {
-      group = loadGroup(abs, env);
+      group = loadGroup(abs, { env, registry });
     } catch (e) {
       if (e instanceof ConfigError) errors.push(issue(errorField(e), e.message));
       else throw e;
@@ -393,11 +382,16 @@ async function validateGroup(
       errors.push(issue("services", "dependency cycle through '" + cycle + "'"));
     }
     for (const member of group.members) {
-      errors.push(...collectLoadedIssues(member.loaded));
+      // Each member file declares its own version, independent of the manifest.
+      errors.push(
+        ...collectLoadedIssues(member.loaded, moduleForVersion(member.loaded.version, registry)),
+      );
     }
   }
   const unique = dedupe(errors);
-  if (group === undefined || unique.length > 0) return { ok: false, errors: unique };
+  if (group === undefined || unique.length > 0) {
+    return { ok: false, version, versionExplicit: explicit, notes, errors: unique };
+  }
   const identity: GroupIdentity = {
     kind: "group",
     group: group.group,
@@ -405,20 +399,39 @@ async function validateGroup(
     revision: rev.revision,
     revisionSource: rev.source,
     order: topoOrder(group.members),
-    members: group.members.map((m) => buildServiceIdentity(m.loaded, rev.revision, rev.source)),
+    members: group.members.map((m) =>
+      buildServiceIdentity(
+        m.loaded,
+        rev.revision,
+        rev.source,
+        moduleForVersion(m.loaded.version, registry).grammar,
+      ),
+    ),
   };
-  return { ok: true, errors: [], identity };
+  return { ok: true, version, versionExplicit: explicit, notes, errors: [], identity };
 }
 
-/** Human-readable report for \`bundant validate\`. */
+/** Human-readable report for 'bundant validate'. */
 export function renderValidationReport(report: ValidationReport): string {
   const lines: string[] = [];
   if (!report.ok) {
     lines.push("bundant validate: FAILED (" + report.errors.length + " error(s))");
+    if (report.version !== undefined) {
+      lines.push(
+        "  version: " + report.version +
+          (report.notes.length > 0 ? " (implicit — add \"version: " + report.version + "\" to pin it)" : ""),
+      );
+    }
     for (const e of report.errors) lines.push("  - " + e.field + ": " + e.message);
     return lines.join("\n");
   }
   lines.push("bundant validate: OK");
+  if (report.version !== undefined) {
+    lines.push(
+      "  version: " + report.version +
+        (report.notes.length > 0 ? " (implicit — add \"version: " + report.version + "\" to pin it)" : ""),
+    );
+  }
   const id = report.identity;
   if (id === undefined) return lines.join("\n");
   if (id.kind === "group") {

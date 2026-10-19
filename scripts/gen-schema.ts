@@ -1,70 +1,94 @@
 #!/usr/bin/env bun
 /**
- * Generate the JSON Schemas that editors use for autocomplete + inline errors.
+ * Generate the versioned JSON Schemas that editors use for autocomplete and
+ * inline errors. Every registered config version gets its own directory; the
+ * root files remain stable v1 aliases for existing examples.
  *
- * The zod schemas in src/config.ts stay the single source of truth; this script
- * only projects them to draft-07 so `# yaml-language-server: $schema=...` works.
- * `bun run schema:gen` rewrites schema/*.json; src/schema.test.ts fails when the
- * checked-in files drift from the code.
+ * The zod modules in src/config/v<version>/ are the source of truth. This
+ * script only projects them to draft-07. src/schema.test.ts fails on drift.
  */
-import { writeFileSync, mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { zodToJsonSchema } from "zod-to-json-schema";
-import { RawConfigSchema, GroupFileSchema } from "../src/config.ts";
+import type { z } from "zod";
+import { defaultRegistry } from "../src/config.ts";
+import type { VersionModule } from "../src/config/registry.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const SCHEMA_DIR = join(ROOT, "schema");
 
 const DRAFT = "http://json-schema.org/draft-07/schema#";
 
-/** Inline `$ref`s so each schema file stands alone (no resolver in the editor). */
-function inline(defs: Record<string, any>, root: any): any {
+/** Inline $refs so each schema file stands alone (no resolver in the editor). */
+function inline(defs: Record<string, unknown>, root: unknown): unknown {
   const seen = new Set<string>();
-  const walk = (node: any): any => {
+  const walk = (node: unknown): unknown => {
     if (Array.isArray(node)) return node.map(walk);
     if (!node || typeof node !== "object") return node;
-    if (typeof node.$ref === "string") {
-      const key = node.$ref.split("/").pop() as string;
+    const obj = node as Record<string, unknown>;
+    if (typeof obj.$ref === "string") {
+      const key = obj.$ref.split("/").pop() as string;
       if (defs[key] && !seen.has(key)) {
         seen.add(key);
         return walk(structuredClone(defs[key]));
       }
     }
-    const out: Record<string, any> = {};
-    for (const [k, v] of Object.entries(node)) out[k] = walk(v);
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj)) out[k] = walk(v);
     return out;
   };
   return walk(root);
 }
 
-export function project(schema: any, name: string, title: string, description: string) {
-  const json = zodToJsonSchema(schema, { name, $refStrategy: "none", target: "jsonSchema7" }) as any;
-  const defs = json.definitions ?? {};
-  const body = inline(defs, defs[name] ?? json);
+export function project(
+  schema: z.ZodTypeAny,
+  name: string,
+  title: string,
+  description: string,
+  id: string,
+): Record<string, unknown> {
+  const json = zodToJsonSchema(schema, {
+    name,
+    $refStrategy: "none",
+    target: "jsonSchema7",
+  }) as Record<string, unknown>;
+  const defs = (json.definitions ?? {}) as Record<string, unknown>;
+  const body = inline(defs, defs[name] ?? json) as Record<string, unknown>;
   return {
     $schema: DRAFT,
-    $id: `https://bundant.dev/schema/${name}.json`,
+    $id: id,
     title,
     description,
     ...body,
   };
 }
 
-/** The exact bytes that belong in schema/*.json, keyed by filename. */
-export function buildSchemas(): Record<string, string> {
-  const files = {
-    "deploy.schema.json": project(
-      RawConfigSchema,
+/** The exact bytes for one version, keyed by path relative to schema/. */
+export function buildVersionSchemas(module: VersionModule): Record<string, string> {
+  const base = "v" + module.version;
+  const id = (kind: string) => "https://bundant.dev/schema/" + base + "/" + kind + ".schema.json";
+  const files: Record<string, Record<string, unknown>> = {
+    [base + "/deploy.schema.json"]: project(
+      module.deploySchema,
       "DeployFile",
-      "bundant deploy.yml / accessory.yml",
-      "One file per service (kind: accessory = stateful member: stable name, named volumes, only touched by `bundant accessory`).",
+      "bundant deploy.yml (v" + module.version + ")",
+      "One file per service. Version " + module.version + " pins this schema, its grammar and its defaults.",
+      id("deploy"),
     ),
-    "group.schema.json": project(
-      GroupFileSchema,
+    [base + "/accessory.schema.json"]: project(
+      module.accessorySchema,
+      "AccessoryFile",
+      "bundant accessory.yml (v" + module.version + ")",
+      "Stateful member: stable name, named volumes, proxy disabled. Version " + module.version + ".",
+      id("accessory"),
+    ),
+    [base + "/group.schema.json"]: project(
+      module.groupSchema,
       "GroupFile",
-      "bundant group.yml",
-      "A group is a namespace: members in install order plus explicit needs. The install order is the topological sort; a cycle is an error.",
+      "bundant group.yml (v" + module.version + ")",
+      "A namespace: members in install order plus explicit needs. Version " + module.version + ".",
+      id("group"),
     ),
   };
   return Object.fromEntries(
@@ -72,16 +96,30 @@ export function buildSchemas(): Record<string, string> {
   );
 }
 
+/** Every generated file, versioned plus the stable root v1 aliases. */
+export function buildSchemas(): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const module of defaultRegistry.all()) {
+    Object.assign(out, buildVersionSchemas(module));
+  }
+  if (defaultRegistry.supported().includes(1)) {
+    out["deploy.schema.json"] = out["v1/deploy.schema.json"]!;
+    out["group.schema.json"] = out["v1/group.schema.json"]!;
+  }
+  return out;
+}
+
 export function writeSchemas(): string[] {
-  mkdirSync(SCHEMA_DIR, { recursive: true });
   const written: string[] = [];
   for (const [file, text] of Object.entries(buildSchemas())) {
-    writeFileSync(join(SCHEMA_DIR, file), text);
-    written.push(`schema/${file}`);
+    const absolute = join(SCHEMA_DIR, file);
+    mkdirSync(dirname(absolute), { recursive: true });
+    writeFileSync(absolute, text);
+    written.push("schema/" + file);
   }
   return written;
 }
 
 if (import.meta.main) {
-  for (const f of writeSchemas()) console.log(`wrote ${f}`);
+  for (const f of writeSchemas()) console.log("wrote " + f);
 }
