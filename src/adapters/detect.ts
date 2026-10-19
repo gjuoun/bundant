@@ -9,6 +9,8 @@ import type { RuntimeKind } from "../runtime.ts";
 export interface VersionComponent {
   Name?: string;
   Version?: string;
+  /** Podman reports its REST API version here, not in the top-level ApiVersion. */
+  Details?: { APIVersion?: string; MinAPIVersion?: string };
 }
 
 export interface VersionPayload {
@@ -77,11 +79,18 @@ export function parseEngineVersion(payload: VersionPayload): EngineVersion {
   const names = components.map((c) => String(c.Name ?? "").toLowerCase());
   const kind: RuntimeKind = names.some((n) => n.includes("podman")) ? "podman" : "docker";
   const engineComponent = components.find((c) => String(c.Name ?? "").toLowerCase().includes("engine"));
+  // Podman's compat /version carries the Docker-compat ApiVersion (1.41) at
+  // the top level and Podman's own REST API version in the engine component's
+  // Details. Report the engine's API version, which is what "podman api" means.
+  const apiVersion =
+    kind === "podman"
+      ? engineComponent?.Details?.APIVersion ?? payload.ApiVersion ?? "unknown"
+      : payload.ApiVersion ?? "unknown";
   return {
     kind,
     version: payload.Version ?? engineComponent?.Version ?? "unknown",
-    apiVersion: payload.ApiVersion ?? "unknown",
-    minApiVersion: payload.MinAPIVersion,
+    apiVersion,
+    minApiVersion: engineComponent?.Details?.MinAPIVersion ?? payload.MinAPIVersion,
   };
 }
 

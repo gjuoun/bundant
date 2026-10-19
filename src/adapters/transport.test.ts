@@ -45,6 +45,9 @@ describe("ssh streamlocal forwarding", () => {
     expect(argv).toContain("-N");
     expect(argv[argv.indexOf("-L") + 1]).toBe("/tmp/local.sock:/var/run/docker.sock");
     expect(argv[argv.indexOf("ExitOnForwardFailure=yes") - 1]).toBe("-o");
+    expect(argv).toContain("ControlMaster=no");
+    expect(argv).toContain("ControlPath=none");
+    expect(argv).toContain("-N");
     expect(argv).toContain("-p");
     expect(argv[argv.length - 1]).toBe("root@192.0.2.10");
   });

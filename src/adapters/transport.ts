@@ -23,16 +23,39 @@ export function defaultForwardDir(env: NodeJS.ProcessEnv = process.env): string 
   return join(base, "forward");
 }
 
+/**
+ * Strip the shared ControlMaster options: a forward lives exactly as long as
+ * this command, so it must not be handed to (or outlive into) the multiplexed
+ * master. Multiplexed forwarding keeps working after the requesting ssh exits,
+ * which makes close() unable to tear the forward down.
+ */
+function withoutControlOptions(argv: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === "-o" && /^(ControlMaster|ControlPath|ControlPersist)=/.test(argv[i + 1] ?? "")) {
+      i += 1;
+      continue;
+    }
+    if (arg !== undefined) out.push(arg);
+  }
+  return out;
+}
+
 export function buildForwardArgs(
   connection: HostConnection,
   localSocket: string,
   remoteSocket: string,
 ): string[] {
-  const base = buildSshArgs(connectOptionsFor(connection));
+  const base = withoutControlOptions(buildSshArgs(connectOptionsFor(connection)));
   const target = base[base.length - 1] ?? connection.sshTarget;
   return [
     "ssh",
     ...base.slice(0, -1),
+    "-o",
+    "ControlMaster=no",
+    "-o",
+    "ControlPath=none",
     "-N",
     "-o",
     "ExitOnForwardFailure=yes",
@@ -128,6 +151,25 @@ export class SshSocketForward {
       });
       child.once("exit", (code: number | null) => {
         if (settled) return;
+        // A forward can be handed to a control master and the client exits 0
+        // while the socket stays live. Accept that only if the socket exists.
+        if (code === 0) {
+          void stat(this.localSocket).then(
+            () => {
+              if (settled) return;
+              settled = true;
+              cleanup();
+              resolve();
+            },
+            () => {
+              if (settled) return;
+              settled = true;
+              cleanup();
+              reject(new Error("ssh forward exited (0) before the local socket appeared"));
+            },
+          );
+          return;
+        }
         settled = true;
         cleanup();
         reject(

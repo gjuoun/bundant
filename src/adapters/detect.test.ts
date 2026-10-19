@@ -22,9 +22,9 @@ const DOCKER_VERSION: VersionPayload = {
 
 const PODMAN_VERSION: VersionPayload = {
   Version: "5.7.0",
-  ApiVersion: "5.7.0",
+  ApiVersion: "1.41",
   MinAPIVersion: "1.24",
-  Components: [{ Name: "Podman Engine", Version: "5.7.0" }],
+  Components: [{ Name: "Podman Engine", Version: "5.7.0", Details: { APIVersion: "5.7.0", MinAPIVersion: "4.0.0" } }],
 };
 
 async function probeAt(socketPath: string): Promise<SocketProbe> {
@@ -60,6 +60,7 @@ describe("parseEngineVersion", () => {
     const engine = parseEngineVersion(PODMAN_VERSION);
     expect(engine.kind).toBe("podman");
     expect(engine.version).toBe("5.7.0");
+    expect(engine.apiVersion).toBe("5.7.0");
   });
 });
 
@@ -89,6 +90,7 @@ describe("detectRuntime", () => {
       });
       expect(detection.kind).toBe("podman");
       expect(detection.engineVersion).toBe("5.7.0");
+      expect(detection.apiVersion).toBe("5.7.0");
     } finally {
       await server.close();
     }
