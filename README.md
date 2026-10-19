@@ -62,6 +62,8 @@ registry).
 | `status` | per-host containers, proxy targets, live health probe |
 | `prune [--keep k]` | drop stopped revisions beyond the newest k (default 3) + dangling layers |
 | `delete [--yes] [--images]` | remove the service everywhere: proxy route, `<service>-<role>-*` containers, rendered env file (images kept unless `--images`); prints the plan and refuses without `--yes` |
+| `group <install\|uninstall\|status\|rollback> -f group.yml` | namespace lifecycle: ordered install (`needs:` topo-sorted), labelled-sweep uninstall that leaves accessories alone, aggregated status, whole-group rollback to one shared sha |
+| `accessory <boot\|reboot\|stop\|logs\|status\|remove> -f accessory.yml` | stateful member lifecycle: stable name + named volumes, `healthcheck.tcp` readiness, `remove --yes [--volumes]` |
 | `bootstrap [--dry-run] [--skip-smoke]` | make each host ready: install podman when missing (apt/dnf/yum/apk/pacman/zypper), enable `podman-restart.service`, set the registry search path, smoke-test one container |
 | `ps` / `stats` / `events [--since 2h]` | read-only monitoring: every container with state and ports, one resource snapshot per host, a bounded runtime-event window |
 | `logs [--host h] [--container c] [--tail n] [--follow]` | tail logs (all hosts in parallel, host-prefixed) or stream them with `--follow` |
@@ -87,6 +89,7 @@ threshold.
 ## More
 
 - [`docs/deploy-yml.md`](docs/deploy-yml.md) — every field, env handling, revisions
+- [`docs/group.md`](docs/group.md) — group namespaces, `needs:` ordering, accessories and their lifecycle
 - [`docs/podman.md`](docs/podman.md) — rootless podman, LXC nesting, boot persistence, `bundant bootstrap`
 - [`docs/monitoring.md`](docs/monitoring.md) — CLI + local UI monitoring, and what it deliberately leaves out
 - [`docs/architecture.md`](docs/architecture.md) — internals, proxy integration, design rules

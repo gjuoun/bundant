@@ -58,3 +58,28 @@ export async function waitUntilHealthy(
   }
   throw new HealthGateError(probeCmd, attempts, lastCode);
 }
+
+/**
+ * Poll until a command exits 0 (accessory TCP readiness: `nc -z`). Same
+ * abort-on-timeout contract as waitUntilHealthy.
+ */
+export async function waitUntilSucceeds(
+  exec: Executor,
+  probeCmd: string,
+  opts: HealthOptions,
+): Promise<HealthResult> {
+  const interval = opts.intervalMs ?? 1000;
+  const sleep = opts.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  const start = Date.now();
+  let attempts = 0;
+  let lastCode = "";
+
+  while (Date.now() - start <= opts.timeoutMs) {
+    const r = await exec.run(probeCmd);
+    attempts++;
+    lastCode = String(r.code);
+    if (r.code === 0) return { attempts, elapsedMs: Date.now() - start };
+    await sleep(interval);
+  }
+  throw new HealthGateError(probeCmd, attempts, lastCode);
+}

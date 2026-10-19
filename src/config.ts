@@ -19,6 +19,8 @@ const HealthSchema = z.object({
   path: z.string().regex(/^\/\S*$/, "must start with /").optional(),
   port: z.number().int().positive().optional(),
   timeout: z.number().int().positive().optional(),
+  /** Accessory readiness: a bare TCP connect to this port must succeed. */
+  tcp: z.number().int().min(1).max(65535).optional(),
 });
 
 const ProxySchema = z.object({
@@ -48,6 +50,10 @@ export const RawConfigSchema = z.object({
   service: z.string().regex(NAME_RE, "must match [a-z0-9-]"),
   image: z.string().min(1),
   role: z.string().regex(NAME_RE, "must match [a-z0-9-]").optional(),
+  /** service (stateless, deployed by bundant) or accessory (stateful, explicit). */
+  kind: z.enum(["service", "accessory"]).optional(),
+  /** Named volumes for an accessory: "name:/path/in/container". */
+  volumes: z.array(z.string().min(1)).optional(),
   hosts: z.array(z.string().min(1)).optional(),
   /**
    * ssh connection defaults: an inline block, or a path to a shared YAML file
@@ -69,6 +75,12 @@ export interface BundantConfig {
   service: string;
   image: string;
   role: string;
+  /** service (default) or accessory — accessories are never deployed/rolled/pruned. */
+  kind?: "service" | "accessory";
+  /** Named volumes (accessory only). */
+  volumes?: string[];
+  /** Namespace this service belongs to (set by loadGroup); undefined = ungrouped. */
+  group?: string;
   hosts: string[];
   /** ssh connection defaults (user/port/identity/options); per-host entries win. */
   ssh?: { user?: string; port?: number; identity?: string; options?: string[] };
@@ -77,7 +89,7 @@ export interface BundantConfig {
   /** Container runtime on the target hosts (default: docker). */
   runtime: RuntimeKind;
   env: { file?: string; vars: Record<string, string> };
-  healthcheck: { path: string; port: number; timeout: number };
+  healthcheck: { path: string; port: number; timeout: number; tcp?: number };
   proxy: { enabled: boolean; host?: string; port: number; tls: boolean; image: string };
 }
 
@@ -98,6 +110,8 @@ export function normalize(raw: RawConfig, hosts?: string[]): BundantConfig {
     service: raw.service,
     image: raw.image,
     role: raw.role ?? "web",
+    kind: raw.kind ?? "service",
+    volumes: raw.volumes ?? [],
     hosts: hosts ?? raw.hosts ?? [],
     user: raw.user,
     ssh: typeof raw.ssh === "object" ? raw.ssh ?? {} : {},
@@ -107,6 +121,7 @@ export function normalize(raw: RawConfig, hosts?: string[]): BundantConfig {
       path: raw.healthcheck?.path ?? "/",
       port: raw.healthcheck?.port ?? proxy.port,
       timeout: raw.healthcheck?.timeout ?? 30,
+      tcp: raw.healthcheck?.tcp,
     },
     proxy,
   };
@@ -208,4 +223,100 @@ export function loadConfig(
     entries.size > 0 ? [...entries].map(([k, v]) => k + "=" + v).join("\n") + "\n" : null;
 
   return { config, envContent, envCount: entries.size, path: abs };
+}
+
+/**
+ * group.yml — the namespace manifest. A group is a directory: the manifest lists
+ * members in install order and their explicit dependencies. One repo per group,
+ * so its git sha is the release id for the whole set.
+ */
+export const GroupServiceSchema = z.object({
+  name: z.string().regex(NAME_RE, "must match [a-z0-9-]"),
+  /** deploy.yml or accessory.yml, resolved relative to the group directory. */
+  file: z.string().min(1),
+  /** In-group member names this member requires to be ready first. */
+  needs: z.array(z.string().regex(NAME_RE, "must match [a-z0-9-]")).optional(),
+});
+
+export const GroupFileSchema = z.object({
+  group: z.string().regex(NAME_RE, "must match [a-z0-9-]"),
+  services: z.array(GroupServiceSchema).min(1),
+});
+
+export type GroupFile = z.infer<typeof GroupFileSchema>;
+
+export interface GroupMember {
+  /** Identity inside the group; must equal the member file's `service`. */
+  name: string;
+  /** Absolute path to the member's deploy.yml/accessory.yml. */
+  file: string;
+  /** In-group dependency names (default: none). */
+  needs: string[];
+  /** Fully-loaded config, with `group` already set. */
+  loaded: LoadedConfig;
+}
+
+export interface LoadedGroup {
+  group: string;
+  path: string;
+  dir: string;
+  /** Manifest order; use topoSortMembers() for install order. */
+  members: GroupMember[];
+}
+
+/** Parse and load a group manifest plus every member file it names. */
+export function loadGroup(
+  path: string,
+  env: Record<string, string | undefined> = process.env,
+): LoadedGroup {
+  const abs = resolve(path);
+  let doc: unknown;
+  try {
+    doc = parseYaml(readFileSync(abs, "utf8"));
+  } catch (e) {
+    throw new ConfigError("cannot read group.yml at " + abs + ": " + (e as Error).message);
+  }
+  const parsed = GroupFileSchema.safeParse(doc);
+  if (!parsed.success) {
+    const issues = parsed.error.issues.map((i) => i.path.join(".") + ": " + i.message).join("; ");
+    throw new ConfigError("invalid group.yml (" + abs + "): " + issues);
+  }
+
+  const dir = dirname(abs);
+  const names = new Set<string>();
+  for (const s of parsed.data.services) {
+    if (names.has(s.name)) {
+      throw new ConfigError("invalid group.yml (" + abs + "): duplicate member '" + s.name + "'");
+    }
+    names.add(s.name);
+  }
+
+  const members: GroupMember[] = parsed.data.services.map((s) => {
+    const file = resolve(dir, s.file);
+    const loaded = loadConfig(file, env);
+    if (loaded.config.service !== s.name) {
+      throw new ConfigError(
+        "invalid group.yml (" + abs + "): member '" + s.name + "' declares service '" +
+          loaded.config.service + "' in " + file,
+      );
+    }
+    loaded.config = { ...loaded.config, group: parsed.data.group };
+    const needs = s.needs ?? [];
+    for (const need of needs) {
+      if (need === s.name) {
+        throw new ConfigError(
+          "invalid group.yml (" + abs + "): member '" + s.name + "' cannot need itself",
+        );
+      }
+      if (!names.has(need)) {
+        throw new ConfigError(
+          "invalid group.yml (" + abs + "): member '" + s.name + "' needs unknown member '" +
+            need + "'",
+        );
+      }
+    }
+    return { name: s.name, file, needs, loaded };
+  });
+
+  return { group: parsed.data.group, path: abs, dir, members };
 }

@@ -4,6 +4,8 @@ import type { Runtime } from "../runtime.ts";
 
 export const NETWORK = "bundant";
 export const CURL_IMAGE = "curlimages/curl:8.11.1";
+/** Tiny image whose busybox `nc` does the TCP readiness probe for accessories. */
+export const TCP_IMAGE = "docker.io/library/busybox:1.37";
 
 export function pull(rt: Runtime, image: string): string {
   return rt.bin + " pull " + image;
@@ -17,17 +19,40 @@ export function removeForce(rt: Runtime, container: string): string {
   return rt.bin + " rm -f " + container + " 2>/dev/null || true";
 }
 
+/** `--label k=v` per entry, in insertion order (exact-match filters rely on these). */
+export function labelArgs(labels?: Record<string, string>): string[] {
+  if (!labels) return [];
+  return Object.entries(labels).map(([k, v]) => "--label " + k + "=" + v);
+}
+
+/** `--filter label=k=v` per entry; multiple filters AND together. */
+export function labelFilters(labels?: Record<string, string>): string {
+  if (!labels) return "";
+  return Object.entries(labels)
+    .map(([k, v]) => ' --filter "label=' + k + "=" + v + '"')
+    .join("");
+}
+
 export function run(
   rt: Runtime,
-  opts: { container: string; image: string; envFile?: string },
+  opts: {
+    container: string;
+    image: string;
+    envFile?: string;
+    labels?: Record<string, string>;
+    volumes?: string[];
+    restart?: boolean;
+  },
 ): string {
   const parts = [
     rt.bin + " run -d",
     "--name " + opts.container,
     "--network " + NETWORK,
-    "--restart unless-stopped",
   ];
+  if (opts.restart !== false) parts.push("--restart unless-stopped");
   if (opts.envFile) parts.push("--env-file " + opts.envFile);
+  parts.push(...labelArgs(opts.labels));
+  for (const v of opts.volumes ?? []) parts.push("--volume " + v);
   parts.push(opts.image);
   return parts.join(" ");
 }
@@ -49,6 +74,26 @@ export function probe(
 
 export function stop(rt: Runtime, container: string, timeout = 10): string {
   return rt.bin + " stop -t " + timeout + " " + container;
+}
+
+/**
+ * Throwaway busybox `nc` sidecar on the bundant network: a bare TCP connect is
+ * the accessory readiness probe (postgres `pg_isready`-style, image-agnostic).
+ */
+export function tcpProbe(rt: Runtime, container: string, port: number, maxTime = 3): string {
+  return (
+    rt.bin + " run --rm --network " + NETWORK + " " + TCP_IMAGE +
+    " sh -c 'nc -z -w " + maxTime + " " + container + " " + port + "'"
+  );
+}
+
+/** Exactly one container by name, running or stopped (empty output when absent). */
+export function findByName(rt: Runtime, container: string): string {
+  return rt.bin + ' ps -a --filter "name=^' + container + '$" --format "{{.Names}}"';
+}
+
+export function volumeRemove(rt: Runtime, volume: string): string {
+  return rt.bin + " volume rm " + volume;
 }
 
 /** Stop every container of this service-role except the freshly deployed one. */
@@ -83,16 +128,32 @@ export function listHistory(rt: Runtime, service: string, role: string): string 
   );
 }
 
-export function listForStatus(rt: Runtime, service: string, role: string): string {
-  return (
-    rt.bin + ' ps -a --filter "name=' + service + "-" + role +
-    '-" --format "{{.Names}} {{.Status}}"'
-  );
+/** Containers (any state) with status; label filter is exact when given. */
+export function listForStatus(
+  rt: Runtime,
+  service: string,
+  role: string,
+  labels?: Record<string, string>,
+): string {
+  return labels
+    ? rt.bin + " ps -a" + labelFilters(labels) + ' --format "{{.Names}} {{.Status}}"'
+    : rt.bin + ' ps -a --filter "name=' + service + "-" + role +
+        '-" --format "{{.Names}} {{.Status}}"';
 }
 
-/** Currently RUNNING containers of this service-role (names only). */
-export function listRunning(rt: Runtime, service: string, role: string): string {
-  return rt.bin + ' ps --filter "name=' + service + "-" + role + '-" --format "{{.Names}}"';
+/**
+ * Currently RUNNING containers (names only). With `labels` the filter is an
+ * exact label match (bundant.service / bundant.group) instead of a name prefix.
+ */
+export function listRunning(
+  rt: Runtime,
+  service: string,
+  role: string,
+  labels?: Record<string, string>,
+): string {
+  return labels
+    ? rt.bin + " ps" + labelFilters(labels) + ' --format "{{.Names}}"'
+    : rt.bin + ' ps --filter "name=' + service + "-" + role + '-" --format "{{.Names}}"';
 }
 
 export function inspectRunning(rt: Runtime, container: string): string {
