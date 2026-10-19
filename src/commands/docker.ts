@@ -202,7 +202,8 @@ export function listRunning(
 export function listRunningReplicas(rt: Runtime, labels: Record<string, string>): string {
   return (
     rt.bin + " ps" + labelFilters(labels) +
-    ' --format "{{.Names}}|{{.Label "bundant.revision"}}|{{.Label "bundant.replica"}}|{{.Image}}"'
+    " --format '{{.Names}}|{{.Label \"bundant.revision\"}}|" +
+    "{{.Label \"bundant.replica\"}}|{{.Image}}'"
   );
 }
 
