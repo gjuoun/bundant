@@ -1,0 +1,187 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://bundant.dev/schema/v1/accessory.schema.json",
+  "title": "bundant accessory.yml (v1)",
+  "description": "Stateful member: stable name, named volumes, proxy disabled. Version 1.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "number",
+      "const": 1,
+      "description": "config schema version; omitted = 1 (implicit)"
+    },
+    "service": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "service name; also the identity in container names (single hyphens allowed)"
+    },
+    "image": {
+      "type": "string",
+      "minLength": 1,
+      "description": "registry ref to run; --local-image overrides it"
+    },
+    "role": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+$",
+      "description": "variant within the service (default web); no hyphens: containers are <service>-<role>-<rev>"
+    },
+    "replicas": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "running copies of this service on each host (default 1); >1 requires proxy.enabled: true"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "service",
+        "accessory"
+      ],
+      "description": "service (default) deploys/rolls back; accessory is stateful: stable name, named volumes, only touched by 'bundant accessory'"
+    },
+    "volumes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "accessory named volumes, \"name:/path/in/container\" — survive container recreation"
+    },
+    "hosts": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "user@host[:port] entries; BUNDANT_HOSTS=a,b overrides at deploy time"
+    },
+    "ssh": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "user": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]+$",
+              "description": "default login user; a per-host user@ wins"
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535,
+              "description": "default port; a per-host :port wins"
+            },
+            "identity": {
+              "type": "string",
+              "minLength": 1,
+              "description": "private key path; ~ is expanded"
+            },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "extra ssh flags, e.g. [\"-o\",\"StrictHostKeyChecking=accept-new\"]"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "string",
+          "minLength": 1
+        }
+      ],
+      "description": "inline ssh defaults, or a path to a shared ssh YAML file"
+    },
+    "user": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+$",
+      "description": "legacy alias for ssh.user"
+    },
+    "runtime": {
+      "type": "string",
+      "enum": [
+        "docker",
+        "podman"
+      ],
+      "description": "container runtime on the hosts (default docker)"
+    },
+    "env": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "local KEY=VAL file (gitignored); uploaded to the host as mode 0600"
+        },
+        "vars": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "inline values; merged over file keys. Never printed by bundant"
+        }
+      },
+      "additionalProperties": false
+    },
+    "healthcheck": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^\\/\\S*$",
+          "description": "HTTP path the gate probes (default /)"
+        },
+        "port": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "container port to probe (default proxy.port)"
+        },
+        "timeout": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "seconds before the gate gives up (default 30)"
+        },
+        "tcp": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "accessory readiness: a bare TCP connect to this port must succeed"
+        }
+      },
+      "additionalProperties": false
+    },
+    "proxy": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "swap traffic at deploy (default true)"
+        },
+        "host": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Host header this service answers on (required when enabled)"
+        },
+        "port": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "container port kamal-proxy targets (default 80)"
+        },
+        "tls": {
+          "type": "boolean",
+          "description": "pass --tls to kamal-proxy (ACME certificates)"
+        },
+        "image": {
+          "type": "string",
+          "minLength": 1,
+          "description": "proxy image override for air-gapped hosts"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "service",
+    "image"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,57 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://bundant.dev/schema/v1/group.schema.json",
+  "title": "bundant group.yml (v1)",
+  "description": "A namespace: members in install order plus explicit needs. Version 1.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "number",
+      "const": 1,
+      "description": "config schema version; omitted = 1 (implicit)"
+    },
+    "group": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+$",
+      "description": "namespace name; no hyphens (they are separators): scopes the env directory and the lock key"
+    },
+    "services": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "description": "member identity; must equal the member file's service (single hyphens allowed)"
+          },
+          "file": {
+            "type": "string",
+            "minLength": 1,
+            "description": "path to deploy.yml/accessory.yml, relative to the group directory"
+          },
+          "needs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+            },
+            "description": "members that must be ready first; the install order is their topological sort"
+          }
+        },
+        "required": [
+          "name",
+          "file"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1,
+      "description": "members; array order only breaks ties, needs decides the real order"
+    }
+  },
+  "required": [
+    "group",
+    "services"
+  ],
+  "additionalProperties": false
+}

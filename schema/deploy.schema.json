@@ -1,10 +1,15 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://bundant.dev/schema/DeployFile.json",
-  "title": "bundant deploy.yml / accessory.yml",
-  "description": "One file per service (kind: accessory = stateful member: stable name, named volumes, only touched by `bundant accessory`).",
+  "$id": "https://bundant.dev/schema/v1/deploy.schema.json",
+  "title": "bundant deploy.yml (v1)",
+  "description": "One file per service. Version 1 pins this schema, its grammar and its defaults.",
   "type": "object",
   "properties": {
+    "version": {
+      "type": "number",
+      "const": 1,
+      "description": "config schema version; omitted = 1 (implicit)"
+    },
     "service": {
       "type": "string",
       "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
@@ -31,7 +36,7 @@
         "service",
         "accessory"
       ],
-      "description": "service (default) deploys/rolls back; accessory is stateful: stable name, named volumes, only touched by `bundant accessory`"
+      "description": "service (default) deploys/rolls back; accessory is stateful: stable name, named volumes, only touched by 'bundant accessory'"
     },
     "volumes": {
       "type": "array",
