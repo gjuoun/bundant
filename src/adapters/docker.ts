@@ -52,12 +52,15 @@ interface ApiStats {
 
 export class DockerAdapter implements RuntimeAdapter {
   readonly kind: RuntimeKind = "docker";
+  protected readonly client: ApiClient;
+  readonly engineVersion: string;
+  readonly apiVersion: string;
 
-  constructor(
-    protected readonly client: ApiClient,
-    readonly engineVersion: string,
-    readonly apiVersion: string,
-  ) {}
+  constructor(client: ApiClient, engineVersion: string, apiVersion: string) {
+    this.client = client;
+    this.engineVersion = engineVersion;
+    this.apiVersion = apiVersion;
+  }
 
   // ----- images (stages 4-5) ------------------------------------------------
 
