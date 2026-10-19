@@ -1,8 +1,7 @@
 import type { LoadedConfig } from "./config.ts";
 import * as docker from "./commands/docker.ts";
 import * as proxy from "./commands/proxy.ts";
-import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
-import { waitUntilHealthy } from "./health.ts";
+import { SshExecutor } from "./exec/ssh.ts";
 import { resolveConnections } from "./hosts.ts";
 import {
   type RevisionEntry,
@@ -14,13 +13,16 @@ import {
 } from "./revisions.ts";
 import { runtimeFor } from "./runtime.ts";
 import { belongsToService, serviceLabels } from "./naming.ts";
+import { openOps, type OpsVia } from "./ops/index.ts";
 
 export interface RollbackOptions {
   /** Exact revision id (the kubectl --to-revision equivalent); omitted = previous revision. */
   toRevision?: string;
+  /** Mutations through the engine API (default) or the legacy CLI strings. */
+  via?: OpsVia;
 }
 
-/** Read this service's revisions on one host, newest first. */
+/** Read this service's revisions on one host, newest first (used by \`history\`). */
 export async function listRevisions(
   exec: SshExecutor,
   loaded: LoadedConfig,
@@ -41,14 +43,13 @@ export async function listRevisions(
  */
 export async function rollback(loaded: LoadedConfig, opts: RollbackOptions = {}): Promise<number> {
   const { config } = loaded;
-  const rt = runtimeFor(config.runtime);
-  const svcId = proxy.serviceId(config.service, config.role, config.group);
+  const via: OpsVia = opts.via ?? "api";
 
   for (const conn of resolveConnections(config)) {
     const host = conn.sshTarget;
-    const exec = new SshExecutor(connectOptionsFor(conn));
+    const ops = await openOps(via, conn, config);
     try {
-      const entries = await listRevisions(exec, loaded);
+      const entries = await ops.history(serviceLabels(config), config);
       const summaries = summarizeRevisions(entries, config.service, config.role, config.group);
 
       let sel;
@@ -78,60 +79,43 @@ export async function rollback(loaded: LoadedConfig, opts: RollbackOptions = {})
       const targetNames = target.containers.map((c) => c.name);
 
       if (target.revision === current.revision) {
-        console.log(
-          "[" + host + "] " + target.revision + " is already the current revision",
-        );
+        console.log("[" + host + "] " + target.revision + " is already the current revision");
         return 0;
       }
 
       console.log(
-        "[" + host + "] rollback: " + current.revision + " -> " + target.revision +
-        " (" + targetNames.length + " replica(s) as deployed)",
+        "[" + host + "] rollback (via " + via + "): " + current.revision + " -> " +
+          target.revision + " (" + targetNames.length + " replica(s) as deployed)",
       );
 
-      for (const name of targetNames) {
-        const startRes = await exec.run(docker.start(rt, name));
-        if (startRes.code !== 0) {
-          console.error("[" + host + "] start failed for " + name + ": " + startRes.stderr.trim());
-          return 1;
-        }
-      }
-      for (const name of targetNames) {
-        await waitUntilHealthy(
-          exec,
-          docker.probe(rt, name, config.healthcheck.port, config.healthcheck.path),
-          { timeoutMs: config.healthcheck.timeout * 1000 },
-        );
-      }
+      for (const name of targetNames) await ops.startContainer(name);
+      await ops.healthGate(targetNames, {
+        path: config.healthcheck.path,
+        port: config.healthcheck.port,
+        timeoutMs: config.healthcheck.timeout * 1000,
+      });
       console.log("[" + host + "] health gate passed on " + targetNames.join(", "));
 
       if (config.proxy.enabled) {
-        const swap = await exec.run(
-          proxy.deploy(
-            rt,
-            svcId,
-            targetNames.map((n) => n + ":" + config.proxy.port),
-            {
-              host: config.proxy.host,
-              tls: config.proxy.tls,
-              healthCheckPath: config.healthcheck.path,
-              healthCheckPort:
-                config.healthcheck.port === config.proxy.port
-                  ? undefined
-                  : config.healthcheck.port,
-            },
-          ),
+        await ops.proxyDeploy(
+          proxy.serviceId(config.service, config.role, config.group),
+          targetNames.map((n) => n + ":" + config.proxy.port),
+          {
+            host: config.proxy.host,
+            tls: config.proxy.tls,
+            healthCheckPath: config.healthcheck.path,
+            healthCheckPort:
+              config.healthcheck.port === config.proxy.port
+                ? undefined
+                : config.healthcheck.port,
+          },
         );
-        if (swap.code !== 0) {
-          console.error("[" + host + "] proxy swap failed: " + swap.stderr.trim());
-          return 1;
-        }
       }
 
-      for (const container of current.containers) {
-        if (targetNames.includes(container.name)) continue;
-        await exec.run(docker.stop(rt, container.name));
-      }
+      const stopNames = current.containers
+        .map((c) => c.name)
+        .filter((name) => !targetNames.includes(name));
+      await ops.stopContainers(stopNames);
       console.log(
         "[" + host + "] rolled back to " + target.revision + " (" +
           targetNames.length + " replica(s))",
@@ -140,8 +124,9 @@ export async function rollback(loaded: LoadedConfig, opts: RollbackOptions = {})
       console.error("[" + host + "] " + (e as Error).message);
       return 1;
     } finally {
-      await exec.close();
+      await ops.close();
     }
   }
   return 0;
 }
+

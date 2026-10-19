@@ -36,6 +36,8 @@ export interface DeployPlan {
     /** Replica count this plan deploys (1 unless replicas: N). */
     replicas: number;
     serviceId: string;
+    /** Container port kamal-proxy targets (dry-run rendering). */
+    proxyPort: number;
     hosts: string[];
     envRemotePath?: string;
     envCount: number;
@@ -284,6 +286,7 @@ export function buildDeployPlan(
       containerNames: names,
       replicas: names.length,
       serviceId: svcId,
+      proxyPort: config.proxy.port,
       hosts: targets,
       envRemotePath: envPath,
       envCount: Object.keys(config.env.vars).length,
