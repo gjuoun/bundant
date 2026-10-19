@@ -47,8 +47,9 @@ why stopping the old container immediately after is safe.
 
 ## Execution paths: API vs legacy CLI
 
-`deploy`, `rollback` and `prune` program against a semantic `RuntimeOps`
-layer (`src/ops/`). The default is **`--via api`**: pull, network, container
+`deploy`, `rollback`, `prune`, `delete`, `scale`, `group` and `accessory`
+program against a semantic `RuntimeOps` layer (`src/ops/`). Every mutating
+command runs the zod preflight gate first (see [validation.md](validation.md)). The default is **`--via api`**: pull, network, container
 create/start/stop/remove, exec and image prune are engine-API calls over the
 forwarded unix socket. `--via cli` keeps the previous ssh command strings for
 one release:
@@ -57,7 +58,16 @@ one release:
 bundant deploy   -f deploy.yml                 # via api (default)
 bundant deploy   -f deploy.yml --via cli       # legacy command-string path
 bundant rollback -f deploy.yml --via cli       # same choices for rollback/prune
+bundant scale --replicas 3 -f deploy.yml --via cli
+bundant delete -f deploy.yml --yes --via cli
+bundant group uninstall -f group.yml --yes --via cli
+bundant accessory boot -f accessory.yml --via cli
 ```
+
+The invariants are unchanged on both paths: accessory containers are never
+selected by deploy/rollback/prune/delete (label check, not a name guess), and
+`scale` updates the proxy target set **before** removing containers on the way
+down.
 
 What stays on ssh either way: the deploy lock, rootless-podman systemd/linger
 and sysctl checks, and `--local-image` streaming (stage 4 moves images). The

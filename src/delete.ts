@@ -1,4 +1,5 @@
 import type { BundantConfig, LoadedConfig } from "./config.ts";
+import type { ContainerSummary } from "./adapters/types.ts";
 import * as docker from "./commands/docker.ts";
 import * as proxy from "./commands/proxy.ts";
 import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
@@ -46,6 +47,19 @@ export function deleteGuardError(opts: DeleteOptions): string | null {
 
 function prefix(config: BundantConfig): string {
   return containerPrefix(config);
+}
+
+/** Pure selection shared by delete and the group sweep; accessories are never victims. */
+export function selectDeleteVictims(
+  rows: ContainerSummary[],
+  config: Pick<BundantConfig, "service" | "role" | "group">,
+  filterService: boolean,
+): ContainerSummary[] {
+  return rows.filter(
+    (row) =>
+      row.labels["bundant.kind"] !== KIND_ACCESSORY &&
+      (!filterService || belongsToService(row.name, config)),
+  );
 }
 
 /** Proxy route removal, shared by delete and the group sweep. */
@@ -231,11 +245,7 @@ async function executeDelete(
           labels: selection.labels,
           namePrefix: selection.namePrefix,
         });
-        const victims = rows.filter(
-          (row) =>
-            row.labels["bundant.kind"] !== KIND_ACCESSORY &&
-            (!selection.filterService || belongsToService(row.name, config)),
-        );
+        const victims = selectDeleteVictims(rows, config, selection.filterService);
         const images = opts.images
           ? [...new Set(victims.map((row) => row.image).filter((image) => image !== ""))]
           : [];
