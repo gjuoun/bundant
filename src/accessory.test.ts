@@ -44,9 +44,11 @@ describe("buildAccessoryRun", () => {
     expect(cmd).not.toContain("db-web");
   });
 
-  test("ungrouped accessory carries no labels (zero change for standalone files)", () => {
+  test("a standalone accessory lands in default and says it is an accessory", () => {
     const cmd = buildAccessoryRun(cfg({ group: undefined }), rt);
-    expect(cmd).not.toContain("--label");
+    expect(cmd).toContain("--label bundant.kind=accessory");
+    expect(cmd).toContain("--label bundant.group=default");
+    expect(cmd).toContain("--label bundant.volumes=");
   });
 });
 

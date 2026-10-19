@@ -8,7 +8,7 @@ import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
 import { connectionForTarget, hostTargets } from "./hosts.ts";
 import { waitUntilSucceeds } from "./health.ts";
 import { acquireLock, lockKey, releaseLock } from "./lock.ts";
-import { envRemotePath, groupLabels } from "./planner.ts";
+import { envRemotePath, groupLabels, volumeLabels, LABEL_OWNER } from "./planner.ts";
 import { runtimeFor, type Runtime } from "./runtime.ts";
 
 /**
@@ -60,6 +60,16 @@ export function accessoryVolumeNames(config: BundantConfig): string[] {
   return (config.volumes ?? [])
     .map((v) => v.split(":")[0]!.trim())
     .filter((n) => n !== "");
+}
+
+/**
+ * Declare the volumes before the container starts so each one carries ownership
+ * labels (`bundant.owner=<group>/<service>`). A volume created implicitly by
+ * `-v name:/path` has no labels, which is exactly the case we want to avoid.
+ */
+export function buildVolumeCreates(config: BundantConfig, rt: Runtime): string[] {
+  const labels = volumeLabels(config);
+  return accessoryVolumeNames(config).map((v) => docker.volumeCreate(rt, v, labels));
 }
 
 export function buildAccessoryRun(config: BundantConfig, rt: Runtime): string {
@@ -144,6 +154,7 @@ export class Accessory {
     if (opts.dryRun) {
       console.log("  " + docker.ensureNetwork(this.rt));
       console.log("  " + docker.removeForce(this.rt, name));
+      for (const cmd of buildVolumeCreates(config, this.rt)) console.log("  " + cmd);
       console.log("  " + buildAccessoryRun(config, this.rt));
       console.log("  " + tcpReadinessProbe(config, this.rt));
       return 0;
@@ -180,6 +191,9 @@ export class Accessory {
             await exec.run(docker.removeForce(this.rt, name));
             console.log("  removed old " + name + " (volumes kept)");
           }
+          // Label the declared volumes before they exist, so the data store
+          // identifies its owner even to a human with just the runtime CLI.
+          for (const cmd of buildVolumeCreates(config, this.rt)) await exec.run(cmd);
           if (envLocalFile && envRemotePath(config)) {
             const envPath = envRemotePath(config)!;
             const envDir = envPath.slice(0, envPath.lastIndexOf("/"));
@@ -317,7 +331,15 @@ export class Accessory {
         }
         console.log("  removed container " + name);
         if (opts.volumes) {
+          const owner = (config.group ?? DEFAULT_GROUP) + "/" + config.service;
           for (const v of accessoryVolumeNames(config)) {
+            // Labels are the contract: never delete a volume another accessory owns.
+            const lbl = await exec.run(docker.volumeLabel(this.rt, v, LABEL_OWNER));
+            const got = lbl.stdout.trim();
+            if (got !== "" && got !== owner) {
+              console.log("  volume " + v + " belongs to " + got + " — left alone");
+              continue;
+            }
             const vr = await exec.run(docker.volumeRemove(this.rt, v) + " 2>/dev/null || true");
             console.log("  volume " + v + (vr.code === 0 ? " removed" : " not removed"));
           }

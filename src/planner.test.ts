@@ -36,7 +36,9 @@ describe("buildDeployPlan", () => {
     expect(step(plan, "pull").cmds[0]).toBe("docker pull traefik/whoami:v1.10");
     expect(step(plan, "run").cmds[0]).toBe("docker rm -f hello-web-abc1234 2>/dev/null || true");
     expect(step(plan, "run").cmds[1]).toBe(
-      "docker run -d --name hello-web-abc1234 --network bundant --restart unless-stopped traefik/whoami:v1.10",
+      "docker run -d --name hello-web-abc1234 --network bundant --restart unless-stopped" +
+        " --label bundant.service=hello --label bundant.group=default --label bundant.kind=service" +
+        " traefik/whoami:v1.10",
     );
     expect(step(plan, "health").cmds[0]).toBe(
       "docker run --rm --network bundant curlimages/curl:8.11.1 -sS -o /dev/null -w '%{http_code}' --max-time 3 http://hello-web-abc1234:80/",

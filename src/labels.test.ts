@@ -2,7 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
 import { loadConfig, type BundantConfig } from "./config.ts";
 import * as docker from "./commands/docker.ts";
-import { buildSweepSteps, selectSweepVictims } from "./delete.ts";
+import { buildSweepSteps, buildDeleteSteps, selectSweepVictims } from "./delete.ts";
+import { buildVolumeCreates } from "./accessory.ts";
+import { volumeLabels } from "./planner.ts";
 import { buildDeployPlan, envRemotePath } from "./planner.ts";
 import { runtimeFor } from "./runtime.ts";
 
@@ -103,5 +105,67 @@ describe("uninstall sweep selection", () => {
       "api-web-cd34",
     ]);
     expect(selectSweepVictims("")).toEqual([]);
+  });
+});
+
+describe("metadata that makes an accessory self-describing", () => {
+  test("every container says what kind it is", () => {
+    const service = buildDeployPlan(cfg({ group: "shop" }), "abc1234");
+    const runService = service.hostSteps.find((s) => s.phase === "run")!.cmds[1]!;
+    expect(runService).toContain("--label bundant.kind=service");
+
+    const acc = buildDeployPlan(
+      cfg({ group: "shop", kind: "accessory", volumes: ["pgdata:/var/lib/postgresql/data"], proxy: { enabled: false, port: 80, tls: false, image: "x" } }),
+      "abc1234",
+    );
+    const runAcc = acc.hostSteps.find((s) => s.phase === "run")!.cmds[1]!;
+    expect(runAcc).toContain("--label bundant.kind=accessory");
+    expect(runAcc).toContain("--label bundant.volumes=pgdata");
+  });
+
+  test("declared volumes are created with ownership labels, not implicitly", () => {
+    const acc = cfg({
+      service: "db",
+      group: "shop",
+      kind: "accessory",
+      volumes: ["pgdata:/var/lib/postgresql/data", "cache:/cache"],
+      proxy: { enabled: false, port: 80, tls: false, image: "x" },
+    });
+    expect(volumeLabels(acc)).toEqual({
+      "bundant.kind": "accessory",
+      "bundant.owner": "shop/db",
+      "bundant.managed": "true",
+    });
+    const cmds = buildVolumeCreates(acc, rt);
+    expect(cmds).toHaveLength(2);
+    expect(cmds[0]).toBe(
+      'docker volume create --label bundant.kind=accessory --label bundant.owner=shop/db --label bundant.managed=true pgdata 2>/dev/null || true',
+    );
+  });
+
+  test("a sweep skips a container that labels itself an accessory", () => {
+    const steps = buildSweepSteps(
+      cfg({ group: "shop" }),
+      { "bundant.service": "api", "bundant.group": "shop", "bundant.kind": "service" },
+      { yes: true, images: false, dryRun: true },
+    );
+    const containers = steps.find((s) => s.phase === "containers")!.cmds[0]!;
+    // positive filter: accessories never match a service sweep
+    expect(containers).toContain('label=bundant.kind=service');
+  });
+
+  test("service delete refuses an accessory even if the name prefix matches", () => {
+    const steps = buildDeleteSteps(cfg({ group: "shop" }), { yes: true, images: false, dryRun: true });
+    const containers = steps.find((s) => s.phase === "containers")!.cmds[0]!;
+    expect(containers).toContain('{{index .Config.Labels "bundant.kind"}}');
+    expect(containers).toContain('"$k" = "accessory"');
+    expect(containers).toContain("continue");
+  });
+
+  test("deploy stop-old skips accessories too", () => {
+    const plan = buildDeployPlan(cfg({ group: "shop" }), "abc1234");
+    const stop = plan.hostSteps.find((s) => s.phase === "stop-old")!.cmds[0]!;
+    expect(stop).toContain('{{index .Config.Labels "bundant.kind"}}');
+    expect(stop).toContain('"$k" = "accessory"');
   });
 });

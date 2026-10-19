@@ -1,4 +1,4 @@
-import type { BundantConfig } from "./config.ts";
+import { DEFAULT_GROUP, type BundantConfig } from "./config.ts";
 import * as docker from "./commands/docker.ts";
 import * as proxy from "./commands/proxy.ts";
 import { pushImagePipeline } from "./exec/ssh.ts";
@@ -57,10 +57,52 @@ export function envRemotePath(config: BundantConfig): string | undefined {
     : base + "/" + config.service + "-" + config.role + ".env";
 }
 
-/** Exact labels every grouped container carries; undefined when ungrouped (byte-identical plan). */
-export function groupLabels(config: BundantConfig): Record<string, string> | undefined {
-  if (!config.group) return undefined;
-  return { "bundant.service": config.service, "bundant.group": config.group };
+/** Label keys every bundant container carries — the object describes itself. */
+export {
+  LABEL_SERVICE,
+  LABEL_GROUP,
+  LABEL_KIND,
+  LABEL_VOLUMES,
+  LABEL_OWNER,
+  LABEL_MANAGED,
+  KIND_SERVICE,
+  KIND_ACCESSORY,
+} from "./labels.ts";
+import {
+  LABEL_SERVICE,
+  LABEL_GROUP,
+  LABEL_KIND,
+  LABEL_VOLUMES,
+  LABEL_OWNER,
+  LABEL_MANAGED,
+  KIND_ACCESSORY,
+  KIND_SERVICE,
+} from "./labels.ts";
+
+/**
+ * Exact labels every container carries. kind=accessory is what makes a stateful
+ * member recognisable on the host — sweeps and `delete` refuse to touch it, and a
+ * human can enumerate them with `ps --filter label=bundant.kind=accessory`.
+ */
+export function groupLabels(config: BundantConfig): Record<string, string> {
+  const kind = config.kind ?? KIND_SERVICE;
+  const labels: Record<string, string> = {
+    [LABEL_SERVICE]: config.service,
+    [LABEL_GROUP]: config.group ?? DEFAULT_GROUP,
+    [LABEL_KIND]: kind,
+  };
+  const volumes = (config.volumes ?? []).map((v) => v.split(":")[0]!.trim()).filter((n) => n !== "");
+  if (kind === KIND_ACCESSORY && volumes.length > 0) labels[LABEL_VOLUMES] = volumes.join(",");
+  return labels;
+}
+
+/** Labels stamped on the named volumes an accessory declares. */
+export function volumeLabels(config: BundantConfig): Record<string, string> {
+  return {
+    [LABEL_KIND]: KIND_ACCESSORY,
+    [LABEL_OWNER]: (config.group ?? DEFAULT_GROUP) + "/" + config.service,
+    [LABEL_MANAGED]: "true",
+  };
 }
 
 /**
