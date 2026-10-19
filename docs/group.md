@@ -50,6 +50,13 @@ changes where bundant puts things:
 The labels make filtering exact: `ps` and the delete sweep select by
 `label=bundant.service=…` (and `label=bundant.group=…`), never by name prefix.
 
+**Until group-scoped naming lands (planned change: container
+`<group>-<service>-<role>-<rev>`, proxy id `<group>-<service>`), a service name must be
+unique per host across groups.** Container names and proxy ids are still per service, so
+two groups that both deploy a service called `api` collide: the second one's
+`group uninstall` removes the first one's proxy route. Keep service names distinct, or
+prefix them yourself (`shop-api`, `shop-web`).
+
 ## Accessories
 
 An accessory is stateful: it keeps a stable container name (no revision) and
