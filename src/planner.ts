@@ -11,6 +11,7 @@ import {
   runtimeFor,
   type RuntimeKind,
 } from "./runtime.ts";
+import { containerNames } from "./replicas.ts";
 import type { CmdStep } from "./types.ts";
 
 export interface DeployPlanOptions {
@@ -49,38 +50,8 @@ export interface DeployPlan {
   hostSteps: CmdStep[];
 }
 
-/**
- * Container name for one replica. replicas: 1 keeps the historical
- * `<service>-<role>-<rev>` (no migration); N > 1 appends `-<i>` for i = 1..N.
- * Accessories carry no revision and no replicas: one stable name forever.
- */
-export function containerName(
-  config: BundantConfig,
-  revision: string,
-  replica = 1,
-): string {
-  if (config.kind === "accessory") return config.service;
-  const base = config.service + "-" + config.role + "-" + revision;
-  return (config.replicas ?? 1) > 1 ? base + "-" + replica : base;
-}
-
-/** The indexed name, unconditionally: `<service>-<role>-<rev>-<i>`. */
-export function indexedContainerName(
-  config: BundantConfig,
-  revision: string,
-  index: number,
-): string {
-  if (config.kind === "accessory") return config.service;
-  return config.service + "-" + config.role + "-" + revision + "-" + index;
-}
-
-/** Every container name this deploy runs on one host, in replica order. */
-export function containerNames(config: BundantConfig, revision: string): string[] {
-  const count = config.kind === "accessory" ? 1 : Math.max(1, config.replicas ?? 1);
-  const names: string[] = [];
-  for (let i = 1; i <= count; i++) names.push(containerName(config, revision, i));
-  return names;
-}
+/** Container naming lives in replicas.ts; re-exported for plan callers. */
+export { containerName, containerNames, indexedContainerName } from "./replicas.ts";
 
 export function envRemotePath(config: BundantConfig): string | undefined {
   const base = "~/.bundant/env" + (config.group ? "/" + config.group : "");
@@ -331,41 +302,5 @@ export function buildDeployPlan(
   };
 }
 
-/** Render a plan for humans (dry-run). Env values never appear here. */
-export function renderPlan(plan: DeployPlan): string {
-  const lines: string[] = [];
-  const m = plan.meta;
-  lines.push(
-    "bundant deploy plan — " + m.service + "/" + m.role + " rev=" + m.revision +
-    " runtime=" + m.runtime + " image=" + m.image,
-  );
-  if (m.envRemotePath) {
-    lines.push(
-      "env: " + m.envCount + " inline vars" + (m.envHasFile ? " + env file (values redacted)" : "") +
-      " -> " + m.envRemotePath,
-    );
-  }
-  lines.push("hosts: " + m.hosts.join(", "));
-  lines.push("");
-  lines.push("lock (" + m.hosts[0] + "):");
-  lines.push("  " + plan.lockStep.cmds[0]);
-  if (m.envRemotePath) {
-    lines.push("");
-    lines.push("env upload (each host, putFile, values redacted):");
-    lines.push("  local merged env -> " + m.envRemotePath + " (mode 0600)");
-  }
-  for (const host of m.hosts) {
-    lines.push("");
-    lines.push("host " + host + ":");
-    let i = 1;
-    for (const step of plan.hostSteps) {
-      lines.push("  " + i + ") [" + step.phase + "] " + step.desc);
-      for (const c of step.cmds) lines.push("     " + c.replaceAll("{HOST}", host));
-      i++;
-    }
-  }
-  lines.push("");
-  lines.push("unlock:");
-  lines.push("  " + plan.unlockStep.cmds[0]);
-  return lines.join("\n");
-}
+/** Render a plan for humans (dry-run) — implemented in plan-render.ts. */
+export { renderPlan } from "./plan-render.ts";
