@@ -90,15 +90,18 @@ threshold.
 
 - [`docs/deploy-yml.md`](docs/deploy-yml.md) — every field, env handling, revisions
 - [`docs/group.md`](docs/group.md) — group namespaces, `needs:` ordering, accessories and their lifecycle
+- [`docs/schema.md`](docs/schema.md) — `schema/*.json` for editor autocomplete + inline errors
 - [`docs/podman.md`](docs/podman.md) — rootless podman, LXC nesting, boot persistence, `bundant bootstrap`
 - [`docs/monitoring.md`](docs/monitoring.md) — CLI + local UI monitoring, and what it deliberately leaves out
 - [`docs/architecture.md`](docs/architecture.md) — internals, proxy integration, design rules
 - [`examples/hello`](examples/hello) — runnable fixture
+- [`examples/shop`](examples/shop) — a group: db (accessory) + api + web
 
 ## Development
 
 ```sh
 bun run typecheck && bun test    # unit suites, no docker needed
+bun run schema:gen               # regenerate schema/*.json after editing src/config.ts
 
 # dual-runtime smoke: everything below must work (same sources, both runtimes)
 bun  src/cli.ts --version

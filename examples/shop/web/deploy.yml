@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../../schema/deploy.schema.json
+# Last member in the group: needs api to pass its health gate first.
+service: web
+image: traefik/whoami:v1.10
+hosts:
+  - replace-me.example.ts.net
+env:
+  vars:
+    API_URL: http://api:80
+healthcheck:
+  path: /
+  timeout: 30
+proxy:
+  enabled: true
+  host: shop.example.com
+  port: 80
+  tls: false
