@@ -11,58 +11,79 @@ export const NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
 export class ConfigError extends Error {}
 
 const EnvSchema = z.object({
-  file: z.string().optional(),
-  vars: z.record(z.string()).optional(),
+  file: z.string().describe("local KEY=VAL file (gitignored); uploaded to the host as mode 0600").optional(),
+  vars: z
+    .record(z.string())
+    .describe("inline values; merged over file keys. Never printed by bundant")
+    .optional(),
 });
 
 const HealthSchema = z.object({
-  path: z.string().regex(/^\/\S*$/, "must start with /").optional(),
-  port: z.number().int().positive().optional(),
-  timeout: z.number().int().positive().optional(),
+  path: z.string().regex(/^\/\S*$/, "must start with /").describe("HTTP path the gate probes (default /)").optional(),
+  port: z.number().int().positive().describe("container port to probe (default proxy.port)").optional(),
+  timeout: z.number().int().positive().describe("seconds before the gate gives up (default 30)").optional(),
   /** Accessory readiness: a bare TCP connect to this port must succeed. */
-  tcp: z.number().int().min(1).max(65535).optional(),
+  tcp: z
+    .number()
+    .int()
+    .min(1)
+    .max(65535)
+    .describe("accessory readiness: a bare TCP connect to this port must succeed")
+    .optional(),
 });
 
 const ProxySchema = z.object({
-  enabled: z.boolean().optional(),
-  host: z.string().min(1).optional(),
-  port: z.number().int().positive().optional(),
-  tls: z.boolean().optional(),
+  enabled: z.boolean().describe("swap traffic at deploy (default true)").optional(),
+  host: z.string().min(1).describe("Host header this service answers on (required when enabled)").optional(),
+  port: z.number().int().positive().describe("container port kamal-proxy targets (default 80)").optional(),
+  tls: z.boolean().describe("pass --tls to kamal-proxy (ACME certificates)").optional(),
   /** Override for hosts that cannot reach Docker Hub: your own kamal-proxy tag. */
-  image: z.string().min(1).optional(),
+  image: z.string().min(1).describe("proxy image override for air-gapped hosts").optional(),
 });
 
 /** ssh block: enough to reach a host without any ~/.ssh/config entry. */
 export const SshSchema = z.object({
-  user: z.string().regex(/^[A-Za-z0-9._-]+$/, "must be a plain ssh user name").optional(),
-  port: z.number().int().min(1).max(65535).optional(),
-  identity: z.string().min(1).optional(),
-  options: z.array(z.string()).optional(),
+  user: z.string().regex(/^[A-Za-z0-9._-]+$/, "must be a plain ssh user name").describe("default login user; a per-host user@ wins").optional(),
+  port: z.number().int().min(1).max(65535).describe("default port; a per-host :port wins").optional(),
+  identity: z.string().min(1).describe("private key path; ~ is expanded").optional(),
+  options: z.array(z.string()).describe('extra ssh flags, e.g. ["-o","StrictHostKeyChecking=accept-new"]').optional(),
 });
 
 /** A shared ssh file may also carry the default host pool. */
 export const SshFileSchema = SshSchema.extend({
-  hosts: z.array(z.string().min(1)).optional(),
+  hosts: z.array(z.string().min(1)).describe("default host pool for deployments that reference this file").optional(),
 });
 
 /** deploy.yml as written (sections optional); defaults are applied by normalize(). */
 export const RawConfigSchema = z.object({
-  service: z.string().regex(NAME_RE, "must match [a-z0-9-]"),
-  image: z.string().min(1),
-  role: z.string().regex(NAME_RE, "must match [a-z0-9-]").optional(),
+  service: z.string().regex(NAME_RE, "must match [a-z0-9-]").describe("service name; also the identity in container names"),
+  image: z.string().min(1).describe("registry ref to run; --local-image overrides it"),
+  role: z.string().regex(NAME_RE, "must match [a-z0-9-]").describe("variant within the service (default web); containers are <service>-<role>-<rev>").optional(),
   /** service (stateless, deployed by bundant) or accessory (stateful, explicit). */
-  kind: z.enum(["service", "accessory"]).optional(),
+  kind: z
+    .enum(["service", "accessory"])
+    .describe("service (default) deploys/rolls back; accessory is stateful: stable name, named volumes, only touched by `bundant accessory`")
+    .optional(),
   /** Named volumes for an accessory: "name:/path/in/container". */
-  volumes: z.array(z.string().min(1)).optional(),
-  hosts: z.array(z.string().min(1)).optional(),
+  volumes: z
+    .array(z.string().min(1))
+    .describe('accessory named volumes, "name:/path/in/container" — survive container recreation')
+    .optional(),
+  hosts: z
+    .array(z.string().min(1))
+    .describe("user@host[:port] entries; BUNDANT_HOSTS=a,b overrides at deploy time")
+    .optional(),
   /**
    * ssh connection defaults: an inline block, or a path to a shared YAML file
    * (multiple deployments can reference the same one).
    */
-  ssh: z.union([SshSchema, z.string().min(1)]).optional(),
+  ssh: z
+    .union([SshSchema, z.string().min(1)])
+    .describe("inline ssh defaults, or a path to a shared ssh YAML file")
+    .optional(),
   /** Legacy alias for ssh.user (still honoured when ssh.user is absent). */
-  user: z.string().regex(/^[A-Za-z0-9._-]+$/, "must be a plain ssh user name").optional(),
-  runtime: z.enum(["docker", "podman"]).optional(),
+  user: z.string().regex(/^[A-Za-z0-9._-]+$/, "must be a plain ssh user name").describe("legacy alias for ssh.user").optional(),
+  runtime: z.enum(["docker", "podman"]).describe("container runtime on the hosts (default docker)").optional(),
   env: EnvSchema.optional(),
   healthcheck: HealthSchema.optional(),
   proxy: ProxySchema.optional(),
@@ -231,16 +252,19 @@ export function loadConfig(
  * so its git sha is the release id for the whole set.
  */
 export const GroupServiceSchema = z.object({
-  name: z.string().regex(NAME_RE, "must match [a-z0-9-]"),
+  name: z.string().regex(NAME_RE, "must match [a-z0-9-]").describe("member identity; must equal the member file's service"),
   /** deploy.yml or accessory.yml, resolved relative to the group directory. */
-  file: z.string().min(1),
+  file: z.string().min(1).describe("path to deploy.yml/accessory.yml, relative to the group directory"),
   /** In-group member names this member requires to be ready first. */
-  needs: z.array(z.string().regex(NAME_RE, "must match [a-z0-9-]")).optional(),
+  needs: z
+    .array(z.string().regex(NAME_RE, "must match [a-z0-9-]"))
+    .describe("members that must be ready first; the install order is their topological sort")
+    .optional(),
 });
 
 export const GroupFileSchema = z.object({
-  group: z.string().regex(NAME_RE, "must match [a-z0-9-]"),
-  services: z.array(GroupServiceSchema).min(1),
+  group: z.string().regex(NAME_RE, "must match [a-z0-9-]").describe("namespace name; scopes the env directory and the lock key"),
+  services: z.array(GroupServiceSchema).min(1).describe("members; array order only breaks ties, needs decides the real order"),
 });
 
 export type GroupFile = z.infer<typeof GroupFileSchema>;

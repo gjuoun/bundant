@@ -40,7 +40,9 @@
     "build": "bun build src/cli.ts --target=node --outfile=dist/cli.mjs --external zod --external yaml",
     "prepack": "bun run build",
     "typecheck": "tsc --noEmit",
-    "test": "bun test"
+    "test": "bun test",
+    "schema:gen": "bun run scripts/gen-schema.ts",
+    "schema:check": "bun test src/schema.test.ts"
   },
   "dependencies": {
     "yaml": "^2.6.0",
@@ -48,13 +50,16 @@
   },
   "devDependencies": {
     "@types/bun": "^1.3.0",
-    "typescript": "^5.7.0"
+    "ajv": "^8.17.1",
+    "typescript": "^5.7.0",
+    "zod-to-json-schema": "^3.25.0"
   },
   "files": [
     "bin",
     "dist",
     "src",
     "!src/**/*.test.ts",
+    "schema",
     "README.md",
     "LICENSE"
   ],
