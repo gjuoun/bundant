@@ -43,23 +43,19 @@ export interface DeployTargetOpts {
 }
 
 /**
- * Register/swap the target. kamal-proxy health-checks the target before
- * routing and blocks until the old target has drained, so the caller may
- * stop the old container as soon as this returns 0.
+ * Register/swap the target set. kamal-proxy health-checks every target before
+ * routing and blocks until the old target set has drained, so the caller may
+ * stop the old containers as soon as this returns 0. One `--target` per entry;
+ * a one-element list is the single-target call path.
  */
 export function deploy(
   rt: Runtime,
   svcId: string,
-  target: string,
+  targets: string[],
   opts: DeployTargetOpts = {},
 ): string {
-  const parts = [
-    rt.bin + " exec",
-    PROXY_CONTAINER,
-    "kamal-proxy deploy",
-    svcId,
-    "--target " + target,
-  ];
+  const parts = [rt.bin + " exec", PROXY_CONTAINER, "kamal-proxy deploy", svcId];
+  for (const target of targets) parts.push("--target " + target);
   if (opts.host) parts.push("--host " + opts.host);
   if (opts.tls) parts.push("--tls");
   if (opts.healthCheckPath) parts.push("--health-check-path " + opts.healthCheckPath);

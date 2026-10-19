@@ -47,14 +47,108 @@ export function parseHistory(stdout: string): RevisionEntry[] {
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
 }
 
-/** Revision id is the name minus the <service>-<role>- prefix. */
+/** Drop a trailing replica suffix (`-<digits>`) from a name or revision. */
+export function stripReplicaSuffix(value: string): string {
+  const match = /^(.*)-[0-9]+$/.exec(value);
+  return match ? match[1]! : value;
+}
+
+/**
+ * Revision id is the name minus the <service>-<role>- prefix and minus the
+ * replica suffix: `api-web-abc1234` and `api-web-abc1234-2` are both abc1234.
+ * The prefix is required to tell a numeric revision from a replica index.
+ */
 export function revisionOf(name: string, service?: string, role?: string): string {
   if (service !== undefined && role !== undefined) {
     const prefix = service + "-" + role + "-";
-    if (name.startsWith(prefix)) return name.slice(prefix.length);
+    if (name.startsWith(prefix)) return stripReplicaSuffix(name.slice(prefix.length));
   }
-  const firstDash = name.indexOf("-");
-  return firstDash === -1 ? name : name.slice(name.lastIndexOf("-") + 1);
+  const base = stripReplicaSuffix(name);
+  const firstDash = base.indexOf("-");
+  return firstDash === -1 ? base : base.slice(base.lastIndexOf("-") + 1);
+}
+
+/** Replica index from a container name (undefined for the single-replica name). */
+export function replicaOf(name: string, service?: string, role?: string): number | undefined {
+  let rest = name;
+  if (service !== undefined && role !== undefined) {
+    const prefix = service + "-" + role + "-";
+    if (name.startsWith(prefix)) rest = name.slice(prefix.length);
+  }
+  const match = /-([0-9]+)$/.exec(rest);
+  return match ? Number(match[1]) : undefined;
+}
+
+/** One container of a revision: its replica index and container name. */
+export interface RevisionReplica {
+  index: number;
+  name: string;
+}
+
+/**
+ * Every retained container of one revision, ordered by replica index. A
+ * revision deployed with replicas: 1 has exactly one (the unsuffixed name).
+ */
+export function replicasOfRevision(
+  entries: RevisionEntry[],
+  revision: string,
+  service?: string,
+  role?: string,
+): RevisionReplica[] {
+  const out: RevisionReplica[] = [];
+  for (const entry of entries) {
+    if (entry.revision !== revision) continue;
+    const index = replicaOf(entry.name, service, role);
+    out.push({ index: index ?? 1, name: entry.name });
+  }
+  return out.sort((a, b) => a.index - b.index);
+}
+
+/** One revision with every container that belongs to it (replicas included). */
+export interface RevisionSummary {
+  revision: string;
+  containers: RevisionEntry[];
+  createdAt: string;
+  /** "Up ..." when any replica is running, else the newest replica state. */
+  state: string;
+  running: boolean;
+}
+
+/** Group containers by revision; revisions newest-first, replicas in index order. */
+export function summarizeRevisions(
+  entries: RevisionEntry[],
+  service?: string,
+  role?: string,
+): RevisionSummary[] {
+  const groups = new Map<string, RevisionEntry[]>();
+  for (const entry of entries) {
+    const list = groups.get(entry.revision) ?? [];
+    list.push(entry);
+    groups.set(entry.revision, list);
+  }
+  const out: RevisionSummary[] = [];
+  for (const [revision, containers] of groups) {
+    containers.sort(
+      (a, b) =>
+        (replicaOf(a.name, service, role) ?? 1) -
+        (replicaOf(b.name, service, role) ?? 1),
+    );
+    const running = containers.some((c) => c.state.startsWith("Up"));
+    const createdAt = containers.reduce(
+      (newest, c) => (c.createdAt > newest ? c.createdAt : newest),
+      containers[0]!.createdAt,
+    );
+    out.push({
+      revision,
+      containers,
+      createdAt,
+      running,
+      state: running ? "Up" : containers[0]!.state,
+    });
+  }
+  return out.sort((a, b) =>
+    a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0,
+  );
 }
 
 /** The revision currently serving traffic: the first entry whose state says Up. */
@@ -73,6 +167,34 @@ export function selectPrevious(entries: RevisionEntry[]): Selection | null {
   const index = entries.indexOf(current);
   const target = entries[index + 1];
   if (!target) return null;
+  return { current, target };
+}
+
+/** Current revision (running, else newest) and the one below it. */
+export function selectPreviousRevision(
+  summaries: RevisionSummary[],
+): { current: RevisionSummary; target: RevisionSummary } | null {
+  if (summaries.length === 0) return null;
+  const current = summaries.find((s) => s.running) ?? summaries[0]!;
+  const target = summaries[summaries.indexOf(current) + 1];
+  return target ? { current, target } : null;
+}
+
+/** Target an exact revision id among the retained summaries. */
+export function selectRevision(
+  summaries: RevisionSummary[],
+  revision: string,
+): { current: RevisionSummary; target: RevisionSummary } {
+  const target = summaries.find(
+    (s) => s.revision === revision || s.containers.some((c) => c.name === revision),
+  );
+  if (!target) {
+    throw new RevisionNotFoundError(
+      revision,
+      summaries.map((s) => s.revision),
+    );
+  }
+  const current = summaries.find((s) => s.running) ?? summaries[0]!;
   return { current, target };
 }
 

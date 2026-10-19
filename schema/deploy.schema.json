@@ -20,6 +20,11 @@
       "pattern": "^[a-z0-9][a-z0-9-]*$",
       "description": "variant within the service (default web); containers are <service>-<role>-<rev>"
     },
+    "replicas": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "running copies of this service on each host (default 1); >1 requires proxy.enabled: true"
+    },
     "kind": {
       "type": "string",
       "enum": [

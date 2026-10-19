@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LocalExecutor } from "../exec/local.ts";
 import { runtimeFor, type RuntimeKind } from "../runtime.ts";
-import { ensure, PROXY_IMAGE } from "./proxy.ts";
+import { deploy, ensure, PROXY_IMAGE } from "./proxy.ts";
 
 const FAKE = "#!/bin/sh\necho \"$*\" >> \"$STATE_DIR/calls.log\"\ncase \"$1\" in\n  inspect)\n    st=$(cat \"$STATE_DIR/proxy-state\" 2>/dev/null || echo absent)\n    if [ \"$st\" = \"running\" ]; then echo true; exit 0; fi\n    if [ \"$st\" = \"stopped\" ]; then echo false; exit 0; fi\n    echo \"Error: no container with name or ID kamal-proxy found: no such container\" >&2\n    exit 1 ;;\n  start)\n    st=$(cat \"$STATE_DIR/proxy-state\" 2>/dev/null || echo absent)\n    if [ \"$st\" = \"absent\" ]; then\n      echo \"Error: no container with name or ID kamal-proxy found: no such container\" >&2\n      exit 1\n    fi\n    echo running > \"$STATE_DIR/proxy-state\"\n    exit 0 ;;\n  run)\n    echo running > \"$STATE_DIR/proxy-state\"\n    exit 0 ;;\nesac\nexit 0\n";
 
@@ -35,6 +35,38 @@ async function runEnsure(dir: string, bin: string, kind: RuntimeKind, image?: st
   const r = await exec.run(envPrefix(dir, bin) + cmd);
   return { r, log: calls(dir) };
 }
+
+describe("proxy deploy target rendering", () => {
+  const rt = runtimeFor("docker");
+
+  test("one target keeps the single --target call path", () => {
+    expect(deploy(rt, "api-web", ["api-web-abc1234:80"], { host: "api.test" })).toBe(
+      "docker exec kamal-proxy kamal-proxy deploy api-web" +
+        " --target api-web-abc1234:80 --host api.test",
+    );
+  });
+
+  test("N targets render one --target per entry, in order", () => {
+    const cmd = deploy(rt, "api-web", ["a:80", "b:80", "c:80"], {
+      host: "api.test",
+      tls: true,
+      healthCheckPath: "/up",
+      healthCheckPort: 8080,
+    });
+    expect(cmd).toBe(
+      "docker exec kamal-proxy kamal-proxy deploy api-web" +
+        " --target a:80 --target b:80 --target c:80" +
+        " --host api.test --tls --health-check-path /up --health-check-port 8080",
+    );
+    expect(cmd.split("--target ").length - 1).toBe(3);
+  });
+
+  test("podman renders through the podman binary", () => {
+    expect(deploy(runtimeFor("podman"), "api-web", ["a:80", "b:80"])).toBe(
+      "podman exec kamal-proxy kamal-proxy deploy api-web --target a:80 --target b:80",
+    );
+  });
+});
 
 describe("proxy ensure (three-state, behavioral)", () => {
   test("running proxy: inspect only, no start, no run", async () => {

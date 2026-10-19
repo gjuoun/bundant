@@ -11,6 +11,7 @@ import {
   runtimeFor,
   type RuntimeKind,
 } from "./runtime.ts";
+import { containerNames } from "./replicas.ts";
 import type { CmdStep } from "./types.ts";
 
 export interface DeployPlanOptions {
@@ -28,7 +29,12 @@ export interface DeployPlan {
     image: string;
     localImage?: string;
     runtime: RuntimeKind;
+    /** First container of the set (replicas: 1 = the only one). */
     containerName: string;
+    /** Every container this revision runs on a host, in replica order. */
+    containerNames: string[];
+    /** Replica count this plan deploys (1 unless replicas: N). */
+    replicas: number;
     serviceId: string;
     hosts: string[];
     envRemotePath?: string;
@@ -44,11 +50,8 @@ export interface DeployPlan {
   hostSteps: CmdStep[];
 }
 
-export function containerName(config: BundantConfig, revision: string): string {
-  // Accessories carry no revision: volumes, ports and clients stay valid across deploys.
-  if (config.kind === "accessory") return config.service;
-  return config.service + "-" + config.role + "-" + revision;
-}
+/** Container naming lives in replicas.ts; re-exported for plan callers. */
+export { containerName, containerNames, indexedContainerName } from "./replicas.ts";
 
 export function envRemotePath(config: BundantConfig): string | undefined {
   const base = "~/.bundant/env" + (config.group ? "/" + config.group : "");
@@ -65,6 +68,8 @@ export {
   LABEL_VOLUMES,
   LABEL_OWNER,
   LABEL_MANAGED,
+  LABEL_REVISION,
+  LABEL_REPLICA,
   KIND_SERVICE,
   KIND_ACCESSORY,
 } from "./labels.ts";
@@ -75,6 +80,8 @@ import {
   LABEL_VOLUMES,
   LABEL_OWNER,
   LABEL_MANAGED,
+  LABEL_REVISION,
+  LABEL_REPLICA,
   KIND_ACCESSORY,
   KIND_SERVICE,
 } from "./labels.ts";
@@ -84,13 +91,23 @@ import {
  * member recognisable on the host — sweeps and `delete` refuse to touch it, and a
  * human can enumerate them with `ps --filter label=bundant.kind=accessory`.
  */
-export function groupLabels(config: BundantConfig): Record<string, string> {
+export function groupLabels(
+  config: BundantConfig,
+  revision?: string,
+  replica = 1,
+): Record<string, string> {
   const kind = config.kind ?? KIND_SERVICE;
   const labels: Record<string, string> = {
     [LABEL_SERVICE]: config.service,
     [LABEL_GROUP]: config.group ?? DEFAULT_GROUP,
     [LABEL_KIND]: kind,
   };
+  // Revision + replica make the running set self-describing: `scale` and
+  // `status` read the truth from here, never from a local file.
+  if (kind === KIND_SERVICE && revision !== undefined) {
+    labels[LABEL_REVISION] = revision;
+    labels[LABEL_REPLICA] = String(replica);
+  }
   const volumes = (config.volumes ?? []).map((v) => v.split(":")[0]!.trim()).filter((n) => n !== "");
   if (kind === KIND_ACCESSORY && volumes.length > 0) labels[LABEL_VOLUMES] = volumes.join(",");
   return labels;
@@ -117,11 +134,11 @@ export function buildDeployPlan(
   const rt = runtimeFor(config.runtime);
   const targets = hostTargets(config);
   const image = opts.localImage ?? config.image;
-  const name = containerName(config, revision);
+  const names = containerNames(config, revision);
+  const name = names[0]!;
   const svcId = proxy.serviceId(config.service, config.role);
   const hasEnv = Object.keys(config.env.vars).length > 0 || config.env.file !== undefined;
   const envPath = hasEnv ? envRemotePath(config) : undefined;
-  const labels = groupLabels(config);
   const key = lockKey(config.group, config.service);
 
   const hostSteps: CmdStep[] = [];
@@ -176,23 +193,37 @@ export function buildDeployPlan(
     cmds: [docker.ensureNetwork(rt)],
   });
 
+  const runCmds: string[] = [];
+  for (let i = 0; i < names.length; i++) {
+    const replicaName = names[i]!;
+    runCmds.push(docker.removeForce(rt, replicaName));
+    runCmds.push(
+      docker.run(rt, {
+        container: replicaName,
+        image,
+        envFile: envPath,
+        labels: groupLabels(config, revision, i + 1),
+      }),
+    );
+  }
   hostSteps.push({
     phase: "run",
     desc:
-      "run " + name + " (" + rt.kind + ", restart unless-stopped" +
+      "run " + (names.length === 1 ? name : names.length + " replicas (" + names.join(", ") + ")") +
+      " (" + rt.kind + ", restart unless-stopped" +
       (envPath ? ", env: redacted" : "") + ")",
-    cmds: [
-      docker.removeForce(rt, name),
-      docker.run(rt, { container: name, image, envFile: envPath, labels }),
-    ],
+    cmds: runCmds,
   });
 
   hostSteps.push({
     phase: "health",
     desc:
-      "health gate: GET " + config.healthcheck.path + " on " + name + ":" +
-      config.healthcheck.port + " until 200 (timeout " + config.healthcheck.timeout + "s)",
-    cmds: [docker.probe(rt, name, config.healthcheck.port, config.healthcheck.path)],
+      "health gate: GET " + config.healthcheck.path + " on each of " +
+      names.join(", ") + ":" + config.healthcheck.port + " until 200 (timeout " +
+      config.healthcheck.timeout + "s)",
+    cmds: names.map((n) =>
+      docker.probe(rt, n, config.healthcheck.port, config.healthcheck.path),
+    ),
   });
 
   if (config.proxy.enabled) {
@@ -206,17 +237,25 @@ export function buildDeployPlan(
     hostSteps.push({
       phase: "proxy-swap",
       desc:
-        rt.kind + " exec kamal-proxy deploy " + svcId + " -> " + name + ":" + config.proxy.port +
+        rt.kind + " exec kamal-proxy deploy " + svcId + " -> " +
+        names.map((n) => n + ":" + config.proxy.port).join(", ") +
         (config.proxy.host ? " (host " + config.proxy.host + ")" : "") +
-        " [blocks until healthy + old drained]",
+        " [one atomic set swap; blocks until healthy + old drained]",
       cmds: [
-        proxy.deploy(rt, svcId, name + ":" + config.proxy.port, {
+        proxy.deploy(
+          rt,
+          svcId,
+          names.map((n) => n + ":" + config.proxy.port),
+          {
           host: config.proxy.host,
           tls: config.proxy.tls,
           healthCheckPath: config.healthcheck.path,
-          healthCheckPort:
-            config.healthcheck.port === config.proxy.port ? undefined : config.healthcheck.port,
-        }),
+            healthCheckPort:
+              config.healthcheck.port === config.proxy.port
+                ? undefined
+                : config.healthcheck.port,
+          },
+        ),
       ],
     });
   }
@@ -224,8 +263,9 @@ export function buildDeployPlan(
   hostSteps.push({
     phase: "stop-old",
     desc:
-      "stop previous " + config.service + "-" + config.role + "-* containers (keep " + name + ")",
-    cmds: [docker.stopOld(rt, config.service, config.role, name)],
+      "stop previous " + config.service + "-" + config.role + "-* containers (keep " +
+      names.join(", ") + ")",
+    cmds: [docker.stopOld(rt, config.service, config.role, names)],
   });
 
   return {
@@ -238,6 +278,8 @@ export function buildDeployPlan(
       localImage: opts.localImage,
       runtime: config.runtime,
       containerName: name,
+      containerNames: names,
+      replicas: names.length,
       serviceId: svcId,
       hosts: targets,
       envRemotePath: envPath,
@@ -260,41 +302,5 @@ export function buildDeployPlan(
   };
 }
 
-/** Render a plan for humans (dry-run). Env values never appear here. */
-export function renderPlan(plan: DeployPlan): string {
-  const lines: string[] = [];
-  const m = plan.meta;
-  lines.push(
-    "bundant deploy plan — " + m.service + "/" + m.role + " rev=" + m.revision +
-    " runtime=" + m.runtime + " image=" + m.image,
-  );
-  if (m.envRemotePath) {
-    lines.push(
-      "env: " + m.envCount + " inline vars" + (m.envHasFile ? " + env file (values redacted)" : "") +
-      " -> " + m.envRemotePath,
-    );
-  }
-  lines.push("hosts: " + m.hosts.join(", "));
-  lines.push("");
-  lines.push("lock (" + m.hosts[0] + "):");
-  lines.push("  " + plan.lockStep.cmds[0]);
-  if (m.envRemotePath) {
-    lines.push("");
-    lines.push("env upload (each host, putFile, values redacted):");
-    lines.push("  local merged env -> " + m.envRemotePath + " (mode 0600)");
-  }
-  for (const host of m.hosts) {
-    lines.push("");
-    lines.push("host " + host + ":");
-    let i = 1;
-    for (const step of plan.hostSteps) {
-      lines.push("  " + i + ") [" + step.phase + "] " + step.desc);
-      for (const c of step.cmds) lines.push("     " + c.replaceAll("{HOST}", host));
-      i++;
-    }
-  }
-  lines.push("");
-  lines.push("unlock:");
-  lines.push("  " + plan.unlockStep.cmds[0]);
-  return lines.join("\n");
-}
+/** Render a plan for humans (dry-run) — implemented in plan-render.ts. */
+export { renderPlan } from "./plan-render.ts";

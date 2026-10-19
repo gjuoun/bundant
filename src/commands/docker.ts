@@ -127,18 +127,23 @@ export function volumeLabel(rt: Runtime, volume: string, key: string): string {
   );
 }
 
-/** Stop every container of this service-role except the freshly deployed one. */
+/** Stop every container of this service-role except the freshly deployed set. */
 export function stopOld(
   rt: Runtime,
   service: string,
   role: string,
-  keep: string,
+  keep: string | string[],
   timeout = 10,
 ): string {
   const prefix = service + "-" + role + "-";
+  const keepSet = new Set(typeof keep === "string" ? [keep] : keep);
+  const keepFilter =
+    keepSet.size === 1
+      ? 'grep -v "^' + [...keepSet][0] + '$"'
+      : "grep -v -E '^(" + [...keepSet].join("|") + ")$'";
   return (
     'for c in $(' + rt.bin + ' ps -a --filter "name=' + prefix + '" --format "{{.Names}}"' +
-    ' | grep "^' + prefix + '" | grep -v "^' + keep + '$"); do ' +
+    ' | grep "^' + prefix + '" | ' + keepFilter + '); do ' +
     'k=$(' + inspectLabel(rt, '"$c"', LABEL_KIND) + '); ' +
     'if [ "$k" = "' + KIND_ACCESSORY + '" ]; then continue; fi; ' +
     rt.bin + " stop -t " + timeout + ' "$c"; done'
@@ -187,6 +192,19 @@ export function listRunning(
   return labels
     ? rt.bin + " ps" + labelFilters(labels) + ' --format "{{.Names}}"'
     : rt.bin + ' ps --filter "name=' + service + "-" + role + '-" --format "{{.Names}}"';
+}
+
+/**
+ * Running service containers with the labels that identify a replica:
+ * name|bundant.revision|bundant.replica|image. Label-filtered, so it never
+ * picks up an accessory or a foreign service that shares a name prefix.
+ */
+export function listRunningReplicas(rt: Runtime, labels: Record<string, string>): string {
+  return (
+    rt.bin + " ps" + labelFilters(labels) +
+    " --format '{{.Names}}|{{.Label \"bundant.revision\"}}|" +
+    "{{.Label \"bundant.replica\"}}|{{.Image}}'"
+  );
 }
 
 export function inspectRunning(rt: Runtime, container: string): string {

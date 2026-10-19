@@ -7,6 +7,7 @@ function cfg(over: Partial<BundantConfig> = {}): BundantConfig {
     service: "hello",
     image: "traefik/whoami:v1.10",
     role: "web",
+    replicas: 1,
     hosts: ["box.tail1234.ts.net"],
     runtime: "docker",
     env: { vars: {} },
@@ -38,8 +39,12 @@ describe("buildDeployPlan", () => {
     expect(step(plan, "run").cmds[1]).toBe(
       "docker run -d --name hello-web-abc1234 --network bundant --restart unless-stopped" +
         " --label bundant.service=hello --label bundant.group=default --label bundant.kind=service" +
+        " --label bundant.revision=abc1234 --label bundant.replica=1" +
         " traefik/whoami:v1.10",
     );
+    expect(step(plan, "run").cmds).toHaveLength(2);
+    expect(plan.meta.containerNames).toEqual(["hello-web-abc1234"]);
+    expect(plan.meta.replicas).toBe(1);
     expect(step(plan, "health").cmds[0]).toBe(
       "docker run --rm --network bundant curlimages/curl:8.11.1 -sS -o /dev/null -w '%{http_code}' --max-time 3 http://hello-web-abc1234:80/",
     );
@@ -49,6 +54,61 @@ describe("buildDeployPlan", () => {
     expect(step(plan, "stop-old").cmds[0]).toContain('grep -v "^hello-web-abc1234$"');
     expect(plan.meta.containerName).toBe("hello-web-abc1234");
     expect(plan.meta.serviceId).toBe("hello-web");
+  });
+
+  test("replicas: 3 runs three named containers with per-replica labels", () => {
+    const plan = buildDeployPlan(cfg({ replicas: 3 }), REV);
+    const run = step(plan, "run");
+    expect(run.cmds).toHaveLength(6);
+    expect(plan.meta.containerNames).toEqual([
+      "hello-web-abc1234-1",
+      "hello-web-abc1234-2",
+      "hello-web-abc1234-3",
+    ]);
+    expect(run.cmds[1]).toContain("--name hello-web-abc1234-1");
+    expect(run.cmds[1]).toContain("--label bundant.replica=1");
+    expect(run.cmds[3]).toContain("--name hello-web-abc1234-2");
+    expect(run.cmds[3]).toContain("--label bundant.replica=2");
+    expect(run.cmds[5]).toContain("--name hello-web-abc1234-3");
+    expect(run.cmds[5]).toContain("--label bundant.replica=3");
+    for (const cmd of run.cmds.filter((c) => c.includes("docker run"))) {
+      expect(cmd).toContain("--label bundant.revision=abc1234");
+    }
+    // one health probe per replica
+    expect(step(plan, "health").cmds).toHaveLength(3);
+    expect(step(plan, "health").cmds[1]).toContain("http://hello-web-abc1234-2:80/");
+    // one atomic proxy deploy carrying all three targets
+    const swap = step(plan, "proxy-swap").cmds[0]!;
+    expect(swap).toContain("--target hello-web-abc1234-1:80");
+    expect(swap).toContain("--target hello-web-abc1234-2:80");
+    expect(swap).toContain("--target hello-web-abc1234-3:80");
+    expect(swap.split("--target ").length - 1).toBe(3);
+    // stop-old keeps every replica of this revision
+    const stop = step(plan, "stop-old").cmds[0]!;
+    expect(stop).toContain("grep -v -E '^(hello-web-abc1234-1|hello-web-abc1234-2|hello-web-abc1234-3)$'");
+    expect(plan.meta.replicas).toBe(3);
+  });
+
+  test("replicas: 1 keeps the single container name and a single --target", () => {
+    const plan = buildDeployPlan(cfg({ replicas: 1 }), REV);
+    expect(plan.meta.containerNames).toEqual(["hello-web-abc1234"]);
+    expect(step(plan, "proxy-swap").cmds[0]!.split("--target ").length - 1).toBe(1);
+    expect(step(plan, "run").cmds[0]).toBe("docker rm -f hello-web-abc1234 2>/dev/null || true");
+  });
+
+  test("accessories stay single: no revision/replica labels", () => {
+    const plan = buildDeployPlan(
+      cfg({
+        kind: "accessory",
+        proxy: { enabled: false, port: 80, tls: false, image: "x" },
+      }),
+      REV,
+    );
+    expect(plan.meta.containerNames).toEqual(["hello"]);
+    const run = step(plan, "run").cmds[1]!;
+    expect(run).toContain("--name hello ");
+    expect(run).not.toContain("bundant.revision");
+    expect(run).not.toContain("bundant.replica");
   });
 
   test("env vars present: run gets --env-file, values never appear anywhere", () => {

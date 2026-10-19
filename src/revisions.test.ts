@@ -2,9 +2,13 @@ import { describe, expect, test } from "bun:test";
 import {
   RevisionNotFoundError,
   parseHistory,
+  replicaOf,
   revisionOf,
   selectByRevision,
   selectPrevious,
+  selectPreviousRevision,
+  selectRevision,
+  summarizeRevisions,
 } from "./revisions.ts";
 
 const LISTING = [
@@ -27,6 +31,70 @@ describe("history parsing", () => {
   test("revisionOf strips the service-role prefix", () => {
     expect(revisionOf("hello-web-abc1234", "hello", "web")).toBe("abc1234");
     expect(revisionOf("api-worker-9f8e7d6")).toBe("9f8e7d6");
+  });
+
+  test("revisionOf strips a trailing replica suffix", () => {
+    expect(revisionOf("hello-web-abc1234-1", "hello", "web")).toBe("abc1234");
+    expect(revisionOf("hello-web-abc1234-12", "hello", "web")).toBe("abc1234");
+    expect(revisionOf("hello-web-abc1234", "hello", "web")).toBe("abc1234");
+    // a numeric revision is kept whole when the prefix is given
+    expect(revisionOf("hello-web-1234", "hello", "web")).toBe("1234");
+    expect(revisionOf("hello-web-1234-3", "hello", "web")).toBe("1234");
+  });
+
+  test("replicaOf reads the index; the single-replica name has none", () => {
+    expect(replicaOf("hello-web-abc1234-2", "hello", "web")).toBe(2);
+    expect(replicaOf("hello-web-abc1234", "hello", "web")).toBeUndefined();
+  });
+
+  test("replicas of one revision group into that revision", () => {
+    const entries = parseHistory(
+      [
+        "hello-web-rev3-1|2026-10-18 12:00:00 +0000 UTC|Up 2 minutes",
+        "hello-web-rev3-2|2026-10-18 12:00:00 +0000 UTC|Up 2 minutes",
+        "hello-web-rev2|2026-10-18 11:00:00 +0000 UTC|Exited (0) 1 hour ago",
+      ].join("\n"),
+    );
+    expect(entries.map((e) => e.revision)).toEqual(["rev3", "rev3", "rev2"]);
+  });
+});
+
+describe("revision grouping", () => {
+  const REPS = [
+    "hello-web-rev3-1|2026-10-18 12:00:00 +0000 UTC|Up 2 minutes",
+    "hello-web-rev3-2|2026-10-18 12:00:00 +0000 UTC|Up 2 minutes",
+    "hello-web-rev2-1|2026-10-18 11:00:00 +0000 UTC|Exited (0) 1 hour ago",
+    "hello-web-rev2-2|2026-10-18 11:00:00 +0000 UTC|Exited (0) 1 hour ago",
+    "hello-web-rev1|2026-10-18 10:00:00 +0000 UTC|Exited (0) 2 hours ago",
+  ].join("\n");
+
+  test("summarizeRevisions yields one row per revision with all replicas", () => {
+    const summaries = summarizeRevisions(parseHistory(REPS), "hello", "web");
+    expect(summaries.map((s) => s.revision)).toEqual(["rev3", "rev2", "rev1"]);
+    expect(summaries[0]!.containers).toHaveLength(2);
+    expect(summaries[0]!.running).toBe(true);
+    expect(summaries[1]!.running).toBe(false);
+  });
+
+  test("selectPreviousRevision steps to the next revision, not the next container", () => {
+    const summaries = summarizeRevisions(parseHistory(REPS), "hello", "web");
+    const sel = selectPreviousRevision(summaries);
+    expect(sel?.current.revision).toBe("rev3");
+    expect(sel?.target.revision).toBe("rev2");
+  });
+
+  test("selectRevision addresses a revision and both replicas travel with it", () => {
+    const summaries = summarizeRevisions(parseHistory(REPS), "hello", "web");
+    const sel = selectRevision(summaries, "rev2");
+    expect(sel.target.containers.map((c) => c.name)).toEqual([
+      "hello-web-rev2-1",
+      "hello-web-rev2-2",
+    ]);
+  });
+
+  test("selectRevision still accepts a full container name", () => {
+    const summaries = summarizeRevisions(parseHistory(REPS), "hello", "web");
+    expect(selectRevision(summaries, "hello-web-rev2-2").target.revision).toBe("rev2");
   });
 });
 

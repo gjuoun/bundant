@@ -57,6 +57,7 @@ registry).
 | command | what it does |
 |---|---|
 | `deploy [--dry-run] [--local-image n:t] [--rev ID] [-f path]` | full deploy; `--dry-run` prints every command without executing |
+| `scale --replicas n [-f path]` (or `scale n`) | add/remove replicas of the running revision without dropping requests (proxy target set changes before containers are removed) |
 | `rollback [--to-revision rev]` | previous revision, or the exact one named by `--to-revision`: re-gate then re-swap |
 | `history` | revisions newest-first with state, current one marked |
 | `status` | per-host containers, proxy targets, live health probe |
@@ -92,10 +93,12 @@ threshold.
 - [`docs/group.md`](docs/group.md) — group namespaces, `needs:` ordering, accessories and their lifecycle
 - [`docs/schema.md`](docs/schema.md) — `schema/*.json` for editor autocomplete + inline errors
 - [`docs/podman.md`](docs/podman.md) — rootless podman, LXC nesting, boot persistence, `bundant bootstrap`
+- [`docs/replicas.md`](docs/replicas.md) — N copies on one host, `bundant scale`, the drain ordering invariant
 - [`docs/monitoring.md`](docs/monitoring.md) — CLI + local UI monitoring, and what it deliberately leaves out
 - [`docs/architecture.md`](docs/architecture.md) — internals, proxy integration, design rules
 - [`examples/hello`](examples/hello) — runnable fixture
 - [`examples/shop`](examples/shop) — a group: db (accessory) + api + web
+- [`examples/replicas`](examples/replicas) — three copies of one service behind the proxy
 
 ## Development
 
