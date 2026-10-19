@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ApiClient, ApiQuery } from "./api.ts";
+import { toEpochSeconds } from "./time.ts";
 import { demuxStream } from "./api.ts";
 import type { RuntimeKind } from "../runtime.ts";
 import {
@@ -185,12 +186,13 @@ export class DockerAdapter implements RuntimeAdapter {
 
   // ----- events -------------------------------------------------------------
 
-  events(opts: { since?: string; until?: string; labels?: Record<string, string> } = {}): AsyncIterable<RuntimeEvent> {
+  events(opts: { since?: number | string; until?: number | string; labels?: Record<string, string> } = {}): AsyncIterable<RuntimeEvent> {
     const client = this.client;
     const self = this;
     const query: ApiQuery = {};
-    if (opts.since !== undefined) query.since = opts.since;
-    if (opts.until !== undefined) query.until = opts.until;
+    // the engines require epoch seconds; callers may pass "1h" or a timestamp
+    if (opts.since !== undefined) query.since = String(toEpochSeconds(opts.since));
+    if (opts.until !== undefined) query.until = String(toEpochSeconds(opts.until));
     const labels = Object.entries(opts.labels ?? {}).map(([k, v]) => k + "=" + v);
     if (labels.length > 0) query.filters = JSON.stringify({ label: labels });
 

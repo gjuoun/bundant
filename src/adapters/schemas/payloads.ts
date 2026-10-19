@@ -9,7 +9,7 @@ import type { components as PodmanComponents } from "../generated/podman-api.d.t
  * spec. A field that the schema accepts but the spec does not declare, or a
  * field name that drifts, is a compile error:
  *
- *   export const inspectSchema: z.ZodType<InspectWire> = z.object({
+ *   export const inspectSchema = z.object({
  *     // @ts-expect-error "Idd" is not a field of ContainerInspectResponse
  *     Idd: z.string(),
  *   });
@@ -24,7 +24,7 @@ type Schemas = components["schemas"];
 
 export type VersionPayload = PodmanComponents["schemas"]["SystemComponentVersion"];
 
-export const versionSchema: z.ZodType<VersionPayload> = z.object({
+export const versionSchema = z.object({
   Version: z.string().optional(),
   ApiVersion: z.string().optional(),
   MinAPIVersion: z.string().optional(),
@@ -52,7 +52,7 @@ export type InspectWire = Pick<InspectResponse, "Id" | "Name"> & {
 
 const restartPolicyName = z.enum(["", "no", "always", "unless-stopped", "on-failure"]);
 
-export const inspectSchema: z.ZodType<InspectWire, z.ZodTypeDef, unknown> = z.object({
+export const inspectSchema = z.object({
   Id: z.string(),
   Name: z.string(),
   Config: z
@@ -104,7 +104,7 @@ export type SummaryWire = Pick<
   "Id" | "Names" | "Image" | "State" | "Status" | "Labels" | "Created"
 >;
 
-export const summarySchema: z.ZodType<SummaryWire> = z.object({
+export const summarySchema = z.object({
   Id: z.string(),
   Names: z.array(z.string()),
   Image: z.string(),
@@ -114,7 +114,7 @@ export const summarySchema: z.ZodType<SummaryWire> = z.object({
   Created: z.number(),
 });
 
-export const summaryListSchema: z.ZodType<SummaryWire[]> = z.array(summarySchema);
+export const summaryListSchema = z.array(summarySchema);
 
 type StatsResponse = Schemas["ContainerStatsResponse"];
 type CpuStats = NonNullable<StatsResponse["cpu_stats"]>;
@@ -135,7 +135,7 @@ export type StatsWire = Pick<StatsResponse, "read"> & {
   networks?: Record<string, Pick<NetworkStats, "rx_bytes" | "tx_bytes">>;
 };
 
-export const statsSchema: z.ZodType<StatsWire> = z.object({
+export const statsSchema = z.object({
   read: z.string(),
   cpu_stats: z.object({
     cpu_usage: z.object({
@@ -175,7 +175,7 @@ export type VolumeWire = Pick<Volume, "Name"> & {
 };
 
 /** Docker answers `Labels: null` for an unlabelled volume; normalize it. */
-export const volumeSchema: z.ZodType<VolumeWire, z.ZodTypeDef, unknown> = z.object({
+export const volumeSchema = z.object({
   Name: z.string(),
   Labels: z.preprocess(
     (value) => (value === null || value === undefined ? {} : value),
@@ -194,7 +194,7 @@ export type EventWire = {
   Actor?: Pick<EventActor, "ID" | "Attributes">;
 };
 
-export const eventSchema: z.ZodType<EventWire> = z.object({
+export const eventSchema = z.object({
   Type: z.enum([
     "builder",
     "config",
@@ -227,7 +227,7 @@ export type CreateWire = Pick<CreateBody, "Image" | "Env" | "Labels"> & {
   HostConfig?: Pick<CreateHostConfig, "Binds" | "NetworkMode" | "RestartPolicy">;
 };
 
-export const createContainerSchema: z.ZodType<CreateWire> = z.object({
+export const createContainerSchema = z.object({
   Image: z.string(),
   Env: z.array(z.string()).optional(),
   Labels: z.record(z.string()).optional(),
@@ -246,12 +246,37 @@ export const createContainerSchema: z.ZodType<CreateWire> = z.object({
 });
 
 type StopQuery = NonNullable<operations["ContainerStop"]["parameters"]["query"]>;
-export const stopQuerySchema: z.ZodType<Pick<StopQuery, "t">> = z.object({
+export const stopQuerySchema = z.object({
   t: z.number().optional(),
 });
 
 type DeleteQuery = NonNullable<operations["ContainerDelete"]["parameters"]["query"]>;
-export const removeQuerySchema: z.ZodType<Pick<DeleteQuery, "force" | "v">> = z.object({
+export const removeQuerySchema = z.object({
   force: z.boolean().optional(),
   v: z.boolean().optional(),
 });
+
+// ---------------------------------------------------------------------------
+// Compile-time guards (see ./exact.ts):
+//  * assertAssignable: the schema's output must fit the generated wire type
+//  * assertNoExtraKeys: the schema must not declare a field the spec lacks,
+//    which is the failure mode a bare annotation misses (spec properties are
+//    almost all optional, so a renamed field still "fits").
+// Renaming `Id` to `Idd` below makes `tsc` fail.
+// ---------------------------------------------------------------------------
+import { assertAssignable, assertNoExtraKeys, type ShapeKeys } from "./exact.ts";
+
+assertAssignable<z.infer<typeof versionSchema>, VersionPayload>(true);
+assertAssignable<z.infer<typeof inspectSchema>, InspectWire>(true);
+assertAssignable<z.infer<typeof summarySchema>, SummaryWire>(true);
+assertAssignable<z.infer<typeof statsSchema>, StatsWire>(true);
+assertAssignable<z.infer<typeof volumeSchema>, VolumeWire>(true);
+assertAssignable<z.infer<typeof eventSchema>, EventWire>(true);
+assertAssignable<z.infer<typeof createContainerSchema>, CreateWire>(true);
+
+assertNoExtraKeys<ShapeKeys<typeof versionSchema>, VersionPayload>(true);
+assertNoExtraKeys<ShapeKeys<typeof inspectSchema>, InspectWire>(true);
+assertNoExtraKeys<ShapeKeys<typeof summarySchema>, SummaryWire>(true);
+assertNoExtraKeys<ShapeKeys<typeof statsSchema>, StatsWire>(true);
+assertNoExtraKeys<ShapeKeys<typeof volumeSchema>, VolumeWire>(true);
+assertNoExtraKeys<ShapeKeys<typeof eventSchema>, EventWire>(true);

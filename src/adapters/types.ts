@@ -98,7 +98,7 @@ export interface RuntimeAdapter {
   inspectVolume(name: string): Promise<{ labels: Record<string, string> }>;
   ensureNetwork(name: string): Promise<void>;
   // events
-  events(opts?: { since?: string; until?: string; labels?: Record<string, string> }): AsyncIterable<RuntimeEvent>;
+  events(opts?: { since?: number | string; until?: number | string; labels?: Record<string, string> }): AsyncIterable<RuntimeEvent>;
 }
 
 /** A mutating method reached before its stage. */
