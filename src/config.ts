@@ -66,6 +66,13 @@ export const RawConfigSchema = z.object({
   service: z.string().regex(NAME_RE, "must match [a-z0-9-]").describe("service name; also the identity in container names"),
   image: z.string().min(1).describe("registry ref to run; --local-image overrides it"),
   role: z.string().regex(NAME_RE, "must match [a-z0-9-]").describe("variant within the service (default web); containers are <service>-<role>-<rev>").optional(),
+  /** Copies of one service on a single host; the proxy round-robins between them. */
+  replicas: z
+    .number()
+    .int()
+    .min(1)
+    .describe("running copies of this service on each host (default 1); >1 requires proxy.enabled: true")
+    .optional(),
   /** service (stateless, deployed by bundant) or accessory (stateful, explicit). */
   kind: z
     .enum(["service", "accessory"])
@@ -103,6 +110,8 @@ export interface BundantConfig {
   service: string;
   image: string;
   role: string;
+  /** Running copies of this service on each host (default 1; accessories are one of one). */
+  replicas: number;
   /** service (default) or accessory — accessories are never deployed/rolled/pruned. */
   kind?: "service" | "accessory";
   /** Named volumes (accessory only). */
@@ -134,11 +143,24 @@ export function normalize(raw: RawConfig, hosts?: string[]): BundantConfig {
       "invalid deploy.yml: proxy.host is required when proxy.enabled is true (set enabled: false for proxy-less roles)",
     );
   }
+  const kind = raw.kind ?? "service";
+  const replicas = raw.replicas ?? 1;
+  if (kind === "accessory" && raw.replicas !== undefined) {
+    throw new ConfigError(
+      "invalid deploy.yml: replicas is not allowed on kind: accessory (a stateful member is one of one)",
+    );
+  }
+  if (replicas > 1 && !proxy.enabled) {
+    throw new ConfigError(
+      "invalid deploy.yml: replicas > 1 requires proxy.enabled: true — without a proxy nothing distributes traffic between the copies",
+    );
+  }
   return {
     service: raw.service,
     image: raw.image,
     role: raw.role ?? "web",
-    kind: raw.kind ?? "service",
+    replicas,
+    kind,
     volumes: raw.volumes ?? [],
     hosts: hosts ?? raw.hosts ?? [],
     user: raw.user,

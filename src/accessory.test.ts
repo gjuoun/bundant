@@ -8,6 +8,7 @@ function cfg(over: Partial<BundantConfig> = {}): BundantConfig {
     service: "db",
     image: "docker.io/library/postgres:16-alpine",
     role: "web",
+    replicas: 1,
     kind: "accessory",
     volumes: ["pgdata:/var/lib/postgresql/data"],
     group: "shop",

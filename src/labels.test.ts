@@ -13,6 +13,7 @@ function cfg(over: Partial<BundantConfig> = {}): BundantConfig {
     service: "api",
     image: "traefik/whoami:v1.10",
     role: "web",
+    replicas: 1,
     hosts: ["root@host1"],
     runtime: "docker",
     env: { vars: {} },

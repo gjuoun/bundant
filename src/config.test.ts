@@ -35,6 +35,47 @@ describe("loadConfig", () => {
     expect(config.healthcheck.timeout).toBe(30);
     expect(config.healthcheck.port).toBe(80);
     expect(config.env.vars).toEqual({});
+    expect(config.replicas).toBe(1);
+  });
+
+  test("replicas defaults to 1 and accepts N with the proxy enabled", () => {
+    const { config } = loadConfig(writeYml("rep1.yml", [minimal, "replicas: 3"].join("\n")));
+    expect(config.replicas).toBe(3);
+  });
+
+  test("replicas > 1 without a proxy is a configuration error", () => {
+    const noProxy = [
+      "service: hello",
+      "image: traefik/whoami:v1.10",
+      "hosts:",
+      "  - box.tail1234.ts.net",
+      "replicas: 2",
+      "proxy:",
+      "  enabled: false",
+    ].join("\n");
+    expect(() => loadConfig(writeYml("rep2.yml", noProxy))).toThrow(/replicas > 1 requires proxy\.enabled/);
+  });
+
+  test("replicas is rejected on an accessory (stateful members are one of one)", () => {
+    const acc = [
+      "service: db",
+      "image: postgres:16",
+      "kind: accessory",
+      "replicas: 2",
+      "hosts:",
+      "  - box.tail1234.ts.net",
+      "proxy:",
+      "  enabled: false",
+    ].join("\n");
+    expect(() => loadConfig(writeYml("rep3.yml", acc))).toThrow(/not allowed on kind: accessory/);
+  });
+
+  test("replicas must be an integer >= 1", () => {
+    for (const bad of ["0", "-1", "1.5"]) {
+      expect(() =>
+        loadConfig(writeYml("repbad-" + bad + ".yml", [minimal, "replicas: " + bad].join("\n"))),
+      ).toThrow(/replicas/);
+    }
   });
 
   test("BUNDANT_HOSTS overrides the hosts list", () => {
