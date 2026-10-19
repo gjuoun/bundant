@@ -47,14 +47,36 @@ export function parseHistory(stdout: string): RevisionEntry[] {
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
 }
 
-/** Revision id is the name minus the <service>-<role>- prefix. */
+/** Drop a trailing replica suffix (`-<digits>`) from a name or revision. */
+export function stripReplicaSuffix(value: string): string {
+  const match = /^(.*)-[0-9]+$/.exec(value);
+  return match ? match[1]! : value;
+}
+
+/**
+ * Revision id is the name minus the <service>-<role>- prefix and minus the
+ * replica suffix: `api-web-abc1234` and `api-web-abc1234-2` are both abc1234.
+ * The prefix is required to tell a numeric revision from a replica index.
+ */
 export function revisionOf(name: string, service?: string, role?: string): string {
   if (service !== undefined && role !== undefined) {
     const prefix = service + "-" + role + "-";
-    if (name.startsWith(prefix)) return name.slice(prefix.length);
+    if (name.startsWith(prefix)) return stripReplicaSuffix(name.slice(prefix.length));
   }
-  const firstDash = name.indexOf("-");
-  return firstDash === -1 ? name : name.slice(name.lastIndexOf("-") + 1);
+  const base = stripReplicaSuffix(name);
+  const firstDash = base.indexOf("-");
+  return firstDash === -1 ? base : base.slice(base.lastIndexOf("-") + 1);
+}
+
+/** Replica index from a container name (undefined for the single-replica name). */
+export function replicaOf(name: string, service?: string, role?: string): number | undefined {
+  let rest = name;
+  if (service !== undefined && role !== undefined) {
+    const prefix = service + "-" + role + "-";
+    if (name.startsWith(prefix)) rest = name.slice(prefix.length);
+  }
+  const match = /-([0-9]+)$/.exec(rest);
+  return match ? Number(match[1]) : undefined;
 }
 
 /** The revision currently serving traffic: the first entry whose state says Up. */

@@ -8,6 +8,10 @@
 export const LABEL_SERVICE = "bundant.service";
 export const LABEL_GROUP = "bundant.group";
 export const LABEL_KIND = "bundant.kind";
+/** Deployment revision the container belongs to (services only). */
+export const LABEL_REVISION = "bundant.revision";
+/** Replica index within the revision, 1-based (services only; 1 for a single). */
+export const LABEL_REPLICA = "bundant.replica";
 export const LABEL_VOLUMES = "bundant.volumes";
 /** Volume ownership: `<group>/<service>`. */
 export const LABEL_OWNER = "bundant.owner";

@@ -52,7 +52,7 @@ export async function deploy(plan: DeployPlan, loaded: LoadedConfig): Promise<nu
     for (const host of m.hosts) {
       const exec = new SshExecutor(connectOptionsFor(connectionForTarget(loaded.config, host)));
       execs.add(exec);
-      console.log("[" + host + "] deploying " + m.containerName);
+      console.log("[" + host + "] deploying " + m.containerNames.join(", "));
       let containerStarted = false;
 
       try {
@@ -76,10 +76,12 @@ export async function deploy(plan: DeployPlan, loaded: LoadedConfig): Promise<nu
             continue;
           }
           if (step.phase === "health") {
-            await waitUntilHealthy(exec, step.cmds[0], {
-              timeoutMs: m.healthcheck.timeout * 1000,
-            });
-            console.log("[" + host + "] health gate passed");
+            for (const probeCmd of step.cmds) {
+              await waitUntilHealthy(exec, probeCmd, {
+                timeoutMs: m.healthcheck.timeout * 1000,
+              });
+            }
+            console.log("[" + host + "] health gate passed (" + step.cmds.length + " target(s))");
             continue;
           }
           for (const cmd of step.cmds) {
@@ -96,9 +98,10 @@ export async function deploy(plan: DeployPlan, loaded: LoadedConfig): Promise<nu
         }
       } catch (e) {
         if (containerStarted) {
-          const rm = await exec.run(rt.bin + " rm -f " + m.containerName);
+          const rm = await exec.run(rt.bin + " rm -f " + m.containerNames.join(" "));
           console.log(
-            "[" + host + "] aborted, removed failed container " + m.containerName +
+            "[" + host + "] aborted, removed containers started by this run (" +
+            m.containerNames.join(", ") + ")" +
             (rm.code === 0 ? "" : " (rm failed: " + rm.stderr.trim() + ")"),
           );
         } else {
@@ -108,7 +111,9 @@ export async function deploy(plan: DeployPlan, loaded: LoadedConfig): Promise<nu
       }
     }
 
-    console.log("deployed " + m.containerName + " on " + m.hosts.length + " host(s)");
+    console.log(
+      "deployed " + m.containerNames.join(", ") + " on " + m.hosts.length + " host(s)",
+    );
     return 0;
   } finally {
     if (locked) await releaseLock(primary, m.lockKey);
