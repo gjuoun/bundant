@@ -64,6 +64,29 @@ prefix them yourself (`shop-api`, `shop-web`).
 An accessory is stateful: it keeps a stable container name (no revision) and
 named volumes, so clients, ports and data survive app deploys.
 
+**Every object says what it is.** The container carries
+`bundant.kind=accessory` (services carry `bundant.kind=service`), plus
+`bundant.volumes=<name,name>`; the declared volumes are created *before* the
+container with `bundant.kind=accessory`, `bundant.owner=<group>/<service>` and
+`bundant.managed=true`. So a host is self-describing even to someone who only has
+the runtime CLI:
+
+```sh
+docker ps -a --filter label=bundant.kind=accessory
+docker volume inspect pgdata --format '{{json .Labels}}'
+# {"bundant.kind":"accessory","bundant.managed":"true","bundant.owner":"shop/db"}
+```
+
+That metadata is what the safety rules are built on, not a name convention:
+
+- `delete` and the `group uninstall` sweep select by `bundant.kind=service`, and
+  each candidate is re-checked — a container that says `accessory` is skipped with
+  `skip accessory <name> (stateful: use bundant accessory remove)`, even if its
+  name happens to match a service prefix.
+- `deploy`'s stop-old pass skips accessories the same way.
+- `accessory remove --volumes` only deletes a volume whose `bundant.owner` is this
+  accessory; a volume owned by someone else is reported and left alone.
+
 ```yaml
 # shop/db/accessory.yml
 kind: accessory

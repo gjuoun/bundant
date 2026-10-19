@@ -72,7 +72,7 @@ export interface GroupRunOptions {
 }
 
 export function memberLabels(group: string, name: string): Record<string, string> {
-  return { "bundant.service": name, "bundant.group": group };
+  return { "bundant.service": name, "bundant.group": group, "bundant.kind": "service" };
 }
 
 function errorMessage(e: unknown): string {

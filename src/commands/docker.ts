@@ -1,4 +1,5 @@
 import type { Runtime } from "../runtime.ts";
+import { KIND_ACCESSORY, LABEL_KIND } from "../labels.ts";
 
 /** Pure container-runtime command builders — every string runs verbatim on the target host. */
 
@@ -96,6 +97,36 @@ export function volumeRemove(rt: Runtime, volume: string): string {
   return rt.bin + " volume rm " + volume;
 }
 
+/**
+ * Create a named volume with its ownership labels. Idempotent on both runtimes:
+ * podman fails with 125 when the volume already exists, docker returns 0.
+ */
+export function volumeCreate(
+  rt: Runtime,
+  volume: string,
+  labels?: Record<string, string>,
+): string {
+  const labelArgsText = labelArgs(labels).map((a) => " " + a).join("");
+  return rt.bin + " volume create" + labelArgsText + " " + volume + " 2>/dev/null || true";
+}
+
+/**
+ * Shell guard: print the value of one label on a container, empty when absent.
+ * Used to skip accessories during a sweep instead of guessing from the name.
+ */
+export function inspectLabel(rt: Runtime, container: string, key: string): string {
+  return (
+    rt.bin + ' inspect -f \'{{index .Config.Labels "' + key + '"}}\' ' + container + " 2>/dev/null || true"
+  );
+}
+
+/** Shell guard: print the value of one label on a volume (empty when absent). */
+export function volumeLabel(rt: Runtime, volume: string, key: string): string {
+  return (
+    rt.bin + " volume inspect -f '{{index .Labels \"" + key + "\"}}' " + volume + " 2>/dev/null || true"
+  );
+}
+
 /** Stop every container of this service-role except the freshly deployed one. */
 export function stopOld(
   rt: Runtime,
@@ -108,6 +139,8 @@ export function stopOld(
   return (
     'for c in $(' + rt.bin + ' ps -a --filter "name=' + prefix + '" --format "{{.Names}}"' +
     ' | grep "^' + prefix + '" | grep -v "^' + keep + '$"); do ' +
+    'k=$(' + inspectLabel(rt, '"$c"', LABEL_KIND) + '); ' +
+    'if [ "$k" = "' + KIND_ACCESSORY + '" ]; then continue; fi; ' +
     rt.bin + " stop -t " + timeout + ' "$c"; done'
   );
 }

@@ -4,7 +4,7 @@ import * as proxy from "./commands/proxy.ts";
 import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
 import { connectionForTarget, hostTargets } from "./hosts.ts";
 import { acquireLock, lockKey, releaseLock } from "./lock.ts";
-import { envRemotePath } from "./planner.ts";
+import { envRemotePath, LABEL_KIND, KIND_ACCESSORY } from "./planner.ts";
 import { runtimeFor } from "./runtime.ts";
 import type { CmdStep } from "./types.ts";
 
@@ -83,9 +83,14 @@ export function buildDeleteSteps(config: BundantConfig, opts: DeleteOptions): Cm
   const names =
     "for c in $(" + rt.bin + ' ps -a --filter "name=' + p + '" --format "{{.Names}}"' +
     ' | grep "^' + p + '"); do ';
-  const stopAndRemove = names + rt.bin + ' stop -t 10 "$c" 2>/dev/null; ' + rt.bin + ' rm -f "$c"; done';
+  // A container that says it is an accessory is never swept, whatever its name.
+  const skipAccessory =
+    'k=$(' + docker.inspectLabel(rt, '"$c"', LABEL_KIND) + '); ' +
+    'if [ "$k" = "' + KIND_ACCESSORY + '" ]; then echo "skip accessory $c (stateful: use bundant accessory remove)" >&2; continue; fi; ';
+  const stopAndRemove =
+    names + skipAccessory + rt.bin + ' stop -t 10 "$c" 2>/dev/null; ' + rt.bin + ' rm -f "$c"; done';
   const collectImages =
-    names + rt.bin + ' inspect -f "{{.Config.Image}}" "$c" 2>/dev/null; done | sort -u';
+    names + skipAccessory + rt.bin + ' inspect -f "{{.Config.Image}}" "$c" 2>/dev/null; done | sort -u';
 
   if (opts.images) {
     steps.push({

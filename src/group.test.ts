@@ -139,6 +139,7 @@ describe("memberLabels", () => {
   test("carries the exact service + group labels", () => {
     expect(memberLabels("shop", "api")).toEqual({
       "bundant.service": "api",
+      "bundant.kind": "service",
       "bundant.group": "shop",
     });
   });
