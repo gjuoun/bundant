@@ -42,6 +42,8 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "schema:gen": "bun run scripts/gen-schema.ts",
+    "api:gen": "bun run scripts/api-gen.ts",
+    "api:check": "bun run scripts/api-gen.ts --check",
     "schema:check": "bun test src/schema.test.ts"
   },
   "dependencies": {
@@ -51,6 +53,8 @@
   "devDependencies": {
     "@types/bun": "^1.3.0",
     "ajv": "^8.17.1",
+    "openapi-typescript": "^7.13.0",
+    "swagger2openapi": "^7.0.8",
     "typescript": "^5.7.0",
     "zod-to-json-schema": "^3.25.0"
   },

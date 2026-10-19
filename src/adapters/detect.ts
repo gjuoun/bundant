@@ -1,24 +1,15 @@
 import type { RuntimeKind } from "../runtime.ts";
+import type { VersionPayload } from "./schemas/payloads.ts";
 
 /**
  * Runtime detection: probe the known unix sockets, ask GET /version, and let
  * the response's components say which engine answers. deploy.yml's runtime:
  * stays authoritative — a disagreement is an error, never a silent override.
+ *
+ * VersionPayload is the generated Podman SystemComponentVersion (also the
+ * shape Docker answers); the schema that validates it lives in schemas/.
  */
-
-export interface VersionComponent {
-  Name?: string;
-  Version?: string;
-  /** Podman reports its REST API version here, not in the top-level ApiVersion. */
-  Details?: { APIVersion?: string; MinAPIVersion?: string };
-}
-
-export interface VersionPayload {
-  Version?: string;
-  ApiVersion?: string;
-  MinAPIVersion?: string;
-  Components?: VersionComponent[];
-}
+export type { VersionPayload };
 
 export interface EngineVersion {
   kind: RuntimeKind;

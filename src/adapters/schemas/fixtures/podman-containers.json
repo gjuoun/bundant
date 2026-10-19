@@ -1,0 +1,57 @@
+{
+  "Id": "50df12e881064eaf0e7d4a1c7ea59cabfd9226a78b312737f8cf04b05b1a4302",
+  "Names": [
+    "/kamal-proxy"
+  ],
+  "Image": "docker.io/basecamp/kamal-proxy:latest",
+  "ImageID": "sha256:913c8cb3fa891484034c84e51db41eb3a13b745bb3b1b28c1aeb372404473de7",
+  "Command": "kamal-proxy run",
+  "Created": 1792321717,
+  "Ports": [
+    {
+      "PrivatePort": 80,
+      "PublicPort": 80,
+      "Type": "tcp"
+    },
+    {
+      "PrivatePort": 443,
+      "PublicPort": 443,
+      "Type": "tcp"
+    }
+  ],
+  "Labels": {
+    "org.opencontainers.image.ref.name": "ubuntu",
+    "org.opencontainers.image.title": "kamal-proxy",
+    "org.opencontainers.image.version": "v0.10.2"
+  },
+  "State": "running",
+  "Status": "Up 29 hours",
+  "NetworkSettings": {
+    "Networks": {
+      "bundant": {
+        "IPAMConfig": null,
+        "Links": null,
+        "Aliases": [
+          "50df12e88106"
+        ],
+        "MacAddress": "6a:76:78:6c:f3:f8",
+        "DriverOpts": null,
+        "NetworkID": "675a9c9af27763c88bc5c434c0b56c6330f637a7a3021b411172e989c9e5fa9d",
+        "EndpointID": "",
+        "Gateway": "10.89.0.1",
+        "IPAddress": "10.89.0.17",
+        "IPPrefixLen": 24,
+        "IPv6Gateway": "",
+        "GlobalIPv6Address": "",
+        "GlobalIPv6PrefixLen": 0,
+        "DNSNames": null
+      }
+    }
+  },
+  "Mounts": [],
+  "Name": "",
+  "Config": null,
+  "NetworkingConfig": null,
+  "Platform": null,
+  "DefaultReadOnlyNonRecursive": false
+}

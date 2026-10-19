@@ -93,6 +93,7 @@ threshold.
 - [`docs/deploy-yml.md`](docs/deploy-yml.md) — every field, env handling, revisions
 - [`docs/group.md`](docs/group.md) — group namespaces, `needs:` ordering, accessories and their lifecycle
 - [`docs/schema.md`](docs/schema.md) — `schema/*.json` for editor autocomplete + inline errors
+- [`docs/api-types.md`](docs/api-types.md) — generated engine API types + zod validation at the adapter boundary
 - [`docs/podman.md`](docs/podman.md) — rootless podman, LXC nesting, boot persistence, `bundant bootstrap`
 - [`docs/replicas.md`](docs/replicas.md) — N copies on one host, `bundant scale`, the drain ordering invariant
 - [`docs/monitoring.md`](docs/monitoring.md) — CLI + local UI monitoring, and what it deliberately leaves out
@@ -106,6 +107,7 @@ threshold.
 ```sh
 bun run typecheck && bun test    # unit suites, no docker needed
 bun run schema:gen               # regenerate schema/*.json after editing src/config.ts
+bun run api:gen                  # regenerate engine API types from specs/ + the allowlist
 
 # dual-runtime smoke: everything below must work (same sources, both runtimes)
 bun  src/cli.ts --version
