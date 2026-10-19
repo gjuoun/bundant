@@ -11,6 +11,7 @@ const USAGE = [
   "",
   "commands:",
   "  deploy                deploy the current revision to every host",
+  "  scale --replicas <n>   add/remove replicas of the running revision (no drops)",
   "  rollback [--to-revision <rev>]  previous revision, or the one named by --to-revision",
   "  history                revisions newest-first, with state and the current one",
   "  status                per-host containers, proxy targets, health",
@@ -33,6 +34,7 @@ const USAGE = [
   "      --rev <id>        override revision id (testing hook; default: git short sha)",
   "      --local-image <name:tag>  stream a locally built image to hosts (no registry)",
   "      --keep <k>        prune: revisions to keep (default 3)",
+  "      --replicas <n>    scale: target replica count for the running revision",
   "      --yes             delete / accessory remove: required confirmation",
   "      --images          delete: also remove the image refs of the deleted revisions",
   "      --volumes         accessory remove: also delete the declared named volumes",
@@ -70,6 +72,7 @@ async function main(): Promise<number> {
       rev: { type: "string" },
       "local-image": { type: "string" },
       keep: { type: "string", default: "3" },
+      replicas: { type: "string" },
       yes: { type: "boolean", default: false },
       images: { type: "boolean", default: false },
       volumes: { type: "boolean", default: false },
@@ -109,6 +112,33 @@ async function main(): Promise<number> {
     }
     const { deploy } = await import("./deploy.ts");
     return deploy(plan, loaded);
+  }
+
+  if (sub === "scale") {
+    // Both spellings work: `scale --replicas 5` and `scale 5`.
+    const raw = args.values.replicas ?? args.positionals[1];
+    if (raw === undefined) {
+      console.error("bundant: scale needs --replicas <n>");
+      return 2;
+    }
+    const replicas = Number(raw);
+    if (!Number.isInteger(replicas) || replicas < 1) {
+      console.error("bundant: --replicas must be an integer >= 1");
+      return 2;
+    }
+    const loaded = loadConfig(args.values.file ?? "deploy.yml");
+    if (loaded.config.kind === "accessory") {
+      console.error(
+        "bundant: " + loaded.config.service +
+          " is an accessory — a stateful member is one of one",
+      );
+      return 2;
+    }
+    const { scale } = await import("./scale.ts");
+    return scale(loaded, {
+      replicas,
+      dryRun: args.values["dry-run"] === true,
+    });
   }
 
   if (sub === "rollback") {

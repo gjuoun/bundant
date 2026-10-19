@@ -64,6 +64,16 @@ export function containerName(
   return (config.replicas ?? 1) > 1 ? base + "-" + replica : base;
 }
 
+/** The indexed name, unconditionally: `<service>-<role>-<rev>-<i>`. */
+export function indexedContainerName(
+  config: BundantConfig,
+  revision: string,
+  index: number,
+): string {
+  if (config.kind === "accessory") return config.service;
+  return config.service + "-" + config.role + "-" + revision + "-" + index;
+}
+
 /** Every container name this deploy runs on one host, in replica order. */
 export function containerNames(config: BundantConfig, revision: string): string[] {
   const count = config.kind === "accessory" ? 1 : Math.max(1, config.replicas ?? 1);

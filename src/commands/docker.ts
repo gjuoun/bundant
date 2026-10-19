@@ -194,6 +194,18 @@ export function listRunning(
     : rt.bin + ' ps --filter "name=' + service + "-" + role + '-" --format "{{.Names}}"';
 }
 
+/**
+ * Running service containers with the labels that identify a replica:
+ * name|bundant.revision|bundant.replica|image. Label-filtered, so it never
+ * picks up an accessory or a foreign service that shares a name prefix.
+ */
+export function listRunningReplicas(rt: Runtime, labels: Record<string, string>): string {
+  return (
+    rt.bin + " ps" + labelFilters(labels) +
+    ' --format "{{.Names}}|{{.Label "bundant.revision"}}|{{.Label "bundant.replica"}}|{{.Image}}"'
+  );
+}
+
 export function inspectRunning(rt: Runtime, container: string): string {
   return rt.bin + ' inspect -f "{{.State.Running}}" ' + container;
 }
