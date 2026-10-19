@@ -21,14 +21,12 @@ import {
   type VersionModule,
 } from "./config.ts";
 import type { NameGrammar, NameIdentity } from "./config/v1/grammar.ts";
-import { serviceId } from "./commands/proxy.ts";
-import { envRemotePath } from "./planner.ts";
-import { lockKey } from "./lock.ts";
+import { ServiceIdentity } from "./domain/identity.ts";
 import { resolveRevision } from "./revision.ts";
 
 export type { ValidationIssue } from "./config.ts";
 
-export interface ServiceIdentity {
+export interface ServiceIdentityView {
   kind: "service" | "accessory";
   group: string;
   service: string;
@@ -51,10 +49,10 @@ export interface GroupIdentity {
   revision: string;
   revisionSource: string;
   order: string[];
-  members: ServiceIdentity[];
+  members: ServiceIdentityView[];
 }
 
-export type ValidationIdentity = ServiceIdentity | GroupIdentity;
+export type ValidationIdentity = ServiceIdentityView | GroupIdentity;
 
 export interface ValidationReport {
   ok: boolean;
@@ -100,63 +98,44 @@ export function buildServiceIdentity(
   revision: string,
   revisionSource: string,
   grammar: NameGrammar = moduleForVersion(loaded.version).grammar,
-): ServiceIdentity {
+): ServiceIdentityView {
   const config = loaded.config;
-  const group = config.group ?? grammar.defaultGroup;
-  const kind = config.kind ?? "service";
-  const role = config.role;
-  const replicas = Math.max(1, config.replicas ?? 1);
+  const identity = ServiceIdentity.from(config, grammar, revision);
+  const group = identity.group === "" ? grammar.defaultGroup : identity.group;
+  const replicas = identity.replicas;
+  const composed = identity.containerName(replicas > 1 ? 1 : undefined);
+  const base = identity.compose();
 
-  if (kind === "accessory") {
-    const composed =
-      group === grammar.defaultGroup ? config.service : group + "-" + config.service;
-    const service =
-      group === grammar.defaultGroup ? composed : composed.slice(group.length + 1);
-    return {
-      kind,
-      group,
-      service: config.service,
-      composedName: composed,
-      containerNamePattern: composed,
-      lockKey: lockKey(config.group, config.service),
-      revision,
-      revisionSource,
-      roundTrip: grammar.group.test(group) && grammar.service.test(service),
-      replicas: 1,
-    };
-  }
-
-  const identity: NameIdentity = {
-    group,
-    service: config.service,
-    role,
-    revision,
-    replica: replicas > 1 ? 1 : undefined,
-  };
-  const composed = grammar.compose(identity);
-  const base = grammar.compose({ ...identity, replica: undefined });
   let roundTrip = false;
-  try {
-    const parsed = grammar.parse(composed, group);
-    roundTrip =
-      (parsed.group ?? grammar.defaultGroup) === group &&
-      parsed.service === config.service &&
-      parsed.role === role &&
-      parsed.revision === revision;
-  } catch {
-    roundTrip = false;
+  if (identity.kind === "accessory") {
+    const service =
+      identity.group === grammar.defaultGroup
+        ? composed
+        : composed.slice(identity.group.length + 1);
+    roundTrip = grammar.group.test(identity.group) && grammar.service.test(service);
+  } else {
+    try {
+      const parsed = grammar.parse(composed, group);
+      roundTrip =
+        (parsed.group ?? grammar.defaultGroup) === group &&
+        parsed.service === config.service &&
+        parsed.role === config.role &&
+        parsed.revision === revision;
+    } catch {
+      roundTrip = false;
+    }
   }
 
   return {
-    kind,
+    kind: identity.kind,
     group,
     service: config.service,
-    role,
+    role: config.role,
     composedName: composed,
     containerNamePattern: replicas > 1 ? base + "-<i>" : composed,
-    proxyId: config.proxy.enabled ? serviceId(config.service, role, config.group) : undefined,
-    envPath: envRemotePath(config),
-    lockKey: lockKey(config.group, config.service),
+    proxyId: config.proxy.enabled ? identity.proxyId() : undefined,
+    envPath: identity.envPath(),
+    lockKey: identity.lockKey(),
     revision,
     revisionSource,
     roundTrip,

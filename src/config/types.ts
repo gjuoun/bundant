@@ -8,6 +8,8 @@ export interface ValidationIssue {
 
 /** Fully-defaulted config. This shape is v1-compatible and version-agnostic. */
 export interface BundantConfig {
+  /** Config version that produced this object (implicit v1 when absent). */
+  version?: number;
   service: string;
   image: string;
   role: string;
