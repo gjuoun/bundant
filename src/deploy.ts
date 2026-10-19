@@ -1,4 +1,4 @@
-import { chmod, writeFile } from "node:fs/promises";
+import { chmod, unlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import type { LoadedConfig } from "./config.ts";
 import type { DeployPlan } from "./planner.ts";
@@ -55,7 +55,12 @@ export async function deployOnHost(
   const env = envArray(loaded.envContent);
 
   await ops.putEnv(opts.envLocalFile ?? null, m.envRemotePath, loaded.envCount);
-  if (opts.envLocalFile !== undefined && opts.envLocalFile !== null && m.envRemotePath !== undefined) {
+  if (
+    ops.via === "cli" &&
+    opts.envLocalFile !== undefined &&
+    opts.envLocalFile !== null &&
+    m.envRemotePath !== undefined
+  ) {
     console.log("[" + host + "] env uploaded (" + loaded.envCount + " vars, redacted)");
   }
 
@@ -155,7 +160,9 @@ export async function deploy(
   let locked = false;
 
   let envLocalFile: string | null = null;
-  if (loaded.envContent && m.envRemotePath) {
+  // The API path sends Env in the create request; only the legacy path needs a
+  // local staging file (and therefore a host-side upload).
+  if (via === "cli" && loaded.envContent && m.envRemotePath) {
     envLocalFile = tmpdir() + "/bundant-" + m.service + "-" + m.role + ".env";
     await writeFile(envLocalFile, loaded.envContent, { mode: 0o600 });
     await chmod(envLocalFile, 0o600);
@@ -205,5 +212,6 @@ export async function deploy(
   } finally {
     if (locked) await releaseLock(primary, m.lockKey);
     for (const e of execs) await e.close();
+    if (envLocalFile !== null) await unlink(envLocalFile).catch(() => {});
   }
 }

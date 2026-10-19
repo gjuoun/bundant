@@ -199,7 +199,9 @@ describe("zero-downtime contract on the ops layer", () => {
     await expect(deployOnHost(ops, plan, loadedFor(config), { host: "box.test" })).rejects.toThrow(
       /health gate failed/,
     );
-    expect(adapter.removed).toContain("hello-web-abc1234");
+    // Once before create (rm -f) and once by the failure cleanup: a single
+    // removal would mean the cleanup loop never ran.
+    expect(adapter.removed.filter((n) => n === "hello-web-abc1234")).toHaveLength(2);
     expect(adapter.execCalls).toHaveLength(0);
   });
 
