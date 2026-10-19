@@ -18,6 +18,7 @@ const USAGE = [
   "  prune                 remove stopped revisions beyond the newest K (--keep, default 3)",
   "  delete [--yes] [--images]  remove the service: proxy route, containers, env file",
   "  bootstrap             install/verify podman and its host prerequisites on every host",
+  "  runtime [--json]      per-host engine/API detection: socket, forward, service state",
   "  ps                    every container on every host, with state and ports",
   "  stats                 one resource snapshot per host (cpu / mem / pids)",
   "  logs [--follow]       tail logs (all hosts in parallel; --follow streams them)",
@@ -39,6 +40,8 @@ const USAGE = [
   "      --images          delete: also remove the image refs of the deleted revisions",
   "      --volumes         accessory remove: also delete the declared named volumes",
   "      --to-revision <rev>  group rollback: the shared git sha for every service",
+  "      --json            runtime: machine-readable per-host report",
+  "      --hosts a,b       runtime: override the configured host list",
   "",
   "env:",
   "  BUNDANT_HOSTS=a,b     override deploy.yml hosts",
@@ -84,6 +87,8 @@ async function main(): Promise<number> {
       follow: { type: "boolean", default: false },
       since: { type: "string", default: "2h" },
       port: { type: "string", default: "8787" },
+      json: { type: "boolean", default: false },
+      hosts: { type: "string" },
     },
   });
   const sub = args.positionals[0];
@@ -187,6 +192,22 @@ async function main(): Promise<number> {
       dryRun: args.values["dry-run"] === true,
       smoke: args.values["skip-smoke"] !== true,
     });
+  }
+
+  if (sub === "runtime") {
+    const loaded = loadConfig(args.values.file ?? "deploy.yml");
+    const hosts =
+      args.values.hosts === undefined
+        ? undefined
+        : args.values.hosts.split(",").map((s) => s.trim()).filter((s) => s !== "");
+    const { runtimeReport, renderRuntimeReport } = await import("./runtime-report.ts");
+    const reports = await runtimeReport(loaded, { hosts });
+    if (args.values.json === true) {
+      console.log(JSON.stringify(reports, null, 2));
+    } else {
+      console.log(renderRuntimeReport(reports));
+    }
+    return reports.every((r) => r.ok) ? 0 : 1;
   }
 
   if (sub === "ps" || sub === "stats" || sub === "inspect" || sub === "logs" || sub === "events") {

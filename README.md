@@ -66,6 +66,7 @@ registry).
 | `group <install\|uninstall\|status\|rollback> -f group.yml` | namespace lifecycle: ordered install (`needs:` topo-sorted), labelled-sweep uninstall that leaves accessories alone, aggregated status, whole-group rollback to one shared sha |
 | `accessory <boot\|reboot\|stop\|logs\|status\|remove> -f accessory.yml` | stateful member lifecycle: stable name + named volumes, `healthcheck.tcp` readiness, `remove --yes [--volumes]` |
 | `bootstrap [--dry-run] [--skip-smoke]` | make each host ready: install podman when missing (apt/dnf/yum/apk/pacman/zypper), enable `podman-restart.service`, set the registry search path, smoke-test one container |
+| `runtime [--json] [--hosts a,b]` | per-host engine detection over the forwarded socket: engine, engine/API version, socket path, forward path, and socket-service state |
 | `ps` / `stats` / `events [--since 2h]` | read-only monitoring: every container with state and ports, one resource snapshot per host, a bounded runtime-event window |
 | `logs [--host h] [--container c] [--tail n] [--follow]` | tail logs (all hosts in parallel, host-prefixed) or stream them with `--follow` |
 | `inspect <selector>` | state, restarts, health, image, restart policy, log driver |
