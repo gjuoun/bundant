@@ -30,6 +30,8 @@ export interface ContainerSummary {
   status: string;
   labels: Record<string, string>;
   created: number;
+  /** Published ports in CLI form: "0.0.0.0:80->80/tcp, 443/tcp". */
+  ports: string;
 }
 
 /** The subset of GET /containers/{id}/json the CLI programs against. */
@@ -37,10 +39,19 @@ export interface ContainerInfo {
   id: string;
   name: string;
   image: string;
-  state: { status: string; running: boolean; exitCode: number; startedAt?: string };
+  state: {
+    status: string;
+    running: boolean;
+    exitCode: number;
+    startedAt?: string;
+    restarts: number;
+    /** Container health status; undefined when the container has no healthcheck. */
+    health?: string;
+  };
   labels: Record<string, string>;
   env: string[];
   restartPolicy: string;
+  logDriver: string;
   binds: string[];
   networkMode: string;
   /** The engine's untouched inspect payload for fields the subset omits. */

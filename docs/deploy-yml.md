@@ -53,12 +53,13 @@ pipeline.
   IPv6 literals go in brackets (`root@[2001:db8::1]`); a port goes after the
   host (`root@box.example.com:2222`, `root@[2001:db8::1]:2222`). `IdentityFile`
   and `ProxyJump` still belong in `~/.ssh/config`, which ssh itself reads.
-- **revision** — container names are `<service>-<role>-<rev>`, where `rev` is the git
-  short sha of the repo holding `deploy.yml` (fallback `rev-<base36>` before the first
-  commit). `--rev ID` overrides it as a testing hook.
+- **revision** — container names are `<service>-<role>-<rev>` (or
+  `<group>-<service>-<role>-<rev>` inside a real group; the `default` group never
+  prefixes), where `rev` is the git short sha of the repo holding `deploy.yml` (fallback
+  `rev-<base36>` before the first commit). `--rev ID` overrides it as a testing hook.
 - **replicas** — how many copies of this service run on **each** host (default 1).
   `replicas: 1` keeps the exact container name above; `N > 1` uses
-  `<service>-<role>-<rev>-1` … `-<N>` and every container carries
+  `<prefix>-<rev>-1` … `-<N>` (the same prefix as the single-replica name) and every container carries
   `bundant.revision` + `bundant.replica`. `N > 1` requires `proxy.enabled: true`
   (the proxy is what distributes requests) and is rejected on `kind: accessory`
   (a stateful member is one of one). See [`replicas.md`](replicas.md) and

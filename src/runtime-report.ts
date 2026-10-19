@@ -5,14 +5,15 @@ import { resolveConnections } from "./hosts.ts";
 import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
 import { DetectionError } from "./adapters/detect.ts";
 import { NoRuntimeSocketError, openAdapter } from "./adapters/index.ts";
+import { socketServiceState, type SocketServiceState } from "./adapters/service.ts";
+
+export type { SocketServiceState };
 
 /**
  * bundant runtime: prove detection end to end. Per host it reports what the
  * engine says about itself, which socket was used, the local forward, and
  * whether the socket service is enabled or merely running.
  */
-
-export type SocketServiceState = "enabled" | "active" | "inactive" | "absent";
 
 export interface RuntimeCandidateReport {
   socketPath: string;
@@ -38,25 +39,6 @@ export interface RuntimeReportOptions {
   /** --hosts a,b override. */
   hosts?: string[];
   cacheDir?: string;
-}
-
-/** systemd is the only ssh-level step runtime needs; the socket itself is API. */
-async function socketServiceState(
-  connection: HostConnection,
-  expected: RuntimeKind,
-): Promise<SocketServiceState> {
-  if (expected !== "podman") return "active";
-  try {
-    const exec = new SshExecutor(connectOptionsFor(connection));
-    const r = await exec.run("systemctl is-enabled podman.socket 2>/dev/null || true");
-    const state = r.stdout.trim();
-    if (state === "enabled" || state === "enabled-runtime" || state === "static" || state === "indirect") {
-      return "enabled";
-    }
-    return "active";
-  } catch {
-    return "active";
-  }
 }
 
 async function reportFor(

@@ -41,23 +41,28 @@ special case: it loads with `group: default`, so the same shape applies everywhe
 
 | item | in `default` (no group directory) | in a group |
 |---|---|---|
+| container | `<service>-<role>-<rev>` | `<group>-<service>-<role>-<rev>` |
+| replicas | `<service>-<role>-<rev>-<i>` | `<group>-<service>-<role>-<rev>-<i>` |
+| proxy id | `<service>-<role>` | `<group>-<service>-<role>` |
+| accessory container | `<service>` | `<group>-<service>` |
 | env file | `~/.bundant/env/default/<service>-<role>.env` | `~/.bundant/env/<group>/<service>-<role>.env` |
 | lock key | `default/<service>` | `<group>/<service>` (one outer `<group>` lock per group run) |
 | labels | `bundant.service=<service>`, `bundant.group=default` | `bundant.service=<service>`, `bundant.group=<group>` |
 
-The deployment identity stays **per service**: the container is `<service>-<role>-<rev>`,
-the proxy id is `<service>-<role>`, and the git sha of the group repo is the release id for
-the whole set.
+**The default group never prefixes.** Ungrouped names are byte-for-byte what they were,
+so existing deployments need no migration. A real group puts its name in front of the
+container and the proxy id, which is what lets two groups both contain a service called
+`api`: they stay `alpha-api-web-<rev>` and `beta-api-web-<rev>`, with proxy ids
+`alpha-api-web` and `beta-api-web`. The role segment stays in the proxy id, so two roles
+of one service do not fight over a route.
 
-The labels make filtering exact: `ps` and the delete sweep select by
-`label=bundant.service=…` (and `label=bundant.group=…`), never by name prefix.
+The git sha of the group repo is still the release id for the whole set. Env paths, lock
+keys and labels are unchanged — only names change.
 
-**Until group-scoped naming lands (planned change: container
-`<group>-<service>-<role>-<rev>`, proxy id `<group>-<service>`), a service name must be
-unique per host across groups.** Container names and proxy ids are still per service, so
-two groups that both deploy a service called `api` collide: the second one's
-`group uninstall` removes the first one's proxy route. Keep service names distinct, or
-prefix them yourself (`shop-api`, `shop-web`).
+Selection understands both shapes: `stop-old`, `prune`, `rollback`, `delete` and the
+`group uninstall` sweep also find pre-grouping containers (`<service>-<role>-<rev>` with
+`bundant.group=<group>`), so an in-place upgrade leaves no orphans. Where an old prefix is
+ambiguous, `bundant.group` is checked before anything is removed.
 
 ## Accessories
 

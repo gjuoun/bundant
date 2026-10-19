@@ -1,7 +1,10 @@
 import type { LoadedConfig } from "./config.ts";
 import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
-import { resolveConnections } from "./hosts.ts";
+import { resolveConnections, type HostConnection } from "./hosts.ts";
 import type { Executor } from "./types.ts";
+import type { RuntimeKind } from "./runtime.ts";
+import { openAdapter } from "./adapters/index.ts";
+import { socketServiceState } from "./adapters/service.ts";
 
 /**
  * Host bootstrap: make any mainstream Linux box able to run this deployment —
@@ -33,14 +36,20 @@ export interface BootstrapProbe {
   os: OsRelease;
   family: PackageFamily;
   hasPodman: boolean;
+  /** docker binary present (informational on a docker host). */
+  hasDocker?: boolean;
   hasSystemd: boolean;
   /** container=lxc shows up in PID 1's environment: podman needs nesting=1 there. */
   inContainer: string;
+  /** Numeric uid of the ssh login (0 = rootful). */
+  uid?: string;
 }
 
 export interface BootstrapRunOptions {
   dryRun?: boolean;
   smoke?: boolean;
+  /** Engine from deploy.yml: controls which prerequisites are converged. */
+  runtime?: RuntimeKind;
 }
 
 /** Distro id (and ID_LIKE) to the package manager family that ships podman. */
@@ -89,7 +98,7 @@ const PKG_BIN_ORDER = ["apt-get", "dnf", "yum", "apk", "pacman", "zypper"];
 
 /** Probe command: one round trip that returns os-release plus the tools we care about. */
 export function probeCommand(): string {
-  const bins = ["podman", "systemctl", ...PKG_BIN_ORDER].join(" ");
+  const bins = ["podman", "docker", "systemctl", "loginctl", ...PKG_BIN_ORDER].join(" ");
   return [
     ". /etc/os-release 2>/dev/null || true",
     "printf 'BUNDANT_OS ID=%s\\n' \"${ID:-}\"",
@@ -97,6 +106,7 @@ export function probeCommand(): string {
     "printf 'BUNDANT_OS VERSION_ID=%s\\n' \"${VERSION_ID:-}\"",
     "printf 'BUNDANT_OS PRETTY_NAME=%s\\n' \"${PRETTY_NAME:-}\"",
     "printf 'BUNDANT_OS container=%s\\n' \"$(tr '\\0' '\\n' < /proc/1/environ 2>/dev/null | sed -n 's/^container=//p')\"",
+    "printf 'BUNDANT_UID %s\n' \"$(id -u)\"",
     "for b in " + bins + "; do command -v $b >/dev/null 2>&1 && printf 'BUNDANT_BIN %s\\n' $b; done",
     "true",
   ].join("; ");
@@ -105,6 +115,7 @@ export function probeCommand(): string {
 export function parseProbe(output: string): BootstrapProbe {
   const fields = new Map<string, string>();
   const bins = new Set<string>();
+  let uid = "";
   for (const raw of output.split("\n")) {
     const line = raw.trim();
     if (line.startsWith("BUNDANT_OS ")) {
@@ -113,6 +124,8 @@ export function parseProbe(output: string): BootstrapProbe {
       if (eq > 0) fields.set(rest.slice(0, eq), rest.slice(eq + 1));
     } else if (line.startsWith("BUNDANT_BIN ")) {
       bins.add(line.slice("BUNDANT_BIN ".length).trim());
+    } else if (line.startsWith("BUNDANT_UID ")) {
+      uid = line.slice("BUNDANT_UID ".length).trim();
     }
   }
   const os: OsRelease = {
@@ -126,8 +139,10 @@ export function parseProbe(output: string): BootstrapProbe {
     os,
     family: packageFamily(os, available),
     hasPodman: bins.has("podman"),
+    hasDocker: bins.has("docker"),
     hasSystemd: bins.has("systemctl"),
     inContainer: fields.get("container") ?? "",
+    uid,
   };
 }
 
@@ -177,8 +192,55 @@ export function installCommands(family: PackageFamily): string[] {
 export const REGISTRIES_CONF = "/etc/containers/registries.conf.d/999-bundant.conf";
 export const REGISTRIES_BODY = 'unqualified-search-registries = ["docker.io"]\nshort-name-mode = "enforcing"\n';
 
+/**
+ * Enable the API socket idempotently. The unit scope is derived from the login
+ * uid inside the shell, so the same command works for rootful and rootless.
+ */
+export function socketStep(): BootstrapStep {
+  return {
+    label: "podman API socket",
+    cmd:
+      'if [ "$(id -u)" = "0" ]; then s=""; else s="--user"; fi; ' +
+      "if systemctl $s is-enabled podman.socket >/dev/null 2>&1 && " +
+      "systemctl $s is-active podman.socket >/dev/null 2>&1; then " +
+      "echo 'bundant: podman.socket already enabled and active'; " +
+      "else systemctl $s enable --now podman.socket && echo 'bundant: podman.socket enabled'; fi",
+  };
+}
+
+export function lingerStep(): BootstrapStep {
+  return {
+    label: "rootless linger",
+    cmd:
+      'if [ "$(id -u)" = "0" ]; then ' +
+      "echo 'bundant: rootful podman — linger not needed'; " +
+      'else u="$(id -un)"; ' +
+      'if loginctl show-user "$u" -p Linger --value 2>/dev/null | grep -q yes; then ' +
+      "echo \"bundant: linger already enabled for $u\"; " +
+      "else loginctl enable-linger \"$u\" && echo \"bundant: linger enabled for $u\"; fi; fi",
+  };
+}
+
+function isRootful(probe: BootstrapProbe): boolean {
+  return probe.uid === undefined || probe.uid === "" || probe.uid === "0";
+}
+
 export function planBootstrap(probe: BootstrapProbe, opts: BootstrapRunOptions = {}): BootstrapStep[] {
+  const runtime = opts.runtime ?? "podman";
   const steps: BootstrapStep[] = [];
+
+  if (runtime === "docker") {
+    steps.push({
+      label: "docker reachability",
+      cmd:
+        "if docker info >/dev/null 2>&1; then " +
+        "echo 'bundant: docker socket reachable'; else " +
+        "echo 'bundant: docker socket not reachable — start dockerd on the host; bundant leaves it alone' >&2; exit 1; fi",
+    });
+    steps.push({ label: "docker version", cmd: "docker --version", show: true });
+    return steps;
+  }
+
   if (!probe.hasPodman) {
     const install = installCommands(probe.family);
     if (install.length === 0) {
@@ -211,9 +273,14 @@ export function planBootstrap(probe: BootstrapProbe, opts: BootstrapRunOptions =
       label: "boot-time restart unit",
       cmd:
         "if systemctl list-unit-files 2>/dev/null | grep -q '^podman-restart.service'; then " +
-        "systemctl enable --now podman-restart.service >/dev/null 2>&1 && echo 'bundant: podman-restart.service enabled'; " +
+        "if systemctl is-enabled podman-restart.service >/dev/null 2>&1; then " +
+        "echo 'bundant: podman-restart.service already enabled'; " +
+        "else systemctl enable --now podman-restart.service >/dev/null 2>&1 && " +
+        "echo 'bundant: podman-restart.service enabled'; fi; " +
         "else echo 'bundant: no podman-restart unit on this host'; fi",
     });
+    steps.push(socketStep());
+    if (!isRootful(probe)) steps.push(lingerStep());
   }
   steps.push({ label: "podman version", cmd: "podman --version", show: true });
   if (opts.smoke !== false) {
@@ -282,25 +349,51 @@ export class HostBootstrap {
   }
 }
 
-/** `bundant bootstrap`: converge every host in deploy.yml. */
+/** Prove the socket through the adapter — the same path every command takes. */
+export async function verifyEndpoint(
+  connection: HostConnection,
+  runtime: RuntimeKind,
+): Promise<{ engine: string; version: string; socket: string; service: string }> {
+  const opened = await openAdapter(connection, runtime);
+  try {
+    const service = await socketServiceState(connection, runtime);
+    return {
+      engine: opened.adapter.kind,
+      version: opened.adapter.engineVersion,
+      socket: opened.detection.socketPath ?? "unknown",
+      service,
+    };
+  } finally {
+    await opened.close();
+  }
+}
+
+/** The bootstrap command: converge every host in deploy.yml. */
 export async function bootstrap(loaded: LoadedConfig, opts: BootstrapRunOptions): Promise<number> {
   let exit = 0;
+  const runtime = loaded.config.runtime;
   for (const conn of resolveConnections(loaded.config)) {
     console.log("== " + conn.sshTarget + " ==");
     const host = new HostBootstrap(new SshExecutor(connectOptionsFor(conn)), conn.sshTarget);
     try {
       const probe = await host.describe();
       console.log(
-        "  os: " + probe.os.prettyName + "  family: " + probe.family + "  podman: " +
+        "  os: " + probe.os.prettyName + "  family: " + probe.family + "  runtime: " + runtime + "  podman: " +
           (probe.hasPodman ? "present" : "missing") + (probe.inContainer ? "  container: " + probe.inContainer : ""),
       );
-      const report = await host.converge(probe, opts);
+      const report = await host.converge(probe, { ...opts, runtime });
       if (report.failures.length > 0) {
         console.log("  failed: " + report.failures.join(", "));
         exit = 1;
-      } else if (report.executed) {
-        console.log("  ready");
+        continue;
       }
+      if (!report.executed) continue;
+      const endpoint = await verifyEndpoint(conn, runtime);
+      console.log(
+        "  engine: " + endpoint.engine + " " + endpoint.version +
+          "  socket: " + endpoint.socket + "  service: " + endpoint.service,
+      );
+      console.log("  ready");
     } catch (e) {
       console.log("  " + (e as Error).message);
       exit = 1;
@@ -308,3 +401,4 @@ export async function bootstrap(loaded: LoadedConfig, opts: BootstrapRunOptions)
   }
   return exit;
 }
+

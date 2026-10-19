@@ -12,6 +12,7 @@ import {
   parseReplicaInventory,
 } from "./scale-plan.ts";
 import { runtimeFor } from "./runtime.ts";
+import { belongsToService } from "./naming.ts";
 
 /**
  * Manual capacity change for the revision that is already running.
@@ -111,7 +112,8 @@ export async function scale(loaded: LoadedConfig, opts: ScaleOptions): Promise<n
         console.error("  cannot list running replicas: " + list.stderr.trim());
         return 1;
       }
-      const lines = parseReplicaInventory(list.stdout, config.service, config.role);
+      const lines = parseReplicaInventory(list.stdout, config.service, config.role, config.group)
+        .filter((l) => belongsToService(l.name, config));
       const revision = currentRevision(lines);
       if (revision === undefined) {
         console.error(

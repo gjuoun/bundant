@@ -5,6 +5,7 @@ import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
 import { connectionForTarget, hostTargets } from "./hosts.ts";
 import { acquireLock, lockKey, releaseLock } from "./lock.ts";
 import { envRemotePath, LABEL_KIND, KIND_ACCESSORY } from "./planner.ts";
+import { containerPrefix, isGrouped, legacyPrefix } from "./naming.ts";
 import { runtimeFor } from "./runtime.ts";
 import type { CmdStep } from "./types.ts";
 
@@ -40,13 +41,13 @@ export function deleteGuardError(opts: DeleteOptions): string | null {
 }
 
 function prefix(config: BundantConfig): string {
-  return config.service + "-" + config.role + "-";
+  return containerPrefix(config);
 }
 
 /** Proxy route removal, shared by delete and the group sweep. */
 function proxyRemoveStep(config: BundantConfig, rt: ReturnType<typeof runtimeFor>): CmdStep[] {
   if (!config.proxy.enabled) return [];
-  const svcId = proxy.serviceId(config.service, config.role);
+  const svcId = proxy.serviceId(config.service, config.role, config.group);
   return [
     {
       phase: "proxy-remove",
@@ -80,17 +81,30 @@ export function buildDeleteSteps(config: BundantConfig, opts: DeleteOptions): Cm
 
   const steps: CmdStep[] = [...proxyRemoveStep(config, rt)];
 
-  const names =
-    "for c in $(" + rt.bin + ' ps -a --filter "name=' + p + '" --format "{{.Names}}"' +
-    ' | grep "^' + p + '"); do ';
-  // A container that says it is an accessory is never swept, whatever its name.
   const skipAccessory =
     'k=$(' + docker.inspectLabel(rt, '"$c"', LABEL_KIND) + '); ' +
     'if [ "$k" = "' + KIND_ACCESSORY + '" ]; then echo "skip accessory $c (stateful: use bundant accessory remove)" >&2; continue; fi; ';
-  const stopAndRemove =
-    names + skipAccessory + rt.bin + ' stop -t 10 "$c" 2>/dev/null; ' + rt.bin + ' rm -f "$c"; done';
-  const collectImages =
-    names + skipAccessory + rt.bin + ' inspect -f "{{.Config.Image}}" "$c" 2>/dev/null; done | sort -u';
+  const sweep = (namePrefix: string, guard: string, collect: boolean): string => {
+    const names =
+      "for c in $(" + rt.bin + ' ps -a --filter "name=' + namePrefix + '" --format "{{.Names}}"' +
+      ' | grep "^' + namePrefix + '"); do ';
+    return names + guard + skipAccessory + (collect
+      ? rt.bin + ' inspect -f "{{.Config.Image}}" "$c" 2>/dev/null; done'
+      : rt.bin + ' stop -t 10 "$c" 2>/dev/null; ' + rt.bin + ' rm -f "$c"; done');
+  };
+  // New shape first; a real group also sweeps pre-grouping names, but only
+  // containers carrying this group label (another group may use the service name).
+  const grouped = isGrouped(config);
+  const guard =
+    'g=$(' + docker.inspectLabel(rt, '"$c"', 'bundant.group') + '); ' +
+    '[ "$g" = "' + (config.group ?? "") + '" ] || continue; ';
+  const prefixes = grouped
+    ? [{ prefix: p, guard: "" }, { prefix: legacyPrefix(config), guard }]
+    : [{ prefix: p, guard: "" }];
+  const stopAndRemove = prefixes.map((t) => sweep(t.prefix, t.guard, false)).join("; ");
+  const collectImages = grouped
+    ? "(" + prefixes.map((t) => sweep(t.prefix, t.guard, true)).join("; ") + ") | sort -u"
+    : sweep(p, "", true) + " | sort -u";
 
   if (opts.images) {
     steps.push({

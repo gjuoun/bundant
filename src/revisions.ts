@@ -58,9 +58,13 @@ export function stripReplicaSuffix(value: string): string {
  * replica suffix: `api-web-abc1234` and `api-web-abc1234-2` are both abc1234.
  * The prefix is required to tell a numeric revision from a replica index.
  */
-export function revisionOf(name: string, service?: string, role?: string): string {
-  if (service !== undefined && role !== undefined) {
-    const prefix = service + "-" + role + "-";
+export function revisionOf(
+  name: string,
+  service?: string,
+  role?: string,
+  group?: string,
+): string {
+  for (const prefix of prefixesFor(service, role, group)) {
     if (name.startsWith(prefix)) return stripReplicaSuffix(name.slice(prefix.length));
   }
   const base = stripReplicaSuffix(name);
@@ -69,14 +73,33 @@ export function revisionOf(name: string, service?: string, role?: string): strin
 }
 
 /** Replica index from a container name (undefined for the single-replica name). */
-export function replicaOf(name: string, service?: string, role?: string): number | undefined {
+export function replicaOf(
+  name: string,
+  service?: string,
+  role?: string,
+  group?: string,
+): number | undefined {
   let rest = name;
-  if (service !== undefined && role !== undefined) {
-    const prefix = service + "-" + role + "-";
-    if (name.startsWith(prefix)) rest = name.slice(prefix.length);
+  for (const prefix of prefixesFor(service, role, group)) {
+    if (name.startsWith(prefix)) {
+      rest = name.slice(prefix.length);
+      break;
+    }
   }
   const match = /-([0-9]+)$/.exec(rest);
   return match ? Number(match[1]) : undefined;
+}
+
+/** Grouped prefix first, then the pre-grouping prefix (in-place upgrades). */
+function prefixesFor(service?: string, role?: string, group?: string): string[] {
+  const prefixes: string[] = [];
+  if (service !== undefined && role !== undefined) {
+    if (group !== undefined && group !== "" && group !== "default") {
+      prefixes.push(group + "-" + service + "-" + role + "-");
+    }
+    prefixes.push(service + "-" + role + "-");
+  }
+  return prefixes;
 }
 
 /** One container of a revision: its replica index and container name. */
@@ -94,11 +117,12 @@ export function replicasOfRevision(
   revision: string,
   service?: string,
   role?: string,
+  group?: string,
 ): RevisionReplica[] {
   const out: RevisionReplica[] = [];
   for (const entry of entries) {
     if (entry.revision !== revision) continue;
-    const index = replicaOf(entry.name, service, role);
+    const index = replicaOf(entry.name, service, role, group);
     out.push({ index: index ?? 1, name: entry.name });
   }
   return out.sort((a, b) => a.index - b.index);
@@ -119,6 +143,7 @@ export function summarizeRevisions(
   entries: RevisionEntry[],
   service?: string,
   role?: string,
+  group?: string,
 ): RevisionSummary[] {
   const groups = new Map<string, RevisionEntry[]>();
   for (const entry of entries) {
@@ -130,8 +155,8 @@ export function summarizeRevisions(
   for (const [revision, containers] of groups) {
     containers.sort(
       (a, b) =>
-        (replicaOf(a.name, service, role) ?? 1) -
-        (replicaOf(b.name, service, role) ?? 1),
+        (replicaOf(a.name, service, role, group) ?? 1) -
+        (replicaOf(b.name, service, role, group) ?? 1),
     );
     const running = containers.some((c) => c.state.startsWith("Up"));
     const createdAt = containers.reduce(

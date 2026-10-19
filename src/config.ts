@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
@@ -251,6 +251,10 @@ export function loadConfig(
   // Every deployment lives in a namespace: an ungrouped file lands in DEFAULT_GROUP,
   // so labels, the env path and the lock key keep one shape everywhere.
   let config = { ...normalize(merged, hosts), group: DEFAULT_GROUP };
+  // A member file addressed directly still belongs to its sibling group.yml, so
+  // delete/prune/scale/rollback resolve the same names as `group install`.
+  const inferredGroup = inferGroupForMember(abs);
+  if (inferredGroup !== undefined) config = { ...config, group: inferredGroup };
 
   const override = env.BUNDANT_HOSTS;
   if (override !== undefined && override.trim() !== "") {
@@ -299,6 +303,29 @@ export const GroupFileSchema = z.object({
 });
 
 export type GroupFile = z.infer<typeof GroupFileSchema>;
+
+/**
+ * `<group>/<member>/deploy.yml` -> the group named by `<group>/group.yml`,
+ * only when that manifest actually lists this file. Undefined otherwise.
+ */
+export function inferGroupForMember(path: string): string | undefined {
+  const abs = resolve(path);
+  // Two layouts exist: <group>/<member>/deploy.yml (manifest one level up) and
+  // <group>/deploy.yml beside its manifest. Try the member layout first.
+  for (const manifest of [resolve(dirname(dirname(abs)), "group.yml"), resolve(dirname(abs), "group.yml")]) {
+    if (!existsSync(manifest)) continue;
+    try {
+      const parsed = GroupFileSchema.safeParse(parseYaml(readFileSync(manifest, "utf8")));
+      if (!parsed.success) continue;
+      const dir = dirname(manifest);
+      const listed = parsed.data.services.some((s) => resolve(dir, s.file) === abs);
+      if (listed) return parsed.data.group;
+    } catch {
+      // A malformed manifest is not an inference failure; fall through.
+    }
+  }
+  return undefined;
+}
 
 export interface GroupMember {
   /** Identity inside the group; must equal the member file's `service`. */

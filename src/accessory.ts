@@ -10,6 +10,7 @@ import { waitUntilSucceeds } from "./health.ts";
 import { acquireLock, lockKey, releaseLock } from "./lock.ts";
 import { envRemotePath, groupLabels, volumeLabels, LABEL_OWNER } from "./planner.ts";
 import { runtimeFor, type Runtime } from "./runtime.ts";
+import { accessoryContainerName } from "./naming.ts";
 
 /**
  * Accessory lifecycle — the stateful half of a group. An accessory is created
@@ -52,7 +53,8 @@ export function inferAccessoryGroup(path: string): string | undefined {
 
 export function accessoryContainer(config: BundantConfig): string {
   // No revision, no role: clients, ports and volumes stay valid across app deploys.
-  return config.service;
+  // A grouped accessory carries the group prefix: <group>-<service>.
+  return accessoryContainerName(config);
 }
 
 /** Named volumes declared as "name:/path" — the part before the first colon. */

@@ -13,6 +13,7 @@ import {
   summarizeRevisions,
 } from "./revisions.ts";
 import { runtimeFor } from "./runtime.ts";
+import { belongsToService, serviceLabels } from "./naming.ts";
 
 export interface RollbackOptions {
   /** Exact revision id (the kubectl --to-revision equivalent); omitted = previous revision. */
@@ -26,11 +27,11 @@ export async function listRevisions(
 ): Promise<RevisionEntry[]> {
   const { config } = loaded;
   const rt = runtimeFor(config.runtime);
-  const listing = await exec.run(docker.listHistory(rt, config.service, config.role));
+  const listing = await exec.run(docker.listHistoryByLabels(rt, serviceLabels(config)));
   if (listing.code !== 0) {
     throw new Error("cannot list revisions: " + listing.stderr.trim());
   }
-  return parseHistory(listing.stdout);
+  return parseHistory(listing.stdout).filter((e) => belongsToService(e.name, config));
 }
 
 /**
@@ -41,14 +42,14 @@ export async function listRevisions(
 export async function rollback(loaded: LoadedConfig, opts: RollbackOptions = {}): Promise<number> {
   const { config } = loaded;
   const rt = runtimeFor(config.runtime);
-  const svcId = proxy.serviceId(config.service, config.role);
+  const svcId = proxy.serviceId(config.service, config.role, config.group);
 
   for (const conn of resolveConnections(config)) {
     const host = conn.sshTarget;
     const exec = new SshExecutor(connectOptionsFor(conn));
     try {
       const entries = await listRevisions(exec, loaded);
-      const summaries = summarizeRevisions(entries, config.service, config.role);
+      const summaries = summarizeRevisions(entries, config.service, config.role, config.group);
 
       let sel;
       try {
