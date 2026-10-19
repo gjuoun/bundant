@@ -8,7 +8,7 @@
     "service": {
       "type": "string",
       "pattern": "^[a-z0-9][a-z0-9-]*$",
-      "description": "service name; also the identity in container names"
+      "description": "service name; also the identity in container names (hyphens allowed)"
     },
     "image": {
       "type": "string",
@@ -17,8 +17,8 @@
     },
     "role": {
       "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9-]*$",
-      "description": "variant within the service (default web); containers are <service>-<role>-<rev>"
+      "pattern": "^[a-z0-9]+$",
+      "description": "variant within the service (default web); no hyphens: containers are <service>-<role>-<rev>"
     },
     "replicas": {
       "type": "integer",

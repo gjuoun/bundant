@@ -1,8 +1,8 @@
 import { afterAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadConfig } from "./config.ts";
+import { loadConfig, loadGroup } from "./config.ts";
 
 const tmp = mkdtempSync(join(tmpdir(), "bundant-cfg-"));
 afterAll(() => {
@@ -103,6 +103,24 @@ describe("loadConfig", () => {
     expect(() => loadConfig(writeYml("badsvc.yml", bad))).toThrow();
   });
 
+  test("service keeps hyphens; role does not (they are separators)", () => {
+    const hyphenService = minimal.replace("service: hello", "service: hello-world");
+    expect(loadConfig(writeYml("svc-hyphen.yml", hyphenService)).config.service).toBe("hello-world");
+    expect(() =>
+      loadConfig(writeYml("role-hyphen.yml", [minimal, "role: web-1"].join("\n"))),
+    ).toThrow(/role "web-1" must match \[a-z0-9]\+ .*hyphens are reserved as separators/);
+  });
+
+  test("camelCase, snake_case and dot.case roles are rejected with the exact rule", () => {
+    for (const role of ["Web", "web_api", "web.api"]) {
+      const path = writeYml("role-" + role.replace(/\W/g, "_") + ".yml", [minimal, "role: " + role].join("\n"));
+      expect(() => loadConfig(path)).toThrow(
+        new RegExp('role "' + role.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + '" must match'),
+      );
+      expect(() => loadConfig(path)).toThrow(/hyphens are reserved as separators/);
+    }
+  });
+
   test("rejects proxy enabled without a host", () => {
     const noHost = [
       "service: hello",
@@ -158,6 +176,35 @@ describe("loadConfig", () => {
         writeYml("noenv.yml", [minimal, "env:", "  file: ./does-not-exist.env"].join("\n")),
       ),
     ).toThrow(/does-not-exist\.env/);
+  });
+});
+
+describe("collision-proof group naming", () => {
+  function groupFixture(group: string, member: string): string {
+    const dir = mkdtempSync(join(tmp, "grp-"));
+    writeFileSync(
+      join(dir, "deploy.yml"),
+      ["service: " + member, "image: x:1", "hosts: [box.test]", "proxy: {enabled: false}"].join("\n"),
+    );
+    const manifest = join(dir, "group.yml");
+    writeFileSync(
+      manifest,
+      ["group: " + group, "services:", "  - name: " + member, "    file: ./deploy.yml"].join("\n"),
+    );
+    return manifest;
+  }
+
+  test("a hyphenated group is rejected, so <group>-<service> cannot collide", () => {
+    expect(() => loadGroup(groupFixture("a-b", "c"))).toThrow(
+      /group "a-b" must match \[a-z0-9]\+ .*hyphens are reserved as separators/,
+    );
+  });
+
+  test("the split that used to collide now has only one valid spelling", () => {
+    // group "a" + service "b-c" is the valid side of the old collision.
+    const loaded = loadGroup(groupFixture("a", "b-c"));
+    expect(loaded.group).toBe("a");
+    expect(loaded.members[0]!.name).toBe("b-c");
   });
 });
 
