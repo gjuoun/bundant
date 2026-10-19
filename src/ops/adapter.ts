@@ -50,17 +50,20 @@ export class ApiOps implements RuntimeOps {
   private readonly exec: Executor;
   private readonly rt: Runtime;
   private readonly closeAdapter: () => Promise<void>;
+  private readonly disposeSession?: () => Promise<void>;
 
   constructor(
     adapter: RuntimeAdapter,
     exec: Executor,
     rt: Runtime,
     closeAdapter: () => Promise<void>,
+    disposeSession?: () => Promise<void>,
   ) {
     this.adapter = adapter;
     this.exec = exec;
     this.rt = rt;
     this.closeAdapter = closeAdapter;
+    this.disposeSession = disposeSession;
   }
 
   private async hostRun(phase: string, cmd: string): Promise<void> {
@@ -369,6 +372,10 @@ export class ApiOps implements RuntimeOps {
   }
 
   async close(): Promise<void> {
+    if (this.disposeSession !== undefined) {
+      await this.disposeSession();
+      return;
+    }
     await this.closeAdapter();
     await this.exec.close();
   }

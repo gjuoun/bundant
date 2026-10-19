@@ -1,7 +1,6 @@
-import { openAdapter } from "../adapters/index.ts";
 import type { BundantConfig } from "../config.ts";
-import { SshExecutor, connectOptionsFor } from "../exec/ssh.ts";
 import type { HostConnection } from "../hosts.ts";
+import { HostSession } from "../host/session.ts";
 import { runtimeFor } from "../runtime.ts";
 import { ApiOps } from "./adapter.ts";
 import { LegacyOps } from "./legacy.ts";
@@ -17,10 +16,8 @@ export interface OpenOpsOptions {
 }
 
 /**
- * One place that decides how a mutating command executes. \`api\` is the
- * default; \`cli\` keeps the previous ssh command-string path available for one
- * release (and is forced when --local-image is in play, because image
- * streaming is still stage 4 work).
+ * One place that decides how a mutating command executes. Each call owns one
+ * HostSession; closing the ops closes the session (and every forward it made).
  */
 export async function openOps(
   via: OpsVia,
@@ -29,11 +26,13 @@ export async function openOps(
   opts: OpenOpsOptions = {},
 ): Promise<RuntimeOps> {
   const rt = runtimeFor(config.runtime);
+  const session = new HostSession(connection);
   if (via === "cli") {
-    const exec = new SshExecutor(connectOptionsFor(connection));
-    return new LegacyOps(exec, rt, { envRemotePath: opts.envRemotePath });
+    return new LegacyOps(session.executor, rt, {
+      envRemotePath: opts.envRemotePath,
+      close: () => session.dispose(),
+    });
   }
-  const exec = new SshExecutor(connectOptionsFor(connection));
-  const opened = await openAdapter(connection, config.runtime);
-  return new ApiOps(opened.adapter, exec, rt, opened.close);
+  const adapter = await session.open(config.runtime);
+  return new ApiOps(adapter, session.executor, rt, async () => {}, () => session.dispose());
 }
