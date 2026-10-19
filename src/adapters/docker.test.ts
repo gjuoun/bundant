@@ -181,14 +181,11 @@ describe("DockerAdapter read-only surface", () => {
     }
   });
 
-  test("mutations throw NotImplementedInStage1 but exist on the type", async () => {
+  test("mutations outside stage 3 still throw NotImplementedInStage1", async () => {
     const { adapter, close } = await adapterOn((_req, res) => json(res, 200, {}));
     try {
-      await expect(adapter.start("abc")).rejects.toBeInstanceOf(NotImplementedInStage1);
-      await expect(adapter.create({ image: "x", name: "x", env: [], labels: {} })).rejects.toThrow(
-        /stage 1/,
-      );
       await expect(adapter.createVolume("v", {})).rejects.toBeInstanceOf(NotImplementedInStage1);
+      await expect(adapter.loadImage(null as never)).rejects.toBeInstanceOf(NotImplementedInStage1);
     } finally {
       await close();
     }

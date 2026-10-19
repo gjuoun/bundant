@@ -45,6 +45,30 @@ service-based with a stable id `<service>-<role>` (`<group>-<service>-<role>` wh
 itself before routing, and its `deploy` blocks until the old target drains — which is
 why stopping the old container immediately after is safe.
 
+## Execution paths: API vs legacy CLI
+
+`deploy`, `rollback` and `prune` program against a semantic `RuntimeOps`
+layer (`src/ops/`). The default is **`--via api`**: pull, network, container
+create/start/stop/remove, exec and image prune are engine-API calls over the
+forwarded unix socket. `--via cli` keeps the previous ssh command strings for
+one release:
+
+```sh
+bundant deploy   -f deploy.yml                 # via api (default)
+bundant deploy   -f deploy.yml --via cli       # legacy command-string path
+bundant rollback -f deploy.yml --via cli       # same choices for rollback/prune
+```
+
+What stays on ssh either way: the deploy lock, rootless-podman systemd/linger
+and sysctl checks, and `--local-image` streaming (stage 4 moves images). The
+proxy is a CLI inside a container, so its API path is `adapter.exec`.
+
+**Env handling changed on the API path**: the merged environment rides
+`ContainerSpec.Env` in the create request, so no plaintext env file is written
+to the host. The legacy path still uploads `~/.bundant/env/...` as before.
+`--dry-run` renders exactly which path will run: API call bodies (with env
+rendered as a redacted count) or the legacy command strings.
+
 ## Design rules (locked)
 
 - No runtime daemon: the CLI executes and exits; control plane is ssh + docker/podman.

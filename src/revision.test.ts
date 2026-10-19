@@ -18,16 +18,18 @@ describe("resolveRevision", () => {
     expect(rev).toMatch(/^[0-9a-f]{7,}$/);
   });
 
-  test("falls back to rev-<base36> in a repo with no commits", async () => {
+  test("falls back to r<base36> (hyphen-free) in a repo with no commits", async () => {
     const dir = mkdtempSync(join(tmpdir(), "bundant-rev-"));
     git(dir, "init", "-q");
     const rev = await resolveRevision(dir, 1760000000000);
-    expect(rev).toBe("rev-" + (1760000000000).toString(36));
-    expect(rev).toMatch(/^[a-z0-9-]+$/);
+    expect(rev).toBe("r" + (1760000000000).toString(36));
+    expect(rev).toMatch(/^[a-z0-9]+$/);
   });
 
-  test("sanitizeRevision strips characters docker names reject", () => {
+  test("sanitizeRevision removes every separator a revision cannot contain", () => {
     expect(sanitizeRevision("AbC_123.X")).toBe("abc123x");
-    expect(sanitizeRevision("---")).toMatch(/^[a-z0-9-]*$/);
+    expect(sanitizeRevision("rev-abc-123")).toBe("revabc123");
+    expect(sanitizeRevision("---")).toBe("");
+    expect(sanitizeRevision("ABCDEF1234567890")).toMatch(/^[a-z0-9]+$/);
   });
 });

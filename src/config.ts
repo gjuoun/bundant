@@ -5,8 +5,66 @@ import { z } from "zod";
 import type { RuntimeKind } from "./runtime.ts";
 import { PROXY_IMAGE } from "./commands/proxy.ts";
 
-/** Identifiers that end up inside docker container/network names. */
-export const NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
+/**
+ * Name grammar for the composed identifiers
+ * `<group>-<service>-<role>-<rev>[-<i>]`.
+ *
+ * Only `service` may contain a hyphen: it is the single multi-word segment.
+ * Every other segment is lowercase alphanumeric, so the composition parses
+ * deterministically (group = first segment, role/revision = the two trailing
+ * segments, the service is everything between) and cannot collide with a
+ * different split of the same string.
+ */
+export const SERVICE_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
+export const GROUP_NAME_RE = /^[a-z0-9]+$/;
+export const ROLE_NAME_RE = /^[a-z0-9]+$/;
+export const REVISION_RE = /^[a-z0-9]+$/;
+
+/** Historical alias: every config name used to share one grammar. */
+export const NAME_RE = SERVICE_NAME_RE;
+
+export const SERVICE_NAME_RULE =
+  "must match [a-z0-9][a-z0-9-]* (lowercase letters, digits and hyphens; must start with a letter or digit)";
+export const SEGMENT_NAME_RULE =
+  "must match [a-z0-9]+ (lowercase letters and digits only; hyphens are reserved as separators)";
+
+function rejectBadSegment(file: string, field: string, value: unknown, re: RegExp, rule: string): void {
+  if (typeof value !== "string" || re.test(value)) return;
+  throw new ConfigError(
+    "invalid " + file + ": " + field + ' "' + value + '" ' + rule,
+  );
+}
+
+/** Fail before zod so the message names the offending field *and* its value. */
+export function assertDeployNames(doc: unknown, file: string): void {
+  if (typeof doc !== "object" || doc === null) return;
+  const raw = doc as Record<string, unknown>;
+  rejectBadSegment(file, "service", raw.service, SERVICE_NAME_RE, SERVICE_NAME_RULE);
+  rejectBadSegment(file, "role", raw.role, ROLE_NAME_RE, SEGMENT_NAME_RULE);
+}
+
+/** The same check for group.yml: the group and every member identity. */
+export function assertGroupNames(doc: unknown, file: string): void {
+  if (typeof doc !== "object" || doc === null) return;
+  const raw = doc as Record<string, unknown>;
+  rejectBadSegment(file, "group", raw.group, GROUP_NAME_RE, SEGMENT_NAME_RULE);
+  const services = Array.isArray(raw.services) ? raw.services : [];
+  services.forEach((entry, i) => {
+    if (typeof entry !== "object" || entry === null) return;
+    const member = entry as Record<string, unknown>;
+    rejectBadSegment(file, "services[" + i + "].name", member.name, SERVICE_NAME_RE, SERVICE_NAME_RULE);
+    const needs = Array.isArray(member.needs) ? member.needs : [];
+    needs.forEach((need, j) => {
+      rejectBadSegment(
+        file,
+        "services[" + i + "].needs[" + j + "]",
+        need,
+        SERVICE_NAME_RE,
+        SERVICE_NAME_RULE,
+      );
+    });
+  });
+}
 
 /**
  * Every deployment belongs to a group; an ungrouped deploy lands in this one.
@@ -63,9 +121,9 @@ export const SshFileSchema = SshSchema.extend({
 
 /** deploy.yml as written (sections optional); defaults are applied by normalize(). */
 export const RawConfigSchema = z.object({
-  service: z.string().regex(NAME_RE, "must match [a-z0-9-]").describe("service name; also the identity in container names"),
+  service: z.string().regex(SERVICE_NAME_RE, SERVICE_NAME_RULE).describe("service name; also the identity in container names (hyphens allowed)"),
   image: z.string().min(1).describe("registry ref to run; --local-image overrides it"),
-  role: z.string().regex(NAME_RE, "must match [a-z0-9-]").describe("variant within the service (default web); containers are <service>-<role>-<rev>").optional(),
+  role: z.string().regex(ROLE_NAME_RE, SEGMENT_NAME_RULE).describe("variant within the service (default web); no hyphens: containers are <service>-<role>-<rev>").optional(),
   /** Copies of one service on a single host; the proxy round-robins between them. */
   replicas: z
     .number()
@@ -235,6 +293,7 @@ export function loadConfig(
   } catch (e) {
     throw new ConfigError("cannot read deploy.yml at " + abs + ": " + (e as Error).message);
   }
+  assertDeployNames(doc, "deploy.yml (" + abs + ")");
   const parsed = RawConfigSchema.safeParse(doc);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => i.path.join(".") + ": " + i.message).join("; ");
@@ -287,18 +346,18 @@ export function loadConfig(
  * so its git sha is the release id for the whole set.
  */
 export const GroupServiceSchema = z.object({
-  name: z.string().regex(NAME_RE, "must match [a-z0-9-]").describe("member identity; must equal the member file's service"),
+  name: z.string().regex(SERVICE_NAME_RE, SERVICE_NAME_RULE).describe("member identity; must equal the member file's service (hyphens allowed)"),
   /** deploy.yml or accessory.yml, resolved relative to the group directory. */
   file: z.string().min(1).describe("path to deploy.yml/accessory.yml, relative to the group directory"),
   /** In-group member names this member requires to be ready first. */
   needs: z
-    .array(z.string().regex(NAME_RE, "must match [a-z0-9-]"))
+    .array(z.string().regex(SERVICE_NAME_RE, SERVICE_NAME_RULE))
     .describe("members that must be ready first; the install order is their topological sort")
     .optional(),
 });
 
 export const GroupFileSchema = z.object({
-  group: z.string().regex(NAME_RE, "must match [a-z0-9-]").describe("namespace name; scopes the env directory and the lock key"),
+  group: z.string().regex(GROUP_NAME_RE, SEGMENT_NAME_RULE).describe("namespace name; no hyphens (they are separators): scopes the env directory and the lock key"),
   services: z.array(GroupServiceSchema).min(1).describe("members; array order only breaks ties, needs decides the real order"),
 });
 
@@ -358,6 +417,7 @@ export function loadGroup(
   } catch (e) {
     throw new ConfigError("cannot read group.yml at " + abs + ": " + (e as Error).message);
   }
+  assertGroupNames(doc, "group.yml (" + abs + ")");
   const parsed = GroupFileSchema.safeParse(doc);
   if (!parsed.success) {
     const issues = parsed.error.issues.map((i) => i.path.join(".") + ": " + i.message).join("; ");

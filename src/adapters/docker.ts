@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ApiClient, ApiQuery } from "./api.ts";
+import { ApiError, type ApiClient, type ApiQuery } from "./api.ts";
 import { toEpochSeconds } from "./time.ts";
 import { demuxStream } from "./api.ts";
 import type { RuntimeKind } from "../runtime.ts";
@@ -56,36 +56,75 @@ export class DockerAdapter implements RuntimeAdapter {
     this.apiVersion = apiVersion;
   }
 
-  // ----- images (stages 4-5) ------------------------------------------------
+  // ----- images -------------------------------------------------------------
 
-  async pull(_ref: string): Promise<void> {
-    throw new NotImplementedInStage1("pull");
+  async pull(ref: string): Promise<void> {
+    const { fromImage, tag } = splitImageRef(ref);
+    const query: ApiQuery = { fromImage };
+    if (tag !== undefined) query.tag = tag;
+    // The pull response is a progress stream; draining it is what waits for
+    // completion. A 4xx/5xx has already become an ApiError in requestStream.
+    const res = await this.client.requestStream("POST", "/images/create", undefined, query);
+    for await (const _chunk of res) {
+      // progress output is intentionally discarded
+    }
   }
 
   async loadImage(_stream: NodeJS.ReadableStream): Promise<void> {
     throw new NotImplementedInStage1("loadImage");
   }
 
-  async removeImage(_ref: string): Promise<void> {
-    throw new NotImplementedInStage1("removeImage");
+  async removeImage(ref: string): Promise<void> {
+    await this.client.request("DELETE", "/images/" + encodeURIComponent(ref), undefined, { force: 1 });
   }
 
-  // ----- containers (mutations arrive in stage 3) ---------------------------
-
-  async create(_spec: ContainerSpec): Promise<{ id: string }> {
-    throw new NotImplementedInStage1("create");
+  async pruneImages(): Promise<void> {
+    await this.client.request("POST", "/images/prune", undefined, {
+      filters: JSON.stringify({ dangling: { "true": true } }),
+    });
   }
 
-  async start(_id: string): Promise<void> {
-    throw new NotImplementedInStage1("start");
+  // ----- containers ---------------------------------------------------------
+
+  async create(spec: ContainerSpec): Promise<{ id: string }> {
+    const body = createBody(spec);
+    const res = await this.client.request(
+      "POST",
+      "/containers/create",
+      body,
+      { name: spec.name },
+    );
+    const parsed = createResponse.safeParse(res.json);
+    if (!parsed.success) {
+      throw new Error("engine API POST /containers/create returned no container id");
+    }
+    return { id: parsed.data.Id };
   }
 
-  async stop(_id: string, _timeoutSeconds?: number): Promise<void> {
-    throw new NotImplementedInStage1("stop");
+  async start(id: string): Promise<void> {
+    await this.client.request("POST", "/containers/" + encodeURIComponent(id) + "/start");
   }
 
-  async remove(_id: string, _opts?: { force?: boolean; volumes?: boolean }): Promise<void> {
-    throw new NotImplementedInStage1("remove");
+  async stop(id: string, timeoutSeconds = 10): Promise<void> {
+    await this.client.request(
+      "POST",
+      "/containers/" + encodeURIComponent(id) + "/stop",
+      undefined,
+      { t: timeoutSeconds },
+    );
+  }
+
+  async remove(id: string, opts: { force?: boolean; volumes?: boolean } = {}): Promise<void> {
+    const query: ApiQuery = {};
+    if (opts.force === true) query.force = 1;
+    if (opts.volumes === true) query.v = 1;
+    try {
+      await this.client.request("DELETE", "/containers/" + encodeURIComponent(id), undefined, query);
+    } catch (err) {
+      // Removing an absent container is a no-op for the deploy path (rm -f).
+      if (err instanceof ApiError && err.status === 404) return;
+      throw err;
+    }
   }
 
   async inspect(id: string): Promise<ContainerInfo> {
@@ -188,8 +227,34 @@ export class DockerAdapter implements RuntimeAdapter {
     };
   }
 
-  async exec(_id: string, _argv: string[], _opts?: { tty?: boolean }): Promise<ExecResult> {
-    throw new NotImplementedInStage1("exec");
+  async exec(id: string, argv: string[], opts: { tty?: boolean } = {}): Promise<ExecResult> {
+    const created = await this.client.request(
+      "POST",
+      "/containers/" + encodeURIComponent(id) + "/exec",
+      { AttachStdout: true, AttachStderr: true, Tty: opts.tty === true, Cmd: argv },
+    );
+    const execId = execCreateResponse.safeParse(created.json);
+    if (!execId.success) {
+      throw new Error("engine API POST /containers/" + id + "/exec returned no exec id");
+    }
+    const stream = await this.client.requestStream(
+      "POST",
+      "/exec/" + encodeURIComponent(execId.data.Id) + "/start",
+      { Detach: false, Tty: opts.tty === true },
+    );
+    let stdout = "";
+    let stderr = "";
+    for await (const frame of demuxStream(stream)) {
+      if (frame.stream === "stderr") stderr += frame.data.toString("utf8");
+      else stdout += frame.data.toString("utf8");
+    }
+    const inspected = await this.client.request(
+      "GET",
+      "/exec/" + encodeURIComponent(execId.data.Id) + "/json",
+    );
+    const parsed = execInspectSchema.safeParse(inspected.json);
+    const code = parsed.success ? (parsed.data.ExitCode ?? 0) : 0;
+    return { code, stdout, stderr };
   }
 
   // ----- volumes / networks (stage 5) ---------------------------------------
@@ -207,8 +272,17 @@ export class DockerAdapter implements RuntimeAdapter {
     return { labels: raw.Labels };
   }
 
-  async ensureNetwork(_name: string): Promise<void> {
-    throw new NotImplementedInStage1("ensureNetwork");
+  async ensureNetwork(name: string): Promise<void> {
+    try {
+      await this.client.request("POST", "/networks/create", {
+        Name: name,
+        CheckDuplicate: true,
+      });
+    } catch (err) {
+      // 409 = the network already exists, which is the desired state.
+      if (err instanceof ApiError && err.status === 409) return;
+      throw err;
+    }
   }
 
   // ----- events -------------------------------------------------------------
@@ -270,3 +344,60 @@ export class DockerAdapter implements RuntimeAdapter {
     return parseOrDrift(schema, res.json, this.context("GET", path));
   }
 }
+
+const createResponse = z.object({ Id: z.string() });
+const execCreateResponse = z.object({ Id: z.string() });
+const execInspectSchema = z.object({ ExitCode: z.number().nullish() });
+
+/** "repo:tag" | "registry:5000/repo:tag" | "repo@sha256:..." -> create params. */
+export function splitImageRef(ref: string): { fromImage: string; tag?: string } {
+  if (ref.includes("@")) return { fromImage: ref };
+  const slash = ref.lastIndexOf("/");
+  const colon = ref.lastIndexOf(":");
+  if (colon > slash) return { fromImage: ref.slice(0, colon), tag: ref.slice(colon + 1) };
+  return { fromImage: ref };
+}
+
+/** "hostPort:containerPort[/proto]" -> ExposedPorts + PortBindings entries. */
+function portBindings(ports: string[] | undefined): {
+  exposed: Record<string, Record<string, never>>;
+  bindings: Record<string, { HostPort: string }[]>;
+} {
+  const exposed: Record<string, Record<string, never>> = {};
+  const bindings: Record<string, { HostPort: string }[]> = {};
+  for (const entry of ports ?? []) {
+    const [mapping, proto = "tcp"] = entry.split("/");
+    const [hostPort, containerPort] = (mapping ?? "").split(":");
+    if (!hostPort || !containerPort) continue;
+    const key = containerPort + "/" + proto;
+    exposed[key] = {};
+    bindings[key] = [{ HostPort: hostPort }];
+  }
+  return { exposed, bindings };
+}
+
+/** ContainerSpec -> the engine's create payload (the same semantics as \`run\`). */
+export function createBody(spec: ContainerSpec): Record<string, unknown> {
+  const { exposed, bindings } = portBindings(spec.ports);
+  const hostConfig: Record<string, unknown> = {
+    RestartPolicy: { Name: spec.restart ?? "unless-stopped" },
+  };
+  if (spec.volumes !== undefined && spec.volumes.length > 0) hostConfig.Binds = spec.volumes;
+  if (spec.network !== undefined) hostConfig.NetworkMode = spec.network;
+  if (Object.keys(bindings).length > 0) hostConfig.PortBindings = bindings;
+  if (spec.sysctl !== undefined && Object.keys(spec.sysctl).length > 0) hostConfig.Sysctls = spec.sysctl;
+
+  const body: Record<string, unknown> = {
+    Image: spec.image,
+    Env: spec.env,
+    Labels: spec.labels,
+    HostConfig: hostConfig,
+  };
+  if (spec.cmd !== undefined && spec.cmd.length > 0) body.Cmd = spec.cmd;
+  if (Object.keys(exposed).length > 0) body.ExposedPorts = exposed;
+  if (spec.network !== undefined) {
+    body.NetworkingConfig = { EndpointsConfig: { [spec.network]: {} } };
+  }
+  return body;
+}
+

@@ -4,9 +4,9 @@ One file per service. It is the contract: bundant turns it into docker/podman co
 and never stores state of its own on the host.
 
 ```yaml
-service: hello                 # [a-z0-9-]
+service: hello                 # [a-z0-9][a-z0-9-]* — the only segment that may contain '-'
 image: traefik/whoami:v1.10    # registry ref, or overridden by --local-image
-role: web                      # default: web (containers are <service>-<role>-<rev>)
+role: web                      # default: web; [a-z0-9]+ (no hyphens)
 replicas: 1                    # copies per host; > 1 needs proxy.enabled: true
 hosts: [box.example.com]       # user@host:port forms allowed; BUNDANT_HOSTS=a,b overrides
 
@@ -56,7 +56,11 @@ pipeline.
 - **revision** — container names are `<service>-<role>-<rev>` (or
   `<group>-<service>-<role>-<rev>` inside a real group; the `default` group never
   prefixes), where `rev` is the git short sha of the repo holding `deploy.yml` (fallback
-  `rev-<base36>` before the first commit). `--rev ID` overrides it as a testing hook.
+  `r<base36>` before the first commit, hyphen-free like every new revision). `--rev ID`
+  overrides it as a testing hook. Legacy `rev-<base36>` containers stay selectable by
+  name. Group, role and revision take no hyphens: those are the separators (see
+  [group.md](group.md#name-grammar-collision-proof)). A `role` such as `Web`,
+  `web_api`, `web.api` or `web-1` is rejected with the exact rule.
 - **replicas** — how many copies of this service run on **each** host (default 1).
   `replicas: 1` keeps the exact container name above; `N > 1` uses
   `<prefix>-<rev>-1` … `-<N>` (the same prefix as the single-replica name) and every container carries

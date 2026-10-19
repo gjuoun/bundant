@@ -50,6 +50,24 @@ describe("group-scoped names", () => {
     expect(accessoryContainerName(cfg({ kind: "accessory", group: undefined }))).toBe("api");
   });
 
+  test("composition is injective: a hyphen in the service cannot alias a group split", () => {
+    const grouped = containerName(cfg({ group: "ab", service: "c" }), "1234");
+    const otherSplit = containerName(cfg({ group: "a", service: "b-c" }), "1234");
+    expect(grouped).toBe("ab-c-web-1234");
+    expect(otherSplit).toBe("a-b-c-web-1234");
+    expect(grouped).not.toBe(otherSplit);
+    // Parsing the only legal shape is deterministic.
+    expect(revisionOf(otherSplit, "b-c", "web", "a")).toBe("1234");
+    expect(replicaOf(otherSplit + "-2", "b-c", "web", "a")).toBe(2);
+  });
+
+  test("revision segment stays hyphen-free; legacy rev-* names still parse", () => {
+    expect(containerName(cfg(), "r1abc")).toBe("api-web-r1abc");
+    expect(revisionOf("api-web-r1abc", "api", "web")).toBe("r1abc");
+    // Old pre-first-commit fallback name (rev-<base36>) remains addressable.
+    expect(revisionOf("api-web-rev-lz9", "api", "web")).toBe("rev-lz9");
+  });
+
   test("revisionOf and replicaOf understand the group prefix", () => {
     expect(revisionOf("alpha-api-web-abc1234", "api", "web", "alpha")).toBe("abc1234");
     expect(revisionOf("alpha-api-web-abc1234-2", "api", "web", "alpha")).toBe("abc1234");

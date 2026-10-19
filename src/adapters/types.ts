@@ -16,6 +16,10 @@ export interface ContainerSpec {
   network?: string;
   /** Published ports, "hostPort:containerPort[/proto]". */
   ports?: string[];
+  /** Command/args appended to the image entrypoint (health probes). */
+  cmd?: string[];
+  /** Container-level sysctls (rootless podman needs the proxy port floor). */
+  sysctl?: Record<string, string>;
 }
 
 /** One row of GET /containers/json. */
@@ -80,9 +84,8 @@ export interface RuntimeEvent {
 }
 
 /**
- * The runtime contract. Stage 1 implements the read-only half; lifecycle,
- * image, volume and network mutations are typed now and throw
- * NotImplementedInStage1 until stages 2-5 fill them in.
+ * The runtime contract. Stage 2 implements the read half; stage 3 fills the
+ * container lifecycle + network mutations the deploy path needs.
  */
 export interface RuntimeAdapter {
   readonly kind: RuntimeKind;
@@ -93,6 +96,8 @@ export interface RuntimeAdapter {
   pull(ref: string): Promise<void>;
   loadImage(stream: NodeJS.ReadableStream): Promise<void>;
   removeImage(ref: string): Promise<void>;
+  /** Remove dangling image layers (the old `image prune -f`). */
+  pruneImages(): Promise<void>;
   // containers
   create(spec: ContainerSpec): Promise<{ id: string }>;
   start(id: string): Promise<void>;

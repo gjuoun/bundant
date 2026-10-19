@@ -3,6 +3,8 @@ import { parseArgs } from "node:util";
 import { dirname } from "node:path";
 import { loadConfig } from "./config.ts";
 import { buildDeployPlan, renderPlan } from "./planner.ts";
+import { renderApiPlan } from "./plan-render.ts";
+import type { OpsVia } from "./ops/index.ts";
 import { resolveRevision, sanitizeRevision } from "./revision.ts";
 import { cliVersion } from "./version.ts";
 
@@ -32,6 +34,7 @@ const USAGE = [
   "options:",
   "  -f, --file <path>     deploy.yml path (default: ./deploy.yml)",
   "      --dry-run         print the full command plan without executing",
+  "      --via cli|api     mutations: engine API (default) or legacy ssh commands",
   "      --rev <id>        override revision id (testing hook; default: git short sha)",
   "      --local-image <name:tag>  stream a locally built image to hosts (no registry)",
   "      --keep <k>        prune: revisions to keep (default 3)",
@@ -51,6 +54,13 @@ const USAGE = [
 function usage(): never {
   console.error(USAGE);
   process.exit(2);
+}
+
+function opsVia(raw: string | undefined): OpsVia | null {
+  if (raw === undefined || raw === "api") return "api";
+  if (raw === "cli") return "cli";
+  console.error("bundant: --via must be 'api' or 'cli'");
+  return null;
 }
 
 async function main(): Promise<number> {
@@ -89,6 +99,7 @@ async function main(): Promise<number> {
       port: { type: "string", default: "8787" },
       json: { type: "boolean", default: false },
       hosts: { type: "string" },
+      via: { type: "string", default: "api" },
     },
   });
   const sub = args.positionals[0];
@@ -111,12 +122,18 @@ async function main(): Promise<number> {
       return 2;
     }
     const plan = buildDeployPlan(loaded.config, revision, { localImage });
+    const via = opsVia(args.values.via);
+    if (via === null) return 2;
     if (args.values["dry-run"]) {
-      console.log(renderPlan(plan));
+      console.log(
+        via === "api" && localImage === undefined
+          ? renderApiPlan(plan, { envCount: loaded.envCount })
+          : renderPlan(plan),
+      );
       return 0;
     }
     const { deploy } = await import("./deploy.ts");
-    return deploy(plan, loaded);
+    return deploy(plan, loaded, { via });
   }
 
   if (sub === "scale") {
@@ -148,8 +165,10 @@ async function main(): Promise<number> {
 
   if (sub === "rollback") {
     const loaded = loadConfig(args.values.file ?? "deploy.yml");
+    const via = opsVia(args.values.via);
+    if (via === null) return 2;
     const { rollback } = await import("./rollback.ts");
-    return rollback(loaded, { toRevision: args.values["to-revision"] });
+    return rollback(loaded, { toRevision: args.values["to-revision"], via });
   }
 
   if (sub === "history") {
@@ -181,8 +200,10 @@ async function main(): Promise<number> {
       return 2;
     }
     const loaded = loadConfig(args.values.file ?? "deploy.yml");
+    const via = opsVia(args.values.via);
+    if (via === null) return 2;
     const { prune } = await import("./prune.ts");
-    return prune(loaded, { keep, dryRun: args.values["dry-run"] === true });
+    return prune(loaded, { keep, dryRun: args.values["dry-run"] === true, via });
   }
 
   if (sub === "bootstrap") {

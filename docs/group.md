@@ -41,13 +41,32 @@ special case: it loads with `group: default`, so the same shape applies everywhe
 
 | item | in `default` (no group directory) | in a group |
 |---|---|---|
-| container | `<service>-<role>-<rev>` | `<group>-<service>-<role>-<rev>` |
+| container | `<service>-<role>-<rev>` | `<group>-<service>-<role>-<rev>` (groups and roles take no hyphens) |
 | replicas | `<service>-<role>-<rev>-<i>` | `<group>-<service>-<role>-<rev>-<i>` |
 | proxy id | `<service>-<role>` | `<group>-<service>-<role>` |
 | accessory container | `<service>` | `<group>-<service>` |
 | env file | `~/.bundant/env/default/<service>-<role>.env` | `~/.bundant/env/<group>/<service>-<role>.env` |
 | lock key | `default/<service>` | `<group>/<service>` (one outer `<group>` lock per group run) |
 | labels | `bundant.service=<service>`, `bundant.group=default` | `bundant.service=<service>`, `bundant.group=<group>` |
+
+### Name grammar (collision-proof)
+
+Only the service segment may contain a hyphen; every other segment is
+lowercase alphanumeric. That is what makes the composition injective and the
+parse deterministic:
+
+| segment | pattern | why |
+|---|---|---|
+| group | `[a-z0-9]+` | first segment; no hyphen |
+| service | `[a-z0-9][a-z0-9-]*` | the only multi-word segment |
+| role | `[a-z0-9]+` | split before the revision; no hyphen |
+| revision | `[a-z0-9]+` | right-most segment before an optional replica index |
+| replica | `\d+` | optional last segment |
+
+So `a-b-c-web-1234` can only be group `a`, service `b-c`; a group named
+`a-b` is rejected rather than silently colliding. Uppercase, underscores and
+dots are rejected too (`CamelCase`, `snake_case`, `dot.case` are all
+configuration errors that name the field and the rule).
 
 **The default group never prefixes.** Ungrouped names are byte-for-byte what they were,
 so existing deployments need no migration. A real group puts its name in front of the

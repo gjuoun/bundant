@@ -1,14 +1,21 @@
 import type { LoadedConfig } from "./config.ts";
 import * as docker from "./commands/docker.ts";
-import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
-import { connectionForTarget, hostTargets } from "./hosts.ts";
-import { parseHistory, revisionOf } from "./revisions.ts";
+import { hostTargets, connectionForTarget } from "./hosts.ts";
+import { parseHistory, revisionOf, type RevisionEntry } from "./revisions.ts";
 import { runtimeFor } from "./runtime.ts";
 import { belongsToService, serviceLabels } from "./naming.ts";
+import { openOps, type OpsVia } from "./ops/index.ts";
 
 export interface PruneEntry {
   name: string;
   createdAt: string;
+}
+
+export interface PruneOptions {
+  keep: number;
+  dryRun: boolean;
+  /** Mutations through the engine API (default) or the legacy CLI strings. */
+  via?: OpsVia;
 }
 
 /** Parse "name createdAt" listing, newest first. */
@@ -72,41 +79,49 @@ export function selectPrune(
   return victims;
 }
 
+function labelsFor(config: LoadedConfig["config"]): Record<string, string> {
+  return serviceLabels(config);
+}
+
+function entriesOf(history: RevisionEntry[]): PruneEntry[] {
+  return history.map((e) => ({ name: e.name, createdAt: e.createdAt }));
+}
+
 /**
  * Remove stopped revision containers beyond the newest K, then dangling
- * image layers. dryRun prints the exact commands instead of executing.
+ * image layers. dryRun prints the calls/commands instead of executing.
  */
-export async function prune(
-  loaded: LoadedConfig,
-  opts: { keep: number; dryRun: boolean },
-): Promise<number> {
+export async function prune(loaded: LoadedConfig, opts: PruneOptions): Promise<number> {
   const { config } = loaded;
   const rt = runtimeFor(config.runtime);
+  const via: OpsVia = opts.via ?? "api";
 
   for (const host of hostTargets(config)) {
+    console.log("== " + host + " ==");
     if (opts.dryRun) {
-      console.log("== " + host + " ==");
-      console.log("  (dry-run) " + docker.listHistoryByLabels(rt, serviceLabels(config)));
-      console.log(
-        "  (dry-run) " + rt.bin + " rm <stopped " + config.service + "-" + config.role +
-        "-* revisions beyond the newest " + opts.keep + ", never running ones>",
-      );
-      console.log("  (dry-run) " + docker.imagePrune(rt));
+      if (via === "cli") {
+        console.log("  (dry-run) " + docker.listHistoryByLabels(rt, labelsFor(config)));
+        console.log(
+          "  (dry-run) " + rt.bin + " rm <stopped " + config.service + "-" + config.role +
+          "-* revisions beyond the newest " + opts.keep + ", never running ones>",
+        );
+        console.log("  (dry-run) " + docker.imagePrune(rt));
+      } else {
+        const filters = encodeURIComponent(JSON.stringify({ label: Object.entries(labelsFor(config)).map(([k, v]) => k + "=" + v) }));
+        console.log("  (dry-run) GET /containers/json?all=1&filters=" + filters);
+        console.log(
+          "  (dry-run) DELETE /containers/<stopped " + config.service + "-" + config.role +
+          "-* revisions beyond the newest " + opts.keep + ", never running ones>?force=1",
+        );
+        console.log("  (dry-run) POST /images/prune?filters=" + encodeURIComponent(JSON.stringify({ dangling: { "true": true } })));
+      }
       continue;
     }
 
-    const exec = new SshExecutor(connectOptionsFor(connectionForTarget(config, host)));
+    const ops = await openOps(via, connectionForTarget(config, host), config);
     try {
-      console.log("== " + host + " ==");
-      const all = await exec.run(docker.listHistoryByLabels(rt, serviceLabels(config)));
-      if (all.code !== 0) {
-        console.error("  cannot list revisions: " + all.stderr.trim());
-        return 1;
-      }
-      // Label selection includes pre-grouping names; the name filter keeps this
-      // service-role and drops other roles in the same group.
-      const history = parseHistory(all.stdout).filter((e) => belongsToService(e.name, config));
-      const entries = history.map((e) => ({ name: e.name, createdAt: e.createdAt }));
+      const history = await ops.history(labelsFor(config), config);
+      const entries = entriesOf(history);
       const runSet = new Set(history.filter((e) => e.state.startsWith("Up")).map((e) => e.name));
       const groups = groupByRevision(entries, config.service, config.role, config.group);
       const victims = selectPrune(entries, runSet, opts.keep, config.service, config.role, config.group);
@@ -116,28 +131,19 @@ export async function prune(
         runSet.size + " running, keeping newest " + opts.keep + " revision(s)",
       );
 
-      if (victims.length === 0) {
-        console.log("  nothing to prune");
-      }
+      if (victims.length === 0) console.log("  nothing to prune");
       for (const v of victims) {
-        const cmd = rt.bin + " rm " + v;
-        const r = await exec.run(cmd);
-        if (r.code !== 0) {
-          console.error("  rm failed: " + v + " — " + r.stderr.trim());
-          return 1;
-        }
+        await ops.removeContainer(v);
         console.log("  removed " + v);
       }
 
-      const imgCmd = docker.imagePrune(rt);
-      const img = await exec.run(imgCmd);
-      if (img.code !== 0) {
-        console.error("  image prune failed: " + img.stderr.trim());
-        return 1;
-      }
+      await ops.pruneImages();
       console.log("  dangling images pruned");
+    } catch (e) {
+      console.error("  " + (e as Error).message);
+      return 1;
     } finally {
-      await exec.close();
+      await ops.close();
     }
   }
   return 0;
