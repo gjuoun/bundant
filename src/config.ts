@@ -8,6 +8,13 @@ import { PROXY_IMAGE } from "./commands/proxy.ts";
 /** Identifiers that end up inside docker container/network names. */
 export const NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
 
+/**
+ * Every deployment belongs to a group; an ungrouped deploy lands in this one.
+ * It is a real namespace, not a special case: same labels, same env directory
+ * shape, same lock key shape — so `bundant.group=default` is always present.
+ */
+export const DEFAULT_GROUP = "default";
+
 export class ConfigError extends Error {}
 
 const EnvSchema = z.object({
@@ -219,7 +226,9 @@ export function loadConfig(
     );
   }
   const merged: RawConfig = { ...parsed.data, hosts, ssh: sshDefaults };
-  let config = normalize(merged, hosts);
+  // Every deployment lives in a namespace: an ungrouped file lands in DEFAULT_GROUP,
+  // so labels, the env path and the lock key keep one shape everywhere.
+  let config = { ...normalize(merged, hosts), group: DEFAULT_GROUP };
 
   const override = env.BUNDANT_HOSTS;
   if (override !== undefined && override.trim() !== "") {

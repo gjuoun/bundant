@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { chmod, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
-import { loadGroup, type BundantConfig, type LoadedConfig } from "./config.ts";
+import { DEFAULT_GROUP, loadGroup, type BundantConfig, type LoadedConfig } from "./config.ts";
 import * as docker from "./commands/docker.ts";
 import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
 import { connectionForTarget, hostTargets } from "./hosts.ts";
@@ -93,7 +93,9 @@ export class Accessory {
   private readonly rt: Runtime;
 
   constructor(loaded: LoadedConfig) {
-    if (loaded.config.kind === "accessory" && loaded.config.group === undefined) {
+    // A file loaded on its own sits in DEFAULT_GROUP; a sibling ../group.yml still
+    // wins, so `bundant accessory boot -f shop/db/accessory.yml` keeps the shop namespace.
+    if (loaded.config.kind === "accessory" && loaded.config.group === DEFAULT_GROUP) {
       const inferred = inferAccessoryGroup(loaded.path);
       if (inferred !== undefined) loaded.config = { ...loaded.config, group: inferred };
     }

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import type { BundantConfig } from "./config.ts";
+import { join } from "node:path";
+import { loadConfig, type BundantConfig } from "./config.ts";
 import * as docker from "./commands/docker.ts";
 import { buildSweepSteps, selectSweepVictims } from "./delete.ts";
 import { buildDeployPlan, envRemotePath } from "./planner.ts";
@@ -30,13 +31,19 @@ describe("label rendering (grouped run)", () => {
     expect(plan.meta.group).toBe("shop");
   });
 
-  test("ungrouped run is byte-identical to the pre-groups plan", () => {
-    const plan = buildDeployPlan(cfg(), "abc1234");
+  test("a deploy with no group lands in the default namespace", () => {
+    const plan = buildDeployPlan(cfg({ group: "default" }), "abc1234");
     const run = plan.hostSteps.find((s) => s.phase === "run")!.cmds[1]!;
-    expect(run).toBe(
-      "docker run -d --name api-web-abc1234 --network bundant --restart unless-stopped traefik/whoami:v1.10",
-    );
-    expect(plan.meta.group).toBeUndefined();
+    expect(run).toContain("--label bundant.service=api");
+    expect(run).toContain("--label bundant.group=default");
+    expect(plan.meta.group).toBe("default");
+    expect(envRemotePath(cfg({ group: "default" }))).toBe("~/.bundant/env/default/api-web.env");
+    expect(plan.lockStep.cmds[0]).toContain("~/.bundant/locks/default/api.lock");
+  });
+
+  test("loadConfig puts an ungrouped deploy.yml into the default group", () => {
+    const loaded = loadConfig(join(import.meta.dir, "..", "examples/hello/deploy.yml"));
+    expect(loaded.config.group).toBe("default");
   });
 
   test("grouped env path and lock key are namespaced", () => {
@@ -46,9 +53,11 @@ describe("label rendering (grouped run)", () => {
     expect(plan.unlockStep.cmds[0]).toBe("rm -rf ~/.bundant/locks/shop/api.lock");
   });
 
-  test("ungrouped env path and lock key are unchanged", () => {
-    expect(envRemotePath(cfg())).toBe("~/.bundant/env/api-web.env");
-    expect(buildDeployPlan(cfg(), "abc1234").lockStep.cmds[0]).toContain("~/.bundant/locks/api.lock");
+  test("the default group namespaces the env path and lock key like any other", () => {
+    expect(envRemotePath(cfg({ group: "default" }))).toBe("~/.bundant/env/default/api-web.env");
+    expect(buildDeployPlan(cfg({ group: "default" }), "abc1234").lockStep.cmds[0]).toContain(
+      "~/.bundant/locks/default/api.lock",
+    );
   });
 });
 
