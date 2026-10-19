@@ -49,9 +49,9 @@ pipeline.
   provides (the local username when nothing is configured). Use it for hosts where
   the login name differs from your local one — the classic case is a bare IP:
   `hosts: [root@192.168.2.104]` instead of an `ssh junguo@192.168.2.104` denial.
-  IPv6 literals go in brackets (`root@[2001:db8::1]`); ports are **not** supported
-  in hosts entries — put `Port`/`IdentityFile`/`ProxyJump` in `~/.ssh/config`,
-  which ssh itself still reads.
+  IPv6 literals go in brackets (`root@[2001:db8::1]`); a port goes after the
+  host (`root@box.example.com:2222`, `root@[2001:db8::1]:2222`). `IdentityFile`
+  and `ProxyJump` still belong in `~/.ssh/config`, which ssh itself reads.
 - **revision** — container names are `<service>-<role>-<rev>`, where `rev` is the git
   short sha of the repo holding `deploy.yml` (fallback `rev-<base36>` before the first
   commit). `--rev ID` overrides it as a testing hook.
