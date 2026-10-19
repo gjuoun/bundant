@@ -216,6 +216,13 @@ async function main(): Promise<number> {
     const monitor = await monitorFor(loaded);
     const host = args.values.host;
     const container = args.values.container;
+    // A followed stream is interrupted with Ctrl-C; close the engine forwards
+    // before exiting so no ssh -N child is left behind.
+    const onSignal = (): void => {
+      void monitor.close().finally(() => process.exit(130));
+    };
+    process.once("SIGINT", onSignal);
+    process.once("SIGTERM", onSignal);
 
     try {
       if (sub === "ps") {
@@ -257,12 +264,14 @@ async function main(): Promise<number> {
       const since = args.values.since ?? "2h";
       const hosts = host === undefined ? monitor.hosts : [host];
       for (const h of hosts) {
-        const lines = await monitor.events(h, since);
+        const lines = await monitor.events(h, since, { windowSeconds: 3 });
         console.log("== " + h + " ==");
         for (const line of lines.slice(-80)) console.log("  " + line);
       }
       return 0;
     } finally {
+      process.off("SIGINT", onSignal);
+      process.off("SIGTERM", onSignal);
       await monitor.close();
     }
   }

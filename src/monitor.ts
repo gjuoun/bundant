@@ -199,11 +199,23 @@ export class Monitor {
     return lines.length === 0 ? "" : lines.join("\n") + "\n";
   }
 
-  async events(host: string, since: string, labels?: Record<string, string>): Promise<string[]> {
+  /**
+   * Events since a duration. The engine stream never ends on its own, so a
+   * window (default 3s, the old CLI behaviour) is sent as `until`.
+   */
+  async events(
+    host: string,
+    since: string,
+    opts: { labels?: Record<string, string>; windowSeconds?: number } = {},
+  ): Promise<string[]> {
     const t = this.target(host);
     const runtime = this.runtimeOf(t);
+    const windowSeconds = opts.windowSeconds ?? 3;
+    const until = Math.floor(Date.now() / 1000) + windowSeconds;
     const lines: string[] = [];
-    for await (const event of runtime.events({ since, labels })) lines.push(formatEvent(event));
+    for await (const event of runtime.events({ since, until, labels: opts.labels })) {
+      lines.push(formatEvent(event));
+    }
     return lines;
   }
 

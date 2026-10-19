@@ -4,6 +4,8 @@ import { containerName, indexedContainerName } from "./replicas.ts";
 import { replicaOf, revisionOf } from "./revisions.ts";
 import { serviceId } from "./commands/proxy.ts";
 import { buildDeleteSteps } from "./delete.ts";
+import { stopOld } from "./commands/docker.ts";
+import { runtimeFor } from "./runtime.ts";
 import { accessoryContainerName, belongsToService, isGrouped } from "./naming.ts";
 
 function cfg(over: Partial<BundantConfig> = {}): BundantConfig {
@@ -76,6 +78,15 @@ describe("group-scoped names", () => {
     expect(containers?.cmds[0]).toContain('name=api-web-');
     expect(containers?.cmds[0]).toContain("bundant.group");
     expect(containers?.cmds[0]).toContain('"alpha"');
+  });
+
+  test("stop-old sweeps the new prefix and legacy names for a real group", () => {
+    const cmd = stopOld(runtimeFor("docker"), cfg({ group: "alpha" }), ["alpha-api-web-abc"]);
+    expect(cmd).toContain('name=alpha-api-web-');
+    expect(cmd).toContain('name=api-web-');
+    expect(cmd).toContain("bundant.group");
+    expect(cmd).toContain('"alpha"');
+    expect(cmd).toContain("alpha-api-web-abc");
   });
 
   test("ungrouped delete keeps the historical single-prefix command", () => {

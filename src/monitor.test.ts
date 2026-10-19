@@ -26,7 +26,7 @@ function summary(over: Partial<ContainerSummary> = {}): ContainerSummary {
 class FakeRuntime implements MonitorRuntime {
   readonly rows: ContainerSummary[];
   readonly listCalls: { all?: boolean; labels?: Record<string, string>; namePrefix?: string }[] = [];
-  readonly eventCalls: { since?: number | string; labels?: Record<string, string> }[] = [];
+  readonly eventCalls: { since?: number | string; until?: number | string; labels?: Record<string, string> }[] = [];
   readonly logCalls: { id: string; follow?: boolean; tail?: number }[] = [];
   readonly inspectCalls: string[] = [];
 
@@ -78,7 +78,7 @@ class FakeRuntime implements MonitorRuntime {
     };
   }
 
-  async *events(opts: { since?: number | string; labels?: Record<string, string> } = {}): AsyncIterable<RuntimeEvent> {
+  async *events(opts: { since?: number | string; until?: number | string; labels?: Record<string, string> } = {}): AsyncIterable<RuntimeEvent> {
     this.eventCalls.push(opts);
     yield { type: "container", action: "start", id: "abc", time: 1760000000, actor: { id: "abc", attributes: { name: "app-web-rev-1" } } };
   }
@@ -168,8 +168,10 @@ describe("Monitor over the adapter", () => {
   test("events: label filter is passed to the adapter and lines keep the old shape", async () => {
     const runtime = new FakeRuntime([]);
     const monitor = monitorWith(runtime);
-    const lines = await monitor.events("docker01", "1h", { "bundant.group": "alpha" });
-    expect(runtime.eventCalls[0]).toEqual({ since: "1h", labels: { "bundant.group": "alpha" } });
+    const lines = await monitor.events("docker01", "1h", { labels: { "bundant.group": "alpha" } });
+    expect(runtime.eventCalls[0]?.since).toBe("1h");
+    expect(runtime.eventCalls[0]?.labels).toEqual({ "bundant.group": "alpha" });
+    expect(typeof runtime.eventCalls[0]?.until).toBe("number");
     expect(lines).toEqual(["1760000000|container|start|app-web-rev-1"]);
   });
 

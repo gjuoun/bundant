@@ -89,7 +89,7 @@ export function uiHandler(monitor: Monitor): (req: IncomingMessage, res: ServerR
             return;
           }
           try {
-            const lines = await monitor.events(host, query(url, "since") ?? "2h");
+            const lines = await monitor.events(host, query(url, "since") ?? "2h", { windowSeconds: 3 });
             json(res, { ok: true, lines });
           } catch (e) {
             json(res, { ok: false, error: (e as Error).message });
