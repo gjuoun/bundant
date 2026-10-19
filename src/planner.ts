@@ -136,7 +136,7 @@ export function buildDeployPlan(
   const image = opts.localImage ?? config.image;
   const names = containerNames(config, revision);
   const name = names[0]!;
-  const svcId = proxy.serviceId(config.service, config.role);
+  const svcId = proxy.serviceId(config.service, config.role, config.group);
   const hasEnv = Object.keys(config.env.vars).length > 0 || config.env.file !== undefined;
   const envPath = hasEnv ? envRemotePath(config) : undefined;
   const key = lockKey(config.group, config.service);
@@ -263,9 +263,12 @@ export function buildDeployPlan(
   hostSteps.push({
     phase: "stop-old",
     desc:
-      "stop previous " + config.service + "-" + config.role + "-* containers (keep " +
-      names.join(", ") + ")",
-    cmds: [docker.stopOld(rt, config.service, config.role, names)],
+      "stop previous " +
+      ((config.group !== undefined && config.group !== "" && config.group !== "default")
+        ? config.group + "-" + config.service + "-" + config.role + "-* and legacy "
+        : "") +
+      config.service + "-" + config.role + "-* containers (keep " + names.join(", ") + ")",
+    cmds: [docker.stopOld(rt, config, names)],
   });
 
   return {

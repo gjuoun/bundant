@@ -2,8 +2,9 @@ import type { LoadedConfig } from "./config.ts";
 import * as docker from "./commands/docker.ts";
 import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
 import { connectionForTarget, hostTargets } from "./hosts.ts";
-import { revisionOf } from "./revisions.ts";
+import { parseHistory, revisionOf } from "./revisions.ts";
 import { runtimeFor } from "./runtime.ts";
+import { belongsToService, serviceLabels } from "./naming.ts";
 
 export interface PruneEntry {
   name: string;
@@ -36,14 +37,15 @@ export function groupByRevision(
   entries: PruneEntry[],
   service?: string,
   role?: string,
+  group?: string,
 ): PruneGroup[] {
   const groups = new Map<string, PruneGroup>();
   for (const entry of entries) {
-    const revision = revisionOf(entry.name, service, role);
-    const group = groups.get(revision) ?? { revision, newest: entry.createdAt, entries: [] };
-    group.entries.push(entry);
-    if (entry.createdAt > group.newest) group.newest = entry.createdAt;
-    groups.set(revision, group);
+    const revision = revisionOf(entry.name, service, role, group);
+    const bucket = groups.get(revision) ?? { revision, newest: entry.createdAt, entries: [] };
+    bucket.entries.push(entry);
+    if (entry.createdAt > bucket.newest) bucket.newest = entry.createdAt;
+    groups.set(revision, bucket);
   }
   return [...groups.values()].sort((a, b) => (a.newest < b.newest ? 1 : a.newest > b.newest ? -1 : 0));
 }
@@ -59,10 +61,11 @@ export function selectPrune(
   keep: number,
   service?: string,
   role?: string,
+  group?: string,
 ): string[] {
   const victims: string[] = [];
-  for (const group of groupByRevision(entries, service, role).slice(keep)) {
-    for (const entry of group.entries) {
+  for (const bucket of groupByRevision(entries, service, role, group).slice(keep)) {
+    for (const entry of bucket.entries) {
       if (!running.has(entry.name)) victims.push(entry.name);
     }
   }
@@ -83,7 +86,7 @@ export async function prune(
   for (const host of hostTargets(config)) {
     if (opts.dryRun) {
       console.log("== " + host + " ==");
-      console.log("  (dry-run) " + docker.listForSelection(rt, config.service, config.role));
+      console.log("  (dry-run) " + docker.listHistoryByLabels(rt, serviceLabels(config)));
       console.log(
         "  (dry-run) " + rt.bin + " rm <stopped " + config.service + "-" + config.role +
         "-* revisions beyond the newest " + opts.keep + ", never running ones>",
@@ -95,18 +98,18 @@ export async function prune(
     const exec = new SshExecutor(connectOptionsFor(connectionForTarget(config, host)));
     try {
       console.log("== " + host + " ==");
-      const all = await exec.run(docker.listForSelection(rt, config.service, config.role));
+      const all = await exec.run(docker.listHistoryByLabels(rt, serviceLabels(config)));
       if (all.code !== 0) {
         console.error("  cannot list revisions: " + all.stderr.trim());
         return 1;
       }
-      const running = await exec.run(docker.listRunning(rt, config.service, config.role));
-      const entries = parsePruneListing(all.stdout);
-      const runSet = new Set(
-        running.stdout.trim().split("\n").filter((l) => l.trim() !== ""),
-      );
-      const groups = groupByRevision(entries, config.service, config.role);
-      const victims = selectPrune(entries, runSet, opts.keep, config.service, config.role);
+      // Label selection includes pre-grouping names; the name filter keeps this
+      // service-role and drops other roles in the same group.
+      const history = parseHistory(all.stdout).filter((e) => belongsToService(e.name, config));
+      const entries = history.map((e) => ({ name: e.name, createdAt: e.createdAt }));
+      const runSet = new Set(history.filter((e) => e.state.startsWith("Up")).map((e) => e.name));
+      const groups = groupByRevision(entries, config.service, config.role, config.group);
+      const victims = selectPrune(entries, runSet, opts.keep, config.service, config.role, config.group);
 
       console.log(
         "  revisions: " + groups.length + " (" + entries.length + " containers), " +

@@ -23,6 +23,9 @@ proxy:
 | 1 | `<service>-<role>-<rev>` — identical to a pre-replicas deployment |
 | N > 1 | `<service>-<role>-<rev>-1` … `-<N>` |
 
+Inside a real group both rows gain the group prefix
+(`<group>-<service>-<role>-<rev>[-<i>]`); the `default` group never prefixes.
+
 A single-replica deployment is byte-identical to what bundant did before the
 feature existed, so no migration is involved. Every service container also
 carries `bundant.revision=<rev>` and `bundant.replica=<i>`; `scale`, `status`

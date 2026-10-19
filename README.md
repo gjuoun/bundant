@@ -62,7 +62,7 @@ registry).
 | `history` | revisions newest-first with state, current one marked |
 | `status` | per-host containers, proxy targets, live health probe |
 | `prune [--keep k]` | drop stopped revisions beyond the newest k (default 3) + dangling layers |
-| `delete [--yes] [--images]` | remove the service everywhere: proxy route, `<service>-<role>-*` containers, rendered env file (images kept unless `--images`); prints the plan and refuses without `--yes` |
+| `delete [--yes] [--images]` | remove the service everywhere: proxy route, this service-role's containers (`<service>-<role>-*`, plus the pre-grouping names when grouped), rendered env file (images kept unless `--images`); prints the plan and refuses without `--yes` |
 | `group <install\|uninstall\|status\|rollback> -f group.yml` | namespace lifecycle: ordered install (`needs:` topo-sorted), labelled-sweep uninstall that leaves accessories alone, aggregated status, whole-group rollback to one shared sha |
 | `accessory <boot\|reboot\|stop\|logs\|status\|remove> -f accessory.yml` | stateful member lifecycle: stable name + named volumes, `healthcheck.tcp` readiness, `remove --yes [--volumes]` |
 | `bootstrap [--dry-run] [--skip-smoke]` | make each host ready: install podman when missing (apt/dnf/yum/apk/pacman/zypper), enable `podman-restart.service`, set the registry search path, smoke-test one container |

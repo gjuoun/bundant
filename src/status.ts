@@ -3,8 +3,9 @@ import * as docker from "./commands/docker.ts";
 import * as proxy from "./commands/proxy.ts";
 import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
 import { resolveConnections } from "./hosts.ts";
-import { replicaOf, revisionOf } from "./revisions.ts";
+import { parseHistory, replicaOf, revisionOf } from "./revisions.ts";
 import { runtimeFor } from "./runtime.ts";
+import { belongsToService, serviceLabels } from "./naming.ts";
 
 /** One line of `ps -a` output, reduced to what status reports. */
 export interface StatusLine {
@@ -39,18 +40,19 @@ export function liveReplicas(
   lines: StatusLine[],
   service: string,
   role: string,
+  group?: string,
 ): { revision: string | undefined; replicas: LiveReplica[] } {
   const running = lines.filter((l) => l.state.startsWith("Up"));
   const counts = new Map<string, number>();
   for (const line of running) {
-    const rev = revisionOf(line.name, service, role);
+    const rev = revisionOf(line.name, service, role, group);
     counts.set(rev, (counts.get(rev) ?? 0) + 1);
   }
   const revision = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   if (revision === undefined) return { revision: undefined, replicas: [] };
   const replicas = running
-    .filter((l) => revisionOf(l.name, service, role) === revision)
-    .map((l) => ({ index: replicaOf(l.name, service, role) ?? 1, name: l.name }))
+    .filter((l) => revisionOf(l.name, service, role, group) === revision)
+    .map((l) => ({ index: replicaOf(l.name, service, role, group) ?? 1, name: l.name }))
     .sort((a, b) => a.index - b.index);
   return { revision, replicas };
 }
@@ -72,22 +74,24 @@ export async function status(loaded: LoadedConfig): Promise<number> {
     const exec = new SshExecutor(connectOptionsFor(conn));
     console.log("== " + conn.sshTarget + " ==");
 
-    const ps = await exec.run(docker.listForStatus(rt, config.service, config.role));
+    const ps = await exec.run(docker.listHistoryByLabels(rt, serviceLabels(config)));
     if (ps.code !== 0) {
       console.log("  containers: query failed — " + ps.stderr.trim());
       exit = 1;
     } else {
-      const lines = parseStatusLines(ps.stdout);
+      const lines: StatusLine[] = parseHistory(ps.stdout)
+        .filter((e) => belongsToService(e.name, config))
+        .map((e) => ({ name: e.name, state: e.state }));
       if (lines.length === 0) console.log("  containers: none");
       for (const line of lines) {
-        const index = replicaOf(line.name, config.service, config.role);
+        const index = replicaOf(line.name, config.service, config.role, config.group);
         console.log(
           "  " + line.name +
             (index !== undefined ? " [replica " + index + "]" : "") + "  " + line.state,
         );
       }
 
-      const live = liveReplicas(lines, config.service, config.role);
+      const live = liveReplicas(lines, config.service, config.role, config.group);
       console.log("  " + replicaSummary(live.replicas.length, expected));
       if (live.revision !== undefined) {
         console.log("  revision: " + live.revision);

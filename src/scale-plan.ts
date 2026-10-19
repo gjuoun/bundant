@@ -91,7 +91,7 @@ export function buildScaleSteps(
   opts: ScaleStepOptions,
 ): CmdStep[] {
   const rt = runtimeFor(config.runtime);
-  const svcId = proxy.serviceId(config.service, config.role);
+  const svcId = proxy.serviceId(config.service, config.role, config.group);
   const steps: CmdStep[] = [];
   const nameOf = (i: number): string =>
     opts.nameOf ? opts.nameOf(i) : indexedContainerName(config, revision, i);
@@ -171,6 +171,7 @@ export function parseReplicaInventory(
   stdout: string,
   service: string,
   role: string,
+  group?: string,
 ): ReplicaLine[] {
   return stdout
     .split("\n")
@@ -180,8 +181,8 @@ export function parseReplicaInventory(
       const [name = "", revLabel = "", replicaLabel = "", image = ""] = line.split("|");
       return {
         name,
-        revision: revLabel || revisionOf(name, service, role),
-        index: replicaLabel !== "" ? Number(replicaLabel) : replicaOf(name, service, role) ?? 1,
+        revision: revLabel || revisionOf(name, service, role, group),
+        index: replicaLabel !== "" ? Number(replicaLabel) : replicaOf(name, service, role, group) ?? 1,
         image,
       };
     })

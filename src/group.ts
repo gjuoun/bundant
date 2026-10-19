@@ -11,6 +11,7 @@ import { resolveRevision, sanitizeRevision } from "./revision.ts";
 import { rollback } from "./rollback.ts";
 import { runtimeFor } from "./runtime.ts";
 import { status as serviceStatus } from "./status.ts";
+import { accessoryContainerName } from "./naming.ts";
 
 /**
  * Group orchestration: a group is a namespace with one lifecycle. Install walks
@@ -232,7 +233,7 @@ export class GroupRunner {
   private async accessoryReady(member: GroupMember): Promise<boolean> {
     const config = member.loaded.config;
     const rt = runtimeFor(config.runtime);
-    const name = config.service;
+    const name = accessoryContainerName(config);
     for (const host of hostTargets(config)) {
       const exec = new SshExecutor(connectOptionsFor(connectionForTarget(config, host)));
       try {

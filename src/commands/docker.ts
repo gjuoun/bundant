@@ -127,27 +127,41 @@ export function volumeLabel(rt: Runtime, volume: string, key: string): string {
   );
 }
 
-/** Stop every container of this service-role except the freshly deployed set. */
+/**
+ * Stop every container of this service-role except the freshly deployed set.
+ * The default group keeps the historical single-prefix command byte-for-byte.
+ * A real group also sweeps the pre-grouping names, but only containers whose
+ * bundant.group label matches — another group may legitimately use the same
+ * service name.
+ */
 export function stopOld(
   rt: Runtime,
-  service: string,
-  role: string,
+  config: { service: string; role: string; group?: string },
   keep: string | string[],
   timeout = 10,
 ): string {
-  const prefix = service + "-" + role + "-";
+  const { service, role, group } = config;
+  const legacyPrefix = service + "-" + role + "-";
   const keepSet = new Set(typeof keep === "string" ? [keep] : keep);
   const keepFilter =
     keepSet.size === 1
       ? 'grep -v "^' + [...keepSet][0] + '$"'
       : "grep -v -E '^(" + [...keepSet].join("|") + ")$'";
-  return (
+  const loop = (prefix: string, groupGuard: string): string =>
     'for c in $(' + rt.bin + ' ps -a --filter "name=' + prefix + '" --format "{{.Names}}"' +
     ' | grep "^' + prefix + '" | ' + keepFilter + '); do ' +
+    groupGuard +
     'k=$(' + inspectLabel(rt, '"$c"', LABEL_KIND) + '); ' +
     'if [ "$k" = "' + KIND_ACCESSORY + '" ]; then continue; fi; ' +
-    rt.bin + " stop -t " + timeout + ' "$c"; done'
-  );
+    rt.bin + " stop -t " + timeout + ' "$c"; done';
+
+  if (group === undefined || group === "" || group === "default") {
+    return loop(legacyPrefix, "");
+  }
+  const scopedPrefix = group + "-" + legacyPrefix;
+  const guard = 'g=$(' + inspectLabel(rt, '"$c"', 'bundant.group') + '); ' +
+    '[ "$g" = "' + group + '" ] || continue; ';
+  return loop(scopedPrefix, "") + "; " + loop(legacyPrefix, guard);
 }
 
 /** Listing used by rollback selection: "<name> <createdAt>" per line. */
@@ -155,6 +169,14 @@ export function listForSelection(rt: Runtime, service: string, role: string): st
   return (
     rt.bin + ' ps -a --filter "name=' + service + "-" + role +
     '-" --format "{{.Names}} {{.CreatedAt}}"'
+  );
+}
+
+/** name|createdAt|state for exact labels — finds both name shapes by group label. */
+export function listHistoryByLabels(rt: Runtime, labels: Record<string, string>): string {
+  return (
+    rt.bin + " ps -a" + labelFilters(labels) +
+    ' --format "{{.Names}}|{{.CreatedAt}}|{{.Status}}"'
   );
 }
 

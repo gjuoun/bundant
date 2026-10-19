@@ -19,6 +19,7 @@ export async function history(loaded: LoadedConfig): Promise<number> {
         entries,
         loaded.config.service,
         loaded.config.role,
+        loaded.config.group,
       );
       console.log(
         "== " + host + " (" + loaded.config.service + "-" + loaded.config.role + ") ==",
