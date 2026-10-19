@@ -36,16 +36,18 @@ error.
 
 ## Naming and scope
 
-Inside a group the deployment identity stays **per service**: the container is
-`<service>-<role>-<rev>`, the proxy id is `<service>-<role>`, and the git sha
-of the group repo is the release id for the whole set. Group membership only
-changes where bundant puts things:
+Every deployment lives in a namespace. A `deploy.yml` that sits outside any group is not a
+special case: it loads with `group: default`, so the same shape applies everywhere.
 
-| item | ungrouped | grouped |
+| item | in `default` (no group directory) | in a group |
 |---|---|---|
-| env file | `~/.bundant/env/<service>-<role>.env` | `~/.bundant/env/<group>/<service>-<role>.env` |
-| lock key | `<service>` | `<group>/<service>` (one outer `<group>` lock per group run) |
-| labels | none | `bundant.service=<service>`, `bundant.group=<group>` |
+| env file | `~/.bundant/env/default/<service>-<role>.env` | `~/.bundant/env/<group>/<service>-<role>.env` |
+| lock key | `default/<service>` | `<group>/<service>` (one outer `<group>` lock per group run) |
+| labels | `bundant.service=<service>`, `bundant.group=default` | `bundant.service=<service>`, `bundant.group=<group>` |
+
+The deployment identity stays **per service**: the container is `<service>-<role>-<rev>`,
+the proxy id is `<service>-<role>`, and the git sha of the group repo is the release id for
+the whole set.
 
 The labels make filtering exact: `ps` and the delete sweep select by
 `label=bundant.service=…` (and `label=bundant.group=…`), never by name prefix.
@@ -99,7 +101,8 @@ bundant accessory remove -f shop/db/accessory.yml --yes --volumes   # delete dat
 
 When an accessory file sits inside a group directory, `bundant accessory`
 resolves the sibling `../group.yml` automatically, so its container carries the
-same `bundant.group` label and its env file lands under the group directory.
+same `bundant.group` label and its env file lands under the group directory. A
+standalone accessory file (no group directory) lands in `default`.
 
 ## Commands
 

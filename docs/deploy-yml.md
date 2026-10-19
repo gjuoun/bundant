@@ -56,7 +56,8 @@ pipeline.
   short sha of the repo holding `deploy.yml` (fallback `rev-<base36>` before the first
   commit). `--rev ID` overrides it as a testing hook.
 - **env** — values are never printed; the merged result is uploaded to
-  `~/.bundant/env/<service>-<role>.env` with mode 0600 and passed with `--env-file`.
+  `~/.bundant/env/<group>/<service>-<role>.env` (`default` when the file is in no group) with
+  mode 0600 and passed with `--env-file`.
   Secrets belong in that local file (gitignored), not in git.
 - **healthcheck** — the gate probes the container by name from a throwaway curl sidecar
   on the `bundant` network. A failed gate aborts, removes the new container, and never
