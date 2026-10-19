@@ -1,4 +1,4 @@
-import type { ContainerSpec } from "../adapters/types.ts";
+import type { ContainerInfo, ContainerSpec, ContainerSummary } from "../adapters/types.ts";
 import type { BundantConfig } from "../config.ts";
 import type { RevisionEntry } from "../revisions.ts";
 
@@ -48,6 +48,13 @@ export interface RuntimeOps {
   createContainer(spec: ContainerSpec): Promise<string>;
   startContainer(name: string): Promise<void>;
   stopContainers(names: string[]): Promise<void>;
+  listContainers(opts: {
+    all?: boolean;
+    labels?: Record<string, string>;
+    namePrefix?: string;
+  }): Promise<ContainerSummary[]>;
+  inspectContainer(name: string): Promise<ContainerInfo>;
+  removeImage(ref: string): Promise<void>;
 
   healthGate(names: string[], opts: HealthGateOptions): Promise<void>;
   proxyEnsure(image: string): Promise<void>;
@@ -64,6 +71,19 @@ export interface RuntimeOps {
     labels: Record<string, string>,
     config: Pick<BundantConfig, "service" | "role" | "group">,
   ): Promise<RevisionEntry[]>;
+
+  /** kamal-proxy remove, tolerated when the proxy or the route is absent. */
+  proxyRemove(serviceId: string): Promise<void>;
+  /** Delete a legacy rendered env file (API path never writes one). */
+  removeEnv(remotePath: string): Promise<void>;
+  /** Accessory logs (static tail). */
+  logs(name: string, tail: number): Promise<string>;
+  /** A bare TCP connect from a sidecar must succeed (accessory readiness). */
+  tcpGate(name: string, port: number, opts: HealthGateOptions): Promise<void>;
+
+  createVolume(name: string, labels: Record<string, string>): Promise<void>;
+  removeVolume(name: string): Promise<void>;
+  inspectVolume(name: string): Promise<{ labels: Record<string, string> }>;
 
   pruneImages(): Promise<void>;
   close(): Promise<void>;

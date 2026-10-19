@@ -17,8 +17,8 @@
         "properties": {
           "name": {
             "type": "string",
-            "pattern": "^[a-z0-9][a-z0-9-]*$",
-            "description": "member identity; must equal the member file's service (hyphens allowed)"
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+            "description": "member identity; must equal the member file's service (single hyphens allowed)"
           },
           "file": {
             "type": "string",
@@ -29,7 +29,7 @@
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^[a-z0-9][a-z0-9-]*$"
+              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
             },
             "description": "members that must be ready first; the install order is their topological sort"
           }

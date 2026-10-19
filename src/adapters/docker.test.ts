@@ -181,10 +181,9 @@ describe("DockerAdapter read-only surface", () => {
     }
   });
 
-  test("mutations outside stage 3 still throw NotImplementedInStage1", async () => {
+  test("image streaming stays stage 4 and still throws NotImplementedInStage1", async () => {
     const { adapter, close } = await adapterOn((_req, res) => json(res, 200, {}));
     try {
-      await expect(adapter.createVolume("v", {})).rejects.toBeInstanceOf(NotImplementedInStage1);
       await expect(adapter.loadImage(null as never)).rejects.toBeInstanceOf(NotImplementedInStage1);
     } finally {
       await close();

@@ -5,9 +5,11 @@ import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
 import { connectionForTarget, hostTargets } from "./hosts.ts";
 import { acquireLock, lockKey, releaseLock } from "./lock.ts";
 import { envRemotePath, LABEL_KIND, KIND_ACCESSORY } from "./planner.ts";
-import { containerPrefix, isGrouped, legacyPrefix } from "./naming.ts";
+import { belongsToService, containerPrefix, isGrouped, legacyPrefix, serviceLabels } from "./naming.ts";
 import { runtimeFor } from "./runtime.ts";
 import type { CmdStep } from "./types.ts";
+import { openOps, type OpsVia } from "./ops/index.ts";
+import { preflightGate } from "./validation.ts";
 
 export interface DeleteOptions {
   /** Required for the destructive path; without it delete only prints the plan. */
@@ -16,6 +18,8 @@ export interface DeleteOptions {
   images: boolean;
   /** Print exactly what would be removed and never open ssh. */
   dryRun: boolean;
+  /** Mutations through the engine API (default) or the legacy CLI strings. */
+  via?: OpsVia;
 }
 
 /** Pure: the containers that belong to this service-role (running or stopped). */
@@ -168,12 +172,20 @@ export function buildSweepSteps(
   return steps;
 }
 
+interface DeleteSelection {
+  labels?: Record<string, string>;
+  namePrefix?: string;
+  /** Keep only names that belong to this service-role (delete, not group sweep). */
+  filterService: boolean;
+}
+
 /** Shared executor: prints the plan, guards on --yes, then runs it host by host. */
 async function executeDelete(
   loaded: LoadedConfig,
   steps: CmdStep[],
   opts: DeleteOptions,
   header: string,
+  selection: DeleteSelection,
 ): Promise<number> {
   const { config } = loaded;
   const targets = hostTargets(config);
@@ -197,31 +209,59 @@ async function executeDelete(
     return 0;
   }
 
-  const primary = new SshExecutor(connectOptionsFor(connectionForTarget(config, targets[0]!)));
-  const execs = new Set<SshExecutor>([primary]);
+  const via: OpsVia = opts.via ?? "api";
+  const primary = preflightGate(loaded, () =>
+    new SshExecutor(connectOptionsFor(connectionForTarget(config, targets[0]!))),
+  );
   let locked = false;
   try {
     await acquireLock(primary, lockKey(config.group, config.service));
     locked = true;
 
     for (const host of targets) {
-      const exec = host === targets[0]
-        ? primary
-        : new SshExecutor(connectOptionsFor(connectionForTarget(config, host)));
-      execs.add(exec);
       console.log("== " + host + " ==");
-      for (const step of steps) {
-        for (const cmd of step.cmds) {
-          const r = await exec.run(cmd);
-          const detail = r.stdout.trim() || r.stderr.trim();
-          console.log(
-            "  " + step.phase + (r.code === 0 ? " ok" : " failed") + (detail ? ": " + detail : ""),
-          );
-          if (r.code !== 0) {
-            console.error("bundant: delete failed on " + host + " at " + step.phase + " (" + cmd + ")");
-            return 1;
-          }
+      const ops = await openOps(via, connectionForTarget(config, host), config);
+      try {
+        if (config.proxy.enabled) {
+          await ops.proxyRemove(proxy.serviceId(config.service, config.role, config.group));
+          console.log("  proxy-remove ok");
         }
+        const rows = await ops.listContainers({
+          all: true,
+          labels: selection.labels,
+          namePrefix: selection.namePrefix,
+        });
+        const victims = rows.filter(
+          (row) =>
+            row.labels["bundant.kind"] !== KIND_ACCESSORY &&
+            (!selection.filterService || belongsToService(row.name, config)),
+        );
+        const images = opts.images
+          ? [...new Set(victims.map((row) => row.image).filter((image) => image !== ""))]
+          : [];
+        for (const row of victims) {
+          await ops.stopContainers([row.name]);
+          await ops.removeContainer(row.name, { force: true });
+          console.log("  removed " + row.name);
+        }
+        if (victims.length === 0) console.log("  nothing to remove");
+        console.log(
+          "  containers ok" + (victims.length > 0 ? ": " + victims.map((r) => r.name).join(" ") : ""),
+        );
+        for (const image of images) {
+          await ops.removeImage(image);
+          console.log("  removed image " + image);
+        }
+        const envPath = envRemotePath(config);
+        if (envPath !== undefined) {
+          await ops.removeEnv(envPath);
+          console.log("  env-remove ok");
+        }
+      } catch (e) {
+        console.error("  delete failed: " + (e as Error).message);
+        return 1;
+      } finally {
+        await ops.close();
       }
     }
 
@@ -229,7 +269,7 @@ async function executeDelete(
     return 0;
   } finally {
     if (locked) await releaseLock(primary, lockKey(config.group, config.service));
-    for (const e of execs) await e.close();
+    await primary.close();
   }
 }
 
@@ -245,6 +285,7 @@ export async function remove(loaded: LoadedConfig, opts: DeleteOptions): Promise
     buildDeleteSteps(config, opts),
     opts,
     config.service + "/" + config.role,
+    { labels: serviceLabels(config), filterService: true },
   );
 }
 
@@ -259,5 +300,6 @@ export async function removeSweep(
     buildSweepSteps(loaded.config, labels, opts),
     opts,
     "labels " + JSON.stringify(labels),
+    { labels, filterService: false },
   );
 }

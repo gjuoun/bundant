@@ -4,76 +4,74 @@ import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 import type { RuntimeKind } from "./runtime.ts";
 import { PROXY_IMAGE } from "./commands/proxy.ts";
+import {
+  DEFAULT_GROUP,
+  GROUP_NAME_RE,
+  REVISION_RE,
+  ROLE_NAME_RE,
+  SEGMENT_NAME_RULE,
+  SERVICE_NAME_RE,
+  SERVICE_NAME_RULE,
+  composeContainerName,
+  roundTrips,
+} from "./name-grammar.ts";
 
-/**
- * Name grammar for the composed identifiers
- * `<group>-<service>-<role>-<rev>[-<i>]`.
- *
- * Only `service` may contain a hyphen: it is the single multi-word segment.
- * Every other segment is lowercase alphanumeric, so the composition parses
- * deterministically (group = first segment, role/revision = the two trailing
- * segments, the service is everything between) and cannot collide with a
- * different split of the same string.
- */
-export const SERVICE_NAME_RE = /^[a-z0-9][a-z0-9-]*$/;
-export const GROUP_NAME_RE = /^[a-z0-9]+$/;
-export const ROLE_NAME_RE = /^[a-z0-9]+$/;
-export const REVISION_RE = /^[a-z0-9]+$/;
+export {
+  DEFAULT_GROUP,
+  GROUP_NAME_RE,
+  REVISION_RE,
+  ROLE_NAME_RE,
+  SERVICE_NAME_RE,
+  SERVICE_NAME_RULE,
+  SEGMENT_NAME_RULE,
+} from "./name-grammar.ts";
 
 /** Historical alias: every config name used to share one grammar. */
 export const NAME_RE = SERVICE_NAME_RE;
 
-export const SERVICE_NAME_RULE =
-  "must match [a-z0-9][a-z0-9-]* (lowercase letters, digits and hyphens; must start with a letter or digit)";
-export const SEGMENT_NAME_RULE =
-  "must match [a-z0-9]+ (lowercase letters and digits only; hyphens are reserved as separators)";
-
-function rejectBadSegment(file: string, field: string, value: unknown, re: RegExp, rule: string): void {
-  if (typeof value !== "string" || re.test(value)) return;
-  throw new ConfigError(
-    "invalid " + file + ": " + field + ' "' + value + '" ' + rule,
-  );
-}
-
-/** Fail before zod so the message names the offending field *and* its value. */
-export function assertDeployNames(doc: unknown, file: string): void {
-  if (typeof doc !== "object" || doc === null) return;
-  const raw = doc as Record<string, unknown>;
-  rejectBadSegment(file, "service", raw.service, SERVICE_NAME_RE, SERVICE_NAME_RULE);
-  rejectBadSegment(file, "role", raw.role, ROLE_NAME_RE, SEGMENT_NAME_RULE);
-}
-
-/** The same check for group.yml: the group and every member identity. */
-export function assertGroupNames(doc: unknown, file: string): void {
-  if (typeof doc !== "object" || doc === null) return;
-  const raw = doc as Record<string, unknown>;
-  rejectBadSegment(file, "group", raw.group, GROUP_NAME_RE, SEGMENT_NAME_RULE);
-  const services = Array.isArray(raw.services) ? raw.services : [];
-  services.forEach((entry, i) => {
-    if (typeof entry !== "object" || entry === null) return;
-    const member = entry as Record<string, unknown>;
-    rejectBadSegment(file, "services[" + i + "].name", member.name, SERVICE_NAME_RE, SERVICE_NAME_RULE);
-    const needs = Array.isArray(member.needs) ? member.needs : [];
-    needs.forEach((need, j) => {
-      rejectBadSegment(
-        file,
-        "services[" + i + "].needs[" + j + "]",
-        need,
-        SERVICE_NAME_RE,
-        SERVICE_NAME_RULE,
-      );
-    });
-  });
-}
+export class ConfigError extends Error {}
 
 /**
- * Every deployment belongs to a group; an ungrouped deploy lands in this one.
- * It is a real namespace, not a special case: same labels, same env directory
- * shape, same lock key shape — so `bundant.group=default` is always present.
+ * Value-specific zod string. `.regex` keeps the pattern in the generated JSON
+ * schema; the `superRefine` adds the exact field/value message the CLI prints.
+ * Reports dedupe the two by field (see `zodIssues`), keeping the value-specific one.
  */
-export const DEFAULT_GROUP = "default";
+export function namedString(label: string, re: RegExp, rule: string, description?: string) {
+  const schema = z
+    .string()
+    .regex(re, rule)
+    .superRefine((value, ctx) => {
+      if (re.test(value)) return;
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: label + ' "' + value + '" ' + rule,
+      });
+    });
+  return description === undefined ? schema : schema.describe(description);
+}
 
-export class ConfigError extends Error {}
+export interface ConfigIssue {
+  field: string;
+  message: string;
+}
+
+/** Collapse duplicate issues for one field, preferring the value-specific message. */
+export function zodIssues(error: z.ZodError): ConfigIssue[] {
+  const byField = new Map<string, ConfigIssue>();
+  for (const issue of error.issues) {
+    const field = issue.path.join(".") || "(root)";
+    const current = byField.get(field);
+    const better = issue.message.includes('"') || current === undefined;
+    if (better) byField.set(field, { field, message: issue.message });
+  }
+  return [...byField.values()];
+}
+
+function defaultIdentity(raw: { service?: unknown; role?: unknown }) {
+  const service = typeof raw.service === "string" ? raw.service : "";
+  const role = typeof raw.role === "string" ? raw.role : "web";
+  return { group: DEFAULT_GROUP, service, role, revision: "r0" };
+}
 
 const EnvSchema = z.object({
   file: z.string().describe("local KEY=VAL file (gitignored); uploaded to the host as mode 0600").optional(),
@@ -81,7 +79,7 @@ const EnvSchema = z.object({
     .record(z.string())
     .describe("inline values; merged over file keys. Never printed by bundant")
     .optional(),
-});
+}).strict();
 
 const HealthSchema = z.object({
   path: z.string().regex(/^\/\S*$/, "must start with /").describe("HTTP path the gate probes (default /)").optional(),
@@ -95,7 +93,7 @@ const HealthSchema = z.object({
     .max(65535)
     .describe("accessory readiness: a bare TCP connect to this port must succeed")
     .optional(),
-});
+}).strict();
 
 const ProxySchema = z.object({
   enabled: z.boolean().describe("swap traffic at deploy (default true)").optional(),
@@ -104,7 +102,7 @@ const ProxySchema = z.object({
   tls: z.boolean().describe("pass --tls to kamal-proxy (ACME certificates)").optional(),
   /** Override for hosts that cannot reach Docker Hub: your own kamal-proxy tag. */
   image: z.string().min(1).describe("proxy image override for air-gapped hosts").optional(),
-});
+}).strict();
 
 /** ssh block: enough to reach a host without any ~/.ssh/config entry. */
 export const SshSchema = z.object({
@@ -112,18 +110,18 @@ export const SshSchema = z.object({
   port: z.number().int().min(1).max(65535).describe("default port; a per-host :port wins").optional(),
   identity: z.string().min(1).describe("private key path; ~ is expanded").optional(),
   options: z.array(z.string()).describe('extra ssh flags, e.g. ["-o","StrictHostKeyChecking=accept-new"]').optional(),
-});
+}).strict();
 
 /** A shared ssh file may also carry the default host pool. */
 export const SshFileSchema = SshSchema.extend({
   hosts: z.array(z.string().min(1)).describe("default host pool for deployments that reference this file").optional(),
-});
+}).strict();
 
 /** deploy.yml as written (sections optional); defaults are applied by normalize(). */
 export const RawConfigSchema = z.object({
-  service: z.string().regex(SERVICE_NAME_RE, SERVICE_NAME_RULE).describe("service name; also the identity in container names (hyphens allowed)"),
+  service: namedString("service", SERVICE_NAME_RE, SERVICE_NAME_RULE, "service name; also the identity in container names (single hyphens allowed)"),
   image: z.string().min(1).describe("registry ref to run; --local-image overrides it"),
-  role: z.string().regex(ROLE_NAME_RE, SEGMENT_NAME_RULE).describe("variant within the service (default web); no hyphens: containers are <service>-<role>-<rev>").optional(),
+  role: namedString("role", ROLE_NAME_RE, SEGMENT_NAME_RULE, "variant within the service (default web); no hyphens: containers are <service>-<role>-<rev>").optional(),
   /** Copies of one service on a single host; the proxy round-robins between them. */
   replicas: z
     .number()
@@ -159,7 +157,20 @@ export const RawConfigSchema = z.object({
   env: EnvSchema.optional(),
   healthcheck: HealthSchema.optional(),
   proxy: ProxySchema.optional(),
-});
+})
+  .strict()
+  .superRefine((raw, ctx) => {
+    const identity = defaultIdentity(raw);
+    if (!SERVICE_NAME_RE.test(identity.service) || !ROLE_NAME_RE.test(identity.role)) return;
+    if (roundTrips(identity)) return;
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["name"],
+      message:
+        'composed name "' + composeContainerName(identity) +
+        '" does not round-trip to the declared identity',
+    });
+  });
 
 export type RawConfig = z.infer<typeof RawConfigSchema>;
 
@@ -206,6 +217,11 @@ export function normalize(raw: RawConfig, hosts?: string[]): BundantConfig {
   if (kind === "accessory" && raw.replicas !== undefined) {
     throw new ConfigError(
       "invalid deploy.yml: replicas is not allowed on kind: accessory (a stateful member is one of one)",
+    );
+  }
+  if (kind === "accessory" && proxy.enabled) {
+    throw new ConfigError(
+      "invalid deploy.yml: proxy is not allowed on kind: accessory (stateful members are not routed; set proxy.enabled: false)",
     );
   }
   if (replicas > 1 && !proxy.enabled) {
@@ -275,7 +291,7 @@ export function resolveSshBlock(
   }
   const parsed = SshFileSchema.safeParse(doc);
   if (!parsed.success) {
-    const issues = parsed.error.issues.map((i) => i.path.join(".") + ": " + i.message).join("; ");
+    const issues = zodIssues(parsed.error).map((i) => i.field + ": " + i.message).join("; ");
     throw new ConfigError("invalid ssh file (" + path + "): " + issues);
   }
   const { hosts, ...defaults } = parsed.data;
@@ -293,10 +309,9 @@ export function loadConfig(
   } catch (e) {
     throw new ConfigError("cannot read deploy.yml at " + abs + ": " + (e as Error).message);
   }
-  assertDeployNames(doc, "deploy.yml (" + abs + ")");
   const parsed = RawConfigSchema.safeParse(doc);
   if (!parsed.success) {
-    const issues = parsed.error.issues.map((i) => i.path.join(".") + ": " + i.message).join("; ");
+    const issues = zodIssues(parsed.error).map((i) => i.field + ": " + i.message).join("; ");
     throw new ConfigError("invalid deploy.yml (" + abs + "): " + issues);
   }
   const { sshDefaults, fileHosts } = resolveSshBlock(parsed.data.ssh, dirname(abs));
@@ -346,20 +361,41 @@ export function loadConfig(
  * so its git sha is the release id for the whole set.
  */
 export const GroupServiceSchema = z.object({
-  name: z.string().regex(SERVICE_NAME_RE, SERVICE_NAME_RULE).describe("member identity; must equal the member file's service (hyphens allowed)"),
+  name: namedString("member", SERVICE_NAME_RE, SERVICE_NAME_RULE, "member identity; must equal the member file's service (single hyphens allowed)"),
   /** deploy.yml or accessory.yml, resolved relative to the group directory. */
   file: z.string().min(1).describe("path to deploy.yml/accessory.yml, relative to the group directory"),
   /** In-group member names this member requires to be ready first. */
   needs: z
-    .array(z.string().regex(SERVICE_NAME_RE, SERVICE_NAME_RULE))
+    .array(namedString("dependency", SERVICE_NAME_RE, SERVICE_NAME_RULE))
     .describe("members that must be ready first; the install order is their topological sort")
     .optional(),
-});
+}).strict();
 
 export const GroupFileSchema = z.object({
-  group: z.string().regex(GROUP_NAME_RE, SEGMENT_NAME_RULE).describe("namespace name; no hyphens (they are separators): scopes the env directory and the lock key"),
+  group: namedString("group", GROUP_NAME_RE, SEGMENT_NAME_RULE, "namespace name; no hyphens (they are separators): scopes the env directory and the lock key"),
   services: z.array(GroupServiceSchema).min(1).describe("members; array order only breaks ties, needs decides the real order"),
-});
+})
+  .strict()
+  .superRefine((raw, ctx) => {
+    if (!GROUP_NAME_RE.test(raw.group)) return;
+    raw.services.forEach((member, index) => {
+      if (!SERVICE_NAME_RE.test(member.name)) return;
+      const identity = {
+        group: raw.group,
+        service: member.name,
+        role: "web",
+        revision: "r0",
+      };
+      if (roundTrips(identity)) return;
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["services", index, "name"],
+        message:
+          'composed name "' + composeContainerName(identity) +
+          '" does not round-trip to the declared identity',
+      });
+    });
+  });
 
 export type GroupFile = z.infer<typeof GroupFileSchema>;
 
@@ -417,10 +453,9 @@ export function loadGroup(
   } catch (e) {
     throw new ConfigError("cannot read group.yml at " + abs + ": " + (e as Error).message);
   }
-  assertGroupNames(doc, "group.yml (" + abs + ")");
   const parsed = GroupFileSchema.safeParse(doc);
   if (!parsed.success) {
-    const issues = parsed.error.issues.map((i) => i.path.join(".") + ": " + i.message).join("; ");
+    const issues = zodIssues(parsed.error).map((i) => i.field + ": " + i.message).join("; ");
     throw new ConfigError("invalid group.yml (" + abs + "): " + issues);
   }
 

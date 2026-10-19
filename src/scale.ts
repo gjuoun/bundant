@@ -1,18 +1,17 @@
 import type { LoadedConfig } from "./config.ts";
-import * as docker from "./commands/docker.ts";
+import { NETWORK } from "./commands/docker.ts";
+import * as proxy from "./commands/proxy.ts";
 import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
-import { waitUntilHealthy } from "./health.ts";
 import { connectionForTarget, hostTargets } from "./hosts.ts";
 import { acquireLock, lockKey, releaseLock } from "./lock.ts";
-import { envRemotePath, indexedContainerName } from "./planner.ts";
-import {
-  buildScaleSteps,
-  computeScalePlan,
-  currentRevision,
-  parseReplicaInventory,
-} from "./scale-plan.ts";
+import { envRemotePath, groupLabels, indexedContainerName } from "./planner.ts";
+import { computeScalePlan, currentRevision } from "./scale-plan.ts";
 import { runtimeFor } from "./runtime.ts";
-import { belongsToService } from "./naming.ts";
+import { belongsToService, serviceLabels } from "./naming.ts";
+import { replicaOf, revisionOf } from "./revisions.ts";
+import { openOps, type OpsVia } from "./ops/index.ts";
+import { envArray } from "./deploy.ts";
+import { preflightGate } from "./validation.ts";
 
 /**
  * Manual capacity change for the revision that is already running.
@@ -27,7 +26,8 @@ import { belongsToService } from "./naming.ts";
  *
  * scale never pulls an image, never changes the revision or env, and never
  * writes deploy.yml: the file stays authoritative for the next deploy.
- * The pure plan lives in scale-plan.ts; this module only executes it.
+ * The pure plan lives in scale-plan.ts; this module executes it through
+ * RuntimeOps (API by default, --via cli for the legacy path).
  */
 
 export {
@@ -42,6 +42,8 @@ export type { ReplicaLine, ScalePlan, ScaleStepOptions } from "./scale-plan.ts";
 export interface ScaleOptions {
   replicas: number;
   dryRun: boolean;
+  /** Mutations through the engine API (default) or the legacy CLI strings. */
+  via?: OpsVia;
 }
 
 function assertTarget(config: LoadedConfig["config"], target: number): string | null {
@@ -63,7 +65,7 @@ function assertTarget(config: LoadedConfig["config"], target: number): string | 
  */
 export async function scale(loaded: LoadedConfig, opts: ScaleOptions): Promise<number> {
   const { config } = loaded;
-  const rt = runtimeFor(config.runtime);
+  runtimeFor(config.runtime);
   const error = assertTarget(config, opts.replicas);
   if (error) {
     console.error("bundant: " + error);
@@ -71,6 +73,7 @@ export async function scale(loaded: LoadedConfig, opts: ScaleOptions): Promise<n
   }
 
   const targets = hostTargets(config);
+  const via: OpsVia = opts.via ?? "api";
 
   if (opts.dryRun) {
     console.log(
@@ -85,98 +88,129 @@ export async function scale(loaded: LoadedConfig, opts: ScaleOptions): Promise<n
     return 0;
   }
 
-  const primary = new SshExecutor(connectOptionsFor(connectionForTarget(config, targets[0]!)));
-  const execs = new Set<SshExecutor>([primary]);
+  const primary = preflightGate(loaded, () =>
+    new SshExecutor(connectOptionsFor(connectionForTarget(config, targets[0]!))),
+  );
   let locked = false;
+  const env = envArray(loaded.envContent);
+  const hasEnv = Object.keys(config.env.vars).length > 0 || config.env.file !== undefined;
 
   try {
     await acquireLock(primary, lockKey(config.group, config.service));
     locked = true;
 
     for (const host of targets) {
-      const exec =
-        host === targets[0]
-          ? primary
-          : new SshExecutor(connectOptionsFor(connectionForTarget(config, host)));
-      execs.add(exec);
       console.log("== " + host + " ==");
-
-      const list = await exec.run(
-        docker.listRunningReplicas(rt, {
-          "bundant.service": config.service,
-          "bundant.group": config.group ?? "default",
-          "bundant.kind": "service",
-        }),
-      );
-      if (list.code !== 0) {
-        console.error("  cannot list running replicas: " + list.stderr.trim());
-        return 1;
-      }
-      const lines = parseReplicaInventory(list.stdout, config.service, config.role, config.group)
-        .filter((l) => belongsToService(l.name, config));
-      const revision = currentRevision(lines);
-      if (revision === undefined) {
-        console.error(
-          "  nothing running for " + config.service + "/" + config.role + " — deploy first",
-        );
-        return 1;
-      }
-      const forRevision = lines.filter((l) => l.revision === revision);
-      const current = [...new Set(forRevision.map((l) => l.index))].sort((a, b) => a - b);
-      const image = forRevision[0]!.image;
-      const plan = computeScalePlan(current, opts.replicas);
-
-      console.log(
-        "  revision " + revision + ": " + current.length + " running (" +
-          current.join(", ") + ") -> " + opts.replicas,
-      );
-
-      if (plan.action === "noop") {
-        console.log("  already at " + opts.replicas + " replica(s) — no-op");
-        continue;
-      }
-
-      const hasEnv =
-        Object.keys(config.env.vars).length > 0 || config.env.file !== undefined;
-      const names = new Map(forRevision.map((l) => [l.index, l.name]));
-      const steps = buildScaleSteps(config, revision, plan, {
-        image,
-        envFile: hasEnv ? envRemotePath(config) : undefined,
-        nameOf: (i) => names.get(i) ?? indexedContainerName(config, revision, i),
+      const ops = await openOps(via, connectionForTarget(config, host), config, {
+        envRemotePath: hasEnv ? envRemotePath(config) : undefined,
       });
+      try {
+        const rows = await ops.listContainers({ all: false, labels: serviceLabels(config) });
+        const lines = rows
+          .filter((row) => belongsToService(row.name, config))
+          .map((row) => ({
+            name: row.name,
+            revision:
+              row.labels["bundant.revision"] ||
+              revisionOf(row.name, config.service, config.role, config.group),
+            index:
+              row.labels["bundant.replica"] !== undefined
+                ? Number(row.labels["bundant.replica"])
+                : (replicaOf(row.name, config.service, config.role, config.group) ?? 1),
+            image: row.image,
+          }));
 
-      for (const step of steps) {
-        if (step.phase === "health") {
-          for (const probeCmd of step.cmds) {
-            await waitUntilHealthy(exec, probeCmd, {
-              timeoutMs: config.healthcheck.timeout * 1000,
-            });
-          }
-          console.log("  " + step.phase + " ok (" + step.cmds.length + " target(s))");
+        const revision = currentRevision(lines);
+        if (revision === undefined) {
+          console.error(
+            "  nothing running for " + config.service + "/" + config.role + " — deploy first",
+          );
+          return 1;
+        }
+        const forRevision = lines.filter((l) => l.revision === revision);
+        const current = [...new Set(forRevision.map((l) => l.index))].sort((a, b) => a - b);
+        const image = forRevision[0]!.image;
+        const plan = computeScalePlan(current, opts.replicas);
+
+        console.log(
+          "  revision " + revision + ": " + current.length + " running (" +
+            current.join(", ") + ") -> " + opts.replicas,
+        );
+
+        if (plan.action === "noop") {
+          console.log("  already at " + opts.replicas + " replica(s) — no-op");
           continue;
         }
-        for (const cmd of step.cmds) {
-          const r = await exec.run(cmd);
-          if (r.code !== 0) {
-            console.error(
-              "  " + step.phase + " failed: cmd=" + cmd + " err=" +
-                (r.stderr.trim() || r.stdout.trim()),
-            );
-            return 1;
+
+        const names = new Map(forRevision.map((l) => [l.index, l.name]));
+        const nameOf = (i: number): string =>
+          names.get(i) ?? indexedContainerName(config, revision, i);
+
+        if (plan.up.length > 0) {
+          for (const i of plan.up) {
+            const name = nameOf(i);
+            await ops.removeContainer(name, { force: true });
+            await ops.createContainer({
+              image,
+              name,
+              env,
+              labels: groupLabels(config, revision, i),
+              network: NETWORK,
+              restart: "unless-stopped",
+            });
+            await ops.startContainer(name);
           }
+          console.log("  run ok (" + plan.up.map(nameOf).join(", ") + ")");
+          await ops.healthGate(plan.up.map(nameOf), {
+            path: config.healthcheck.path,
+            port: config.healthcheck.port,
+            timeoutMs: config.healthcheck.timeout * 1000,
+          });
+          console.log("  health ok (" + plan.up.length + " target(s))");
         }
-        console.log("  " + step.phase + " ok");
+
+        // The down direction must drain traffic BEFORE removing containers.
+        if (config.proxy.enabled) {
+          await ops.proxyDeploy(
+            proxy.serviceId(config.service, config.role, config.group),
+            plan.keep.map((i) => nameOf(i) + ":" + config.proxy.port),
+            {
+              host: config.proxy.host,
+              tls: config.proxy.tls,
+              healthCheckPath: config.healthcheck.path,
+              healthCheckPort:
+                config.healthcheck.port === config.proxy.port
+                  ? undefined
+                  : config.healthcheck.port,
+            },
+          );
+          console.log("  proxy-swap ok");
+        }
+
+        if (plan.remove.length > 0) {
+          for (const i of plan.remove) {
+            const name = nameOf(i);
+            await ops.stopContainers([name]);
+            await ops.removeContainer(name, { force: true });
+          }
+          console.log("  stop-old ok (" + plan.remove.map(nameOf).join(", ") + ")");
+        }
+        console.log("  scaled to " + opts.replicas + " replica(s)");
+      } catch (e) {
+        console.error("  scale failed: " + (e as Error).message);
+        return 1;
+      } finally {
+        await ops.close();
       }
-      console.log("  scaled to " + opts.replicas + " replica(s)");
     }
 
     console.log(
       "bundant: scale is temporary — deploy.yml replicas: stays authoritative; " +
-        "the next `bundant deploy` re-applies it.",
+        "the next \`bundant deploy\` re-applies it.",
     );
     return 0;
   } finally {
     if (locked) await releaseLock(primary, lockKey(config.group, config.service));
-    for (const e of execs) await e.close();
+    await primary.close();
   }
 }

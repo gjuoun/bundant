@@ -11,7 +11,9 @@ import { resolveRevision, sanitizeRevision } from "./revision.ts";
 import { rollback } from "./rollback.ts";
 import { runtimeFor } from "./runtime.ts";
 import { status as serviceStatus } from "./status.ts";
-import { accessoryContainerName } from "./naming.ts";
+import { accessoryContainerName, serviceLabels } from "./naming.ts";
+import { openOps, type OpsVia } from "./ops/index.ts";
+import { assertGroupPreflight } from "./validation.ts";
 
 /**
  * Group orchestration: a group is a namespace with one lifecycle. Install walks
@@ -70,6 +72,8 @@ export interface GroupRunOptions {
   toRevision?: string;
   /** install: testing hook for the revision id. */
   rev?: string;
+  /** Mutations through the engine API (default) or the legacy CLI strings. */
+  via?: OpsVia;
 }
 
 export function memberLabels(group: string, name: string): Record<string, string> {
@@ -95,6 +99,8 @@ export class GroupRunner {
 
   /** install: group lock once, then accessory verification + ordered service deploys. */
   async install(opts: GroupRunOptions): Promise<number> {
+    assertGroupPreflight(this.loaded);
+    const via: OpsVia = opts.via ?? "api";
     const order = topoSortMembers(this.loaded.members);
     const revision = opts.rev
       ? sanitizeRevision(opts.rev)
@@ -128,7 +134,7 @@ export class GroupRunner {
 
       for (const m of order) {
         if (isAccessory(m)) {
-          if (!(await this.accessoryReady(m))) {
+          if (!(await this.accessoryReady(m, via))) {
             console.error(
               "bundant: accessory '" + m.name + "' is not ready — start it first:\n" +
                 "  bundant accessory boot -f " + m.file,
@@ -139,7 +145,7 @@ export class GroupRunner {
           applied.push(m.name);
           continue;
         }
-        const rc = await deploy(buildDeployPlan(m.loaded.config, revision), m.loaded);
+        const rc = await deploy(buildDeployPlan(m.loaded.config, revision), m.loaded, { via });
         if (rc !== 0) {
           failed = m.name;
           break;
@@ -162,6 +168,8 @@ export class GroupRunner {
 
   /** uninstall: labelled sweep over service members; accessories are never selected. */
   async uninstall(opts: GroupRunOptions): Promise<number> {
+    assertGroupPreflight(this.loaded);
+    const via: OpsVia = opts.via ?? "api";
     const members = this.loaded.members.filter((m) => !isAccessory(m));
     console.log(
       "bundant group uninstall — " + this.loaded.group + " (accessories untouched: " +
@@ -187,6 +195,7 @@ export class GroupRunner {
         yes: opts.yes,
         images: false,
         dryRun: false,
+        via,
       });
       if (rc !== 0) return rc;
     }
@@ -212,13 +221,15 @@ export class GroupRunner {
 
   /** rollback: every service deploys the same git sha; accessories untouched. */
   async rollback(opts: GroupRunOptions): Promise<number> {
+    assertGroupPreflight(this.loaded);
     if (opts.toRevision === undefined || opts.toRevision === "") {
       console.error("bundant: group rollback needs --to-revision <sha>");
       return 2;
     }
+    const via: OpsVia = opts.via ?? "api";
     const plan = groupRollbackPlan(this.loaded.members, opts.toRevision);
     for (const { member, revision } of plan) {
-      const rc = await rollback(member.loaded, { toRevision: revision });
+      const rc = await rollback(member.loaded, { toRevision: revision, via });
       if (rc !== 0) return rc;
     }
     return 0;
@@ -230,15 +241,14 @@ export class GroupRunner {
   }
 
   /** Accessory readiness: container present and its declared TCP probe answers. */
-  private async accessoryReady(member: GroupMember): Promise<boolean> {
+  private async accessoryReady(member: GroupMember, via: OpsVia): Promise<boolean> {
     const config = member.loaded.config;
-    const rt = runtimeFor(config.runtime);
     const name = accessoryContainerName(config);
     for (const host of hostTargets(config)) {
-      const exec = new SshExecutor(connectOptionsFor(connectionForTarget(config, host)));
+      const ops = await openOps(via, connectionForTarget(config, host), config);
       try {
-        const exists = await exec.run(docker.findByName(rt, name));
-        if (exists.stdout.trim() === "") {
+        const rows = await ops.listContainers({ all: true, namePrefix: name });
+        if (!rows.some((row) => row.name === name)) {
           console.error("  " + name + ": absent on " + host);
           return false;
         }
@@ -246,15 +256,17 @@ export class GroupRunner {
           console.log("  " + name + ": present on " + host);
           continue;
         }
-        const probe = tcpReadinessProbe(config, rt);
-        const res = await exec.run(probe);
-        if (res.code !== 0) {
-          console.error("  " + name + ": tcp:" + config.healthcheck.tcp + " not ready on " + host);
-          return false;
-        }
+        await ops.tcpGate(name, config.healthcheck.tcp, {
+          path: "/",
+          port: config.healthcheck.tcp,
+          timeoutMs: config.healthcheck.timeout * 1000,
+        });
         console.log("  " + name + ": ready (tcp:" + config.healthcheck.tcp + ") on " + host);
+      } catch {
+        console.error("  " + name + ": tcp:" + config.healthcheck.tcp + " not ready on " + host);
+        return false;
       } finally {
-        await exec.close();
+        await ops.close();
       }
     }
     return true;
