@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=../../schema/deploy.schema.json
 # bundant example: the same zero-downtime hello service on a rootless podman host.
 # Requires net.ipv4.ip_unprivileged_port_start <= 80 for the proxy to bind 80/443
 # (the plan's port-guard step checks this and aborts with the fix).

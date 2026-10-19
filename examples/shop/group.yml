@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=../../schema/group.schema.json
+# bundant example: a group is a namespace. One repo per group, so its git sha is
+# the release id for the whole set.
+group: shop
+services:
+  # db is an accessory: stateful, never recreated by a deploy. Boot it once with
+  #   bundant accessory boot -f examples/shop/db/accessory.yml
+  # group install verifies it and stops with that exact command if it is missing.
+  - name: db
+    file: ./db/accessory.yml
+  # api starts only after db answers its TCP probe.
+  - name: api
+    file: ./api/deploy.yml
+    needs: [db]
+  - name: web
+    file: ./web/deploy.yml
+    needs: [api]

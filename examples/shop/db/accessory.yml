@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../../../schema/deploy.schema.json
+# Stateful group member. The container name has no revision, the data lives in a
+# named volume, and deploy/rollback/prune never match it — only `bundant
+# accessory <boot|reboot|stop|logs|status|remove>` touches it.
+kind: accessory
+service: db
+image: docker.io/library/postgres:16-alpine
+hosts:
+  - replace-me.example.ts.net
+env:
+  vars:
+    POSTGRES_DB: shop
+    POSTGRES_USER: shop
+    # The password belongs in a gitignored file next to this one:
+    #   env: { file: ./db.env }   ->   POSTGRES_PASSWORD=...
+volumes:
+  - "pgdata:/var/lib/postgresql/data"
+healthcheck:
+  # Dependants (api) wait for this bare TCP connect, image-agnostic.
+  tcp: 5432
+  timeout: 60
+proxy:
+  enabled: false
