@@ -7,6 +7,7 @@ and never stores state of its own on the host.
 service: hello                 # [a-z0-9-]
 image: traefik/whoami:v1.10    # registry ref, or overridden by --local-image
 role: web                      # default: web (containers are <service>-<role>-<rev>)
+replicas: 1                    # copies per host; > 1 needs proxy.enabled: true
 hosts: [box.example.com]       # user@host:port forms allowed; BUNDANT_HOSTS=a,b overrides
 
 ssh:                           # optional: reach a host with NO ~/.ssh/config entry
@@ -55,6 +56,13 @@ pipeline.
 - **revision** — container names are `<service>-<role>-<rev>`, where `rev` is the git
   short sha of the repo holding `deploy.yml` (fallback `rev-<base36>` before the first
   commit). `--rev ID` overrides it as a testing hook.
+- **replicas** — how many copies of this service run on **each** host (default 1).
+  `replicas: 1` keeps the exact container name above; `N > 1` uses
+  `<service>-<role>-<rev>-1` … `-<N>` and every container carries
+  `bundant.revision` + `bundant.replica`. `N > 1` requires `proxy.enabled: true`
+  (the proxy is what distributes requests) and is rejected on `kind: accessory`
+  (a stateful member is one of one). See [`replicas.md`](replicas.md) and
+  `bundant scale`.
 - **env** — values are never printed; the merged result is uploaded to
   `~/.bundant/env/<group>/<service>-<role>.env` (`default` when the file is in no group) with
   mode 0600 and passed with `--env-file`.
