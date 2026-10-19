@@ -12,7 +12,7 @@ import {
 } from "./detect.ts";
 import { DockerAdapter } from "./docker.ts";
 import { PodmanAdapter } from "./podman.ts";
-import { SshSocketForward } from "./transport.ts";
+import { SshSocketForward, defaultForwardDir } from "./transport.ts";
 import type { RuntimeAdapter } from "./types.ts";
 
 /**
@@ -24,14 +24,20 @@ export class NoRuntimeSocketError extends Error {
   readonly detection: RuntimeDetection;
   readonly hint: string;
 
-  constructor(connection: HostConnection, detection: RuntimeDetection, expected: RuntimeKind, localDir: string) {
+  constructor(
+    connection: HostConnection,
+    detection: RuntimeDetection,
+    expected: RuntimeKind,
+    localDir: string,
+    uid: string,
+  ) {
     super(
       "no " + expected + " socket on " + connection.sshTarget + " (probed " +
         formatCandidates(detection.candidates) + ", forward dir " + localDir + ")",
     );
     this.name = "NoRuntimeSocketError";
     this.detection = detection;
-    this.hint = enableSocketHint(connection, expected, detection);
+    this.hint = enableSocketHint(connection, expected, uid);
   }
 }
 
@@ -39,11 +45,10 @@ export class NoRuntimeSocketError extends Error {
 export function enableSocketHint(
   connection: HostConnection,
   expected: RuntimeKind,
-  detection: RuntimeDetection,
+  uid: string,
 ): string {
   if (expected === "podman") {
-    const rootless = detection.candidates.some((c) => c.socketPath.startsWith("/run/user/"));
-    const systemctl = rootless ? "systemctl --user" : "systemctl";
+    const systemctl = uid === "0" ? "systemctl" : "systemctl --user";
     return "ssh " + connection.sshTarget + " '" + systemctl + " enable --now podman.socket'";
   }
   return "ssh " + connection.sshTarget + " 'systemctl enable --now docker'";
@@ -127,7 +132,7 @@ export async function openAdapter(
   expected: RuntimeKind,
   opts: OpenAdapterOptions = {},
 ): Promise<OpenedAdapter> {
-  const localDir = opts.cacheDir;
+  const localDir = opts.cacheDir ?? defaultForwardDir();
   const exec = new SshExecutor(connectOptionsFor(connection));
 
   const uidResult = await exec.run("id -u");
@@ -145,7 +150,7 @@ export async function openAdapter(
   const probes = await probesFor(connection, exec, uid, localDir);
   const detection = await detectRuntime({ probes, expect: expected });
   if (!detection.found || detection.socketPath === undefined) {
-    throw new NoRuntimeSocketError(connection, detection, expected, localDir ?? "(default)");
+    throw new NoRuntimeSocketError(connection, detection, expected, localDir, uid);
   }
 
   const forward = new SshSocketForward({
