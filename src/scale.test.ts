@@ -7,7 +7,7 @@ import {
   computeScalePlan,
   currentRevision,
   parseReplicaInventory,
-} from "./scale.ts";
+} from "./scale-plan.ts";
 
 function cfg(over: Partial<BundantConfig> = {}): BundantConfig {
   return {
