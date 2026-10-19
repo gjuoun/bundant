@@ -21,10 +21,17 @@ export class LegacyOps implements RuntimeOps {
   private readonly rt: Runtime;
   private readonly envRemotePath?: string;
 
-  constructor(exec: Executor, rt: Runtime, opts: { envRemotePath?: string } = {}) {
+  private readonly closeSession?: () => Promise<void>;
+
+  constructor(
+    exec: Executor,
+    rt: Runtime,
+    opts: { envRemotePath?: string; close?: () => Promise<void> } = {},
+  ) {
     this.exec = exec;
     this.rt = rt;
     this.envRemotePath = opts.envRemotePath;
+    this.closeSession = opts.close;
   }
 
   private async run(phase: string, cmd: string): Promise<void> {
@@ -255,6 +262,10 @@ export class LegacyOps implements RuntimeOps {
   }
 
   async close(): Promise<void> {
+    if (this.closeSession !== undefined) {
+      await this.closeSession();
+      return;
+    }
     await this.exec.close();
   }
 }

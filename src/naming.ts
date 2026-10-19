@@ -1,13 +1,9 @@
 import { DEFAULT_GROUP, type BundantConfig } from "./config.ts";
+import { ServiceIdentity } from "./domain/identity.ts";
 
 /**
- * Group-scoped names. The rule is one line: the default group never prefixes.
- *
- *   ungrouped service   <service>-<role>-<rev>     proxy <service>-<role>
- *   grouped service     <group>-<service>-<role>-<rev>   proxy <group>-<service>-<role>
- *   grouped accessory   <group>-<service>
- *
- * Replica suffixes, labels, env paths and lock keys are unchanged.
+ * Group-scoped name helpers. The derivation itself lives in ServiceIdentity;
+ * these functions keep the historical call shape for matching/sweeping code.
  */
 
 export function isGrouped(config: Pick<BundantConfig, "group">): boolean {
@@ -15,19 +11,16 @@ export function isGrouped(config: Pick<BundantConfig, "group">): boolean {
   return group !== undefined && group !== "" && group !== DEFAULT_GROUP;
 }
 
-/** "" for the default group, "<group>-" for a real one. */
-export function groupPrefix(config: Pick<BundantConfig, "group">): string {
-  return isGrouped(config) ? config.group + "-" : "";
-}
-
-/** The container/proxy-id prefix: <group>-<service>-<role> (or legacy shape). */
-export function servicePrefix(config: Pick<BundantConfig, "group" | "service" | "role">): string {
-  return groupPrefix(config) + config.service + "-" + config.role;
-}
-
-/** Container prefix including the trailing dash: <prefix>-<rev>. */
-export function containerPrefix(config: Pick<BundantConfig, "group" | "service" | "role">): string {
-  return servicePrefix(config) + "-";
+/** Container/proxy-id prefix including the trailing dash. */
+export function containerPrefix(
+  config: Pick<BundantConfig, "group" | "service" | "role">,
+): string {
+  const identity = ServiceIdentity.from({
+    group: config.group,
+    service: config.service,
+    role: config.role,
+  } as BundantConfig);
+  return identity.servicePrefix() + "-";
 }
 
 /** Pre-grouping name prefix, still found on hosts upgraded in place. */
@@ -46,7 +39,13 @@ export function belongsToService(
 
 /** Stable accessory container name: grouped accessories carry the group prefix. */
 export function accessoryContainerName(config: Pick<BundantConfig, "group" | "service">): string {
-  return isGrouped(config) ? config.group + "-" + config.service : config.service;
+  const identity = ServiceIdentity.from({
+    group: config.group,
+    service: config.service,
+    role: "web",
+    kind: "accessory",
+  } as BundantConfig);
+  return identity.containerName();
 }
 
 /** Labels that identify one service-role set (role is not a label). */

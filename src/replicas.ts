@@ -1,34 +1,30 @@
 import type { BundantConfig } from "./config.ts";
-import { accessoryContainerName, containerPrefix } from "./naming.ts";
+import { ServiceIdentity } from "./domain/identity.ts";
 
 /**
- * Container naming for replicas. This is the migration boundary: a deployment
- * with the default group and replicas: 1 keeps the historical name, so nothing
- * has to move. Grouped services add the group prefix (see naming.ts).
+ * Container naming for replicas. The rules live in ServiceIdentity; these
+ * wrappers keep the historical call shape (and the replicas: 1 migration
+ * boundary: one replica keeps the unsuffixed name).
  */
 
-/**
- * Container name for one replica. replicas: 1 keeps `<prefix><rev>`; N > 1
- * appends `-<i>` for i = 1..N. Accessories carry no revision and no replicas.
- */
+/** Container name for one replica. replicas: 1 keeps <prefix><rev>. */
 export function containerName(
   config: BundantConfig,
   revision: string,
   replica = 1,
 ): string {
-  if (config.kind === "accessory") return accessoryContainerName(config);
-  const base = containerPrefix(config) + revision;
-  return (config.replicas ?? 1) > 1 ? base + "-" + replica : base;
+  const identity = ServiceIdentity.from(config, undefined, revision);
+  return identity.containerName((config.replicas ?? 1) > 1 ? replica : undefined);
 }
 
-/** The indexed name, unconditionally: `<prefix><rev>-<i>`. */
+/** The indexed name, unconditionally: <prefix><rev>-<i>. */
 export function indexedContainerName(
   config: BundantConfig,
   revision: string,
   index: number,
 ): string {
-  if (config.kind === "accessory") return accessoryContainerName(config);
-  return containerPrefix(config) + revision + "-" + index;
+  const identity = ServiceIdentity.from(config, undefined, revision);
+  return identity.containerName(index);
 }
 
 /** Every container name this deploy runs on one host, in replica order. */

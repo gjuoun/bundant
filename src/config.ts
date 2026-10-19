@@ -174,7 +174,11 @@ export function loadConfig(path: string, options: LoadOptions = {}): LoadedConfi
     );
   }
   const merged: RawConfig = { ...raw, hosts, ssh: sshDefaults };
-  let config = { ...module.normalize(merged, hosts), group: DEFAULT_GROUP };
+  let config = {
+    ...module.normalize(merged, hosts),
+    group: DEFAULT_GROUP,
+    version: resolved.version,
+  };
   const inferredGroup = inferGroupForMember(abs);
   if (inferredGroup !== undefined) config = { ...config, group: inferredGroup };
 

@@ -12,6 +12,7 @@ import {
   type RuntimeKind,
 } from "./runtime.ts";
 import { containerNames } from "./replicas.ts";
+import { ServiceIdentity } from "./domain/identity.ts";
 import type { CmdStep } from "./types.ts";
 
 export interface DeployPlanOptions {
@@ -56,10 +57,7 @@ export interface DeployPlan {
 export { containerName, containerNames, indexedContainerName } from "./replicas.ts";
 
 export function envRemotePath(config: BundantConfig): string | undefined {
-  const base = "~/.bundant/env" + (config.group ? "/" + config.group : "");
-  return config.kind === "accessory"
-    ? base + "/" + config.service + ".env"
-    : base + "/" + config.service + "-" + config.role + ".env";
+  return ServiceIdentity.from(config).envPath();
 }
 
 /** Label keys every bundant container carries — the object describes itself. */
@@ -98,20 +96,13 @@ export function groupLabels(
   revision?: string,
   replica = 1,
 ): Record<string, string> {
-  const kind = config.kind ?? KIND_SERVICE;
-  const labels: Record<string, string> = {
-    [LABEL_SERVICE]: config.service,
-    [LABEL_GROUP]: config.group ?? DEFAULT_GROUP,
-    [LABEL_KIND]: kind,
-  };
-  // Revision + replica make the running set self-describing: `scale` and
-  // `status` read the truth from here, never from a local file.
-  if (kind === KIND_SERVICE && revision !== undefined) {
-    labels[LABEL_REVISION] = revision;
-    labels[LABEL_REPLICA] = String(replica);
+  const identity = ServiceIdentity.from(config, undefined, revision ?? "r0");
+  const labels = identity.labels({}, replica);
+  // The helper historically omits revision/replica when no revision is given.
+  if (revision === undefined) {
+    delete labels[LABEL_REVISION];
+    delete labels[LABEL_REPLICA];
   }
-  const volumes = (config.volumes ?? []).map((v) => v.split(":")[0]!.trim()).filter((n) => n !== "");
-  if (kind === KIND_ACCESSORY && volumes.length > 0) labels[LABEL_VOLUMES] = volumes.join(",");
   return labels;
 }
 
@@ -136,12 +127,13 @@ export function buildDeployPlan(
   const rt = runtimeFor(config.runtime);
   const targets = hostTargets(config);
   const image = opts.localImage ?? config.image;
+  const identity = ServiceIdentity.from(config, undefined, revision);
   const names = containerNames(config, revision);
   const name = names[0]!;
-  const svcId = proxy.serviceId(config.service, config.role, config.group);
+  const svcId = identity.proxyId();
   const hasEnv = Object.keys(config.env.vars).length > 0 || config.env.file !== undefined;
-  const envPath = hasEnv ? envRemotePath(config) : undefined;
-  const key = lockKey(config.group, config.service);
+  const envPath = hasEnv ? identity.envPath() : undefined;
+  const key = identity.lockKey();
 
   const hostSteps: CmdStep[] = [];
 
@@ -204,7 +196,7 @@ export function buildDeployPlan(
         container: replicaName,
         image,
         envFile: envPath,
-        labels: groupLabels(config, revision, i + 1),
+        labels: identity.labels({}, i + 1),
       }),
     );
   }
