@@ -43,6 +43,10 @@ describe("DockerAdapter read-only surface", () => {
           Status: "Up 2 hours",
           Labels: { "bundant.service": "api" },
           Created: 1700000000,
+          Ports: [
+            { IP: "0.0.0.0", PrivatePort: 80, PublicPort: 8080, Type: "tcp" },
+            { PrivatePort: 443, Type: "tcp" },
+          ],
         },
       ]);
     });
@@ -65,6 +69,7 @@ describe("DockerAdapter read-only surface", () => {
           status: "Up 2 hours",
           labels: { "bundant.service": "api" },
           created: 1700000000,
+          ports: "0.0.0.0:8080->80/tcp, 443/tcp",
         },
       ]);
     } finally {
@@ -77,9 +82,21 @@ describe("DockerAdapter read-only surface", () => {
       json(res, 200, {
         Id: "abc",
         Name: "/api-web-rev-1",
+        RestartCount: 2,
         Config: { Image: "example/api:1", Env: ["A=1"], Labels: { "bundant.service": "api" } },
-        State: { Status: "running", Running: true, ExitCode: 0, StartedAt: "2026-10-19T00:00:00Z" },
-        HostConfig: { RestartPolicy: { Name: "unless-stopped" }, Binds: ["vol:/data"], NetworkMode: "bundant" },
+        State: {
+          Status: "running",
+          Running: true,
+          ExitCode: 0,
+          StartedAt: "2026-10-19T00:00:00Z",
+          Health: { Status: "healthy" },
+        },
+        HostConfig: {
+          RestartPolicy: { Name: "unless-stopped" },
+          Binds: ["vol:/data"],
+          NetworkMode: "bundant",
+          LogConfig: { Type: "journald" },
+        },
       });
     });
     try {
@@ -90,6 +107,9 @@ describe("DockerAdapter read-only surface", () => {
       expect(info.restartPolicy).toBe("unless-stopped");
       expect(info.binds).toEqual(["vol:/data"]);
       expect(info.networkMode).toBe("bundant");
+      expect(info.state.restarts).toBe(2);
+      expect(info.state.health).toBe("healthy");
+      expect(info.logDriver).toBe("journald");
     } finally {
       await close();
     }
@@ -106,8 +126,8 @@ describe("DockerAdapter read-only surface", () => {
     });
     try {
       const lines: string[] = [];
-      for await (const chunk of adapter.logs("abc", { tail: 20 })) lines.push(chunk);
-      expect(lines).toEqual(["hello\n", "warn\n"]);
+      for await (const line of adapter.logs("abc", { tail: 20 })) lines.push(line);
+      expect(lines).toEqual(["hello", "warn"]);
       expect(seen.query?.searchParams.get("tail")).toBe("20");
       expect(seen.query?.searchParams.get("stdout")).toBe("1");
       expect(seen.query?.searchParams.get("follow")).toBe("0");

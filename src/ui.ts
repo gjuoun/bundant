@@ -106,7 +106,7 @@ export function uiHandler(monitor: Monitor): (req: IncomingMessage, res: ServerR
 
 /** Start the local UI and keep it running until SIGINT. */
 export async function ui(loaded: LoadedConfig, opts: UiOptions): Promise<number> {
-  const monitor = opts.monitor ?? monitorFor(loaded);
+  const monitor = opts.monitor ?? (await monitorFor(loaded));
   const bind = opts.bind ?? "127.0.0.1";
   const server = createServer(uiHandler(monitor));
 
@@ -122,7 +122,9 @@ export async function ui(loaded: LoadedConfig, opts: UiOptions): Promise<number>
 
   return await new Promise<number>((resolve) => {
     const stop = (): void => {
-      server.close(() => resolve(0));
+      server.close(() => {
+        void monitor.close().finally(() => resolve(0));
+      });
     };
     process.on("SIGINT", stop);
     process.on("SIGTERM", stop);

@@ -213,54 +213,58 @@ async function main(): Promise<number> {
   if (sub === "ps" || sub === "stats" || sub === "inspect" || sub === "logs" || sub === "events") {
     const loaded = loadConfig(args.values.file ?? "deploy.yml");
     const { monitorFor } = await import("./monitor.ts");
-    const monitor = monitorFor(loaded);
+    const monitor = await monitorFor(loaded);
     const host = args.values.host;
     const container = args.values.container;
 
-    if (sub === "ps") {
-      const { renderContainers } = await import("./monitor-render.ts");
-      console.log(renderContainers(await monitor.containers()));
-      return 0;
-    }
-    if (sub === "stats") {
-      const { renderStats } = await import("./monitor-render.ts");
-      console.log(renderStats(await monitor.stats()));
-      return 0;
-    }
-    if (sub === "inspect") {
-      const selector = args.positionals[1] ?? container;
-      if (selector === undefined) {
-        console.error("bundant: inspect needs a container name (or --container)");
-        return 2;
+    try {
+      if (sub === "ps") {
+        const { renderContainers } = await import("./monitor-render.ts");
+        console.log(renderContainers(await monitor.containers()));
+        return 0;
       }
-      const { renderInspect } = await import("./monitor-render.ts");
-      console.log(renderInspect(await monitor.inspect(selector)));
-      return 0;
-    }
-    if (sub === "logs") {
-      const tail = Number(args.values.tail ?? "200");
-      if (!Number.isInteger(tail) || tail <= 0) {
-        console.error("bundant: --tail must be a positive integer");
-        return 2;
+      if (sub === "stats") {
+        const { renderStats } = await import("./monitor-render.ts");
+        console.log(renderStats(await monitor.stats()));
+        return 0;
       }
-      if (args.values.follow === true) {
-        return await monitor.followLogs({ host, container, tail });
+      if (sub === "inspect") {
+        const selector = args.positionals[1] ?? container;
+        if (selector === undefined) {
+          console.error("bundant: inspect needs a container name (or --container)");
+          return 2;
+        }
+        const { renderInspect } = await import("./monitor-render.ts");
+        console.log(renderInspect(await monitor.inspect(selector)));
+        return 0;
       }
+      if (sub === "logs") {
+        const tail = Number(args.values.tail ?? "200");
+        if (!Number.isInteger(tail) || tail <= 0) {
+          console.error("bundant: --tail must be a positive integer");
+          return 2;
+        }
+        if (args.values.follow === true) {
+          return await monitor.followLogs({ host, container, tail });
+        }
+        const hosts = host === undefined ? monitor.hosts : [host];
+        for (const h of hosts) {
+          process.stdout.write("== " + h + " ==\n");
+          process.stdout.write(await monitor.logs(h, container ?? "", tail));
+        }
+        return 0;
+      }
+      const since = args.values.since ?? "2h";
       const hosts = host === undefined ? monitor.hosts : [host];
       for (const h of hosts) {
-        process.stdout.write("== " + h + " ==\n");
-        process.stdout.write(await monitor.logs(h, container ?? "", tail));
+        const lines = await monitor.events(h, since);
+        console.log("== " + h + " ==");
+        for (const line of lines.slice(-80)) console.log("  " + line);
       }
       return 0;
+    } finally {
+      await monitor.close();
     }
-    const since = args.values.since ?? "2h";
-    const hosts = host === undefined ? monitor.hosts : [host];
-    for (const h of hosts) {
-      const lines = await monitor.events(h, since);
-      console.log("== " + h + " ==");
-      for (const line of lines.slice(-80)) console.log("  " + line);
-    }
-    return 0;
   }
 
   if (sub === "exec") {
@@ -272,7 +276,12 @@ async function main(): Promise<number> {
     }
     const { monitorFor } = await import("./monitor.ts");
     const argv = args.positionals.slice(1);
-    return await monitorFor(loaded).execShell(host, args.values.container ?? "", argv);
+    const monitor = await monitorFor(loaded);
+    try {
+      return await monitor.execShell(host, args.values.container ?? "", argv);
+    } finally {
+      await monitor.close();
+    }
   }
 
   if (sub === "group") {

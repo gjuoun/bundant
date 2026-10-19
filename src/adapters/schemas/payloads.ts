@@ -44,10 +44,10 @@ type InspectConfig = NonNullable<InspectResponse["Config"]>;
 type InspectState = NonNullable<InspectResponse["State"]>;
 type InspectHostConfig = NonNullable<InspectResponse["HostConfig"]>;
 
-export type InspectWire = Pick<InspectResponse, "Id" | "Name"> & {
+export type InspectWire = Pick<InspectResponse, "Id" | "Name" | "RestartCount"> & {
   Config?: Pick<InspectConfig, "Image" | "Env" | "Labels">;
-  State?: Pick<InspectState, "Status" | "Running" | "ExitCode" | "StartedAt">;
-  HostConfig?: Pick<InspectHostConfig, "RestartPolicy" | "Binds" | "NetworkMode">;
+  State?: Pick<InspectState, "Status" | "Running" | "ExitCode" | "StartedAt" | "Health">;
+  HostConfig?: Pick<InspectHostConfig, "RestartPolicy" | "Binds" | "NetworkMode" | "LogConfig">;
 };
 
 const restartPolicyName = z.enum(["", "no", "always", "unless-stopped", "on-failure"]);
@@ -55,6 +55,7 @@ const restartPolicyName = z.enum(["", "no", "always", "unless-stopped", "on-fail
 export const inspectSchema = z.object({
   Id: z.string(),
   Name: z.string(),
+  RestartCount: z.number().optional(),
   Config: z
     .object({
       Image: z.string().optional(),
@@ -68,6 +69,9 @@ export const inspectSchema = z.object({
       Running: z.boolean().optional(),
       ExitCode: z.number().optional(),
       StartedAt: z.string().optional(),
+      Health: z
+        .object({ Status: z.enum(["none", "starting", "healthy", "unhealthy"]).optional() })
+        .nullish(),
     })
     .optional(),
   HostConfig: z
@@ -80,6 +84,13 @@ export const inspectSchema = z.object({
         .optional(),
       Binds: z.array(z.string()).nullish().transform((value) => value ?? []),
       NetworkMode: z.string().optional(),
+      LogConfig: z
+        .object({
+          Type: z
+            .enum(["local", "json-file", "syslog", "journald", "gelf", "fluentd", "awslogs", "splunk", "etwlogs", "none"])
+            .optional(),
+        })
+        .optional(),
     })
     .optional(),
 });
@@ -101,7 +112,7 @@ type Summary = Schemas["ContainerSummary"];
 
 export type SummaryWire = Pick<
   Summary,
-  "Id" | "Names" | "Image" | "State" | "Status" | "Labels" | "Created"
+  "Id" | "Names" | "Image" | "State" | "Status" | "Labels" | "Created" | "Ports"
 >;
 
 export const summarySchema = z.object({
@@ -112,6 +123,17 @@ export const summarySchema = z.object({
   Status: z.string(),
   Labels: z.record(z.string()),
   Created: z.number(),
+  Ports: z
+    .array(
+      z.object({
+        IP: z.string().optional(),
+        PrivatePort: z.number(),
+        PublicPort: z.number().optional(),
+        Type: z.enum(["tcp", "udp", "sctp"]),
+      }),
+    )
+    .nullish()
+    .transform((value) => value ?? []),
 });
 
 export const summaryListSchema = z.array(summarySchema);

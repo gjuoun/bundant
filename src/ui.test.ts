@@ -1,46 +1,82 @@
 import { describe, expect, test } from "bun:test";
 import { createServer, type Server } from "node:http";
-import { Monitor } from "./monitor.ts";
+import { Monitor, type MonitorRuntime } from "./monitor.ts";
+import type { ContainerInfo, ContainerSummary, RuntimeEvent, StatsSample } from "./adapters/types.ts";
 import { runtimeFor } from "./runtime.ts";
 import type { ExecResult, Executor } from "./types.ts";
 import { uiHandler } from "./ui.ts";
 
-const PS =
-  "kamal-proxy|docker.io/basecamp/kamal-proxy:latest|Up 11 hours|0.0.0.0:80->80/tcp|2026-10-18 11:08:37 +0000 UTC\n" +
-  "hello-web-rev-aaa|docker.io/traefik/whoami:v1.10|Up 11 hours|80/tcp|2026-10-18 11:08:50 +0000 UTC\n";
+const ROWS: ContainerSummary[] = [
+  {
+    id: "proxy",
+    name: "kamal-proxy",
+    image: "docker.io/basecamp/kamal-proxy:latest",
+    state: "running",
+    status: "Up 11 hours",
+    labels: {},
+    created: 1700000000,
+    ports: "0.0.0.0:80->80/tcp, 0.0.0.0:443->443/tcp",
+  },
+  {
+    id: "app",
+    name: "hello-web-rev-aaa",
+    image: "docker.io/traefik/whoami:v1.10",
+    state: "running",
+    status: "Up 11 hours",
+    labels: {},
+    created: 1700000001,
+    ports: "80/tcp",
+  },
+];
+
+class FakeRuntime implements MonitorRuntime {
+  async list(opts: { all?: boolean } = {}): Promise<ContainerSummary[]> {
+    return opts.all === true ? ROWS : ROWS;
+  }
+  async stats(_id: string): Promise<StatsSample> {
+    return { readAt: "2026-10-19T00:00:00Z", cpuPercent: 0, memoryUsageBytes: 1024, memoryLimitBytes: 2048, pids: 7, networks: {} };
+  }
+  async *logs(): AsyncIterable<string> {
+    yield "line one";
+    yield "line two";
+  }
+  async inspect(id: string): Promise<ContainerInfo> {
+    return {
+      id,
+      name: id,
+      image: "docker.io/basecamp/kamal-proxy:latest",
+      state: { status: "running", running: true, exitCode: 0, restarts: 0, health: "healthy" },
+      labels: {},
+      env: [],
+      restartPolicy: "unless-stopped",
+      logDriver: "journald",
+      binds: [],
+      networkMode: "bundant",
+      raw: {},
+    };
+  }
+  async *events(): AsyncIterable<RuntimeEvent> {
+    yield { type: "container", action: "start", time: 1760000000, actor: { id: "app", attributes: { name: "hello-web-rev-aaa" } } };
+  }
+}
 
 class FakeExecutor implements Executor {
   readonly kind = "fake";
-  constructor(private readonly handler: (cmd: string) => ExecResult) {}
   async run(cmd: string): Promise<ExecResult> {
-    return this.handler(cmd);
+    if (cmd.includes("kamal-proxy list")) {
+      return { code: 0, stdout: "service  host                  target\ndemo     demo.example.com      web-rev-aaa:80\n", stderr: "" };
+    }
+    return { code: 0, stdout: "true\n", stderr: "" };
   }
   async putFile(): Promise<void> {}
   async close(): Promise<void> {}
 }
 
-const ok = (stdout: string): ExecResult => ({ code: 0, stdout, stderr: "" });
-
-/** One host that answers every query the monitoring surface can emit. */
-function fakeHost(): Executor {
-  return new FakeExecutor((cmd) => {
-    if (cmd.startsWith("podman ps -a --format")) {
-      return cmd.includes("{{.Names}}|") ? ok(PS) : ok("kamal-proxy\nhello-web-rev-aaa\n");
-    }
-    if (cmd.startsWith("podman stats")) return ok("kamal-proxy|0.00%|2.6MB / 24GB|0.01%|7\n");
-    if (cmd.startsWith("podman logs")) return ok("line one\nline two\n");
-    if (cmd.startsWith("podman inspect -f")) return ok("true\n");
-    if (cmd.startsWith("podman inspect")) {
-      return ok("/kamal-proxy|running|0|2026-10-18T11:48:54Z|-|docker.io/basecamp/kamal-proxy:latest|unless-stopped|journald|0\n");
-    }
-    if (cmd.includes("kamal-proxy list")) return ok("service  host                  target\ndemo     demo.example.com      web-rev-aaa:80\n");
-    if (cmd.includes("podman events")) return ok("1760000000|container|start|web-rev-aaa\n");
-    return ok("");
-  });
-}
-
 async function withUi(fn: (base: string) => Promise<void>): Promise<void> {
-  const monitor = new Monitor([{ host: "docker01", exec: fakeHost() }], runtimeFor("podman"));
+  const monitor = new Monitor(
+    [{ host: "docker01", runtime: new FakeRuntime(), exec: new FakeExecutor() }],
+    runtimeFor("podman"),
+  );
   const server: Server = createServer(uiHandler(monitor));
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const addr = server.address();
@@ -103,7 +139,7 @@ describe("bundant ui (behavioral)", () => {
   test("/api/stats, /api/proxy, /api/inspect and /api/events", async () => {
     await withUi(async (base) => {
       const stats = (await (await fetch(base + "/api/stats")).json()) as { hosts: { rows: unknown[] }[] };
-      expect(stats.hosts[0]?.rows.length).toBe(1);
+      expect(stats.hosts[0]?.rows.length).toBe(2);
 
       const proxy = (await (await fetch(base + "/api/proxy")).json()) as { hosts: { ok: boolean; rows: string[] }[] };
       expect(proxy.hosts[0]?.ok).toBe(true);

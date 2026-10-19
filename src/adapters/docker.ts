@@ -23,6 +23,20 @@ import {
   type StatsSample,
 } from "./types.ts";
 
+/** ContainerSummary.Ports -> the CLI's "0.0.0.0:80->80/tcp, 443/tcp" form. */
+export function formatPorts(
+  ports: readonly { IP?: string; PrivatePort: number; PublicPort?: number; Type: string }[] | undefined,
+): string {
+  return (ports ?? [])
+    .map((port) => {
+      const target = port.PublicPort === undefined
+        ? String(port.PrivatePort)
+        : (port.IP !== undefined && port.IP !== "" ? port.IP : "0.0.0.0") + ":" + port.PublicPort + "->" + port.PrivatePort;
+      return target + "/" + port.Type;
+    })
+    .join(", ");
+}
+
 /**
  * Docker over the engine API (read-only in stage 1). Podman reuses this class:
  * its Docker-compatible endpoints answer the same requests, and the places
@@ -87,10 +101,13 @@ export class DockerAdapter implements RuntimeAdapter {
         running: raw.State?.Running === true,
         exitCode: raw.State?.ExitCode ?? 0,
         startedAt: raw.State?.StartedAt,
+        restarts: raw.RestartCount ?? 0,
+        health: raw.State?.Health?.Status,
       },
       labels: raw.Config?.Labels ?? {},
       env: raw.Config?.Env ?? [],
       restartPolicy: raw.HostConfig?.RestartPolicy?.Name ?? "no",
+      logDriver: raw.HostConfig?.LogConfig?.Type ?? "",
       binds: raw.HostConfig?.Binds ?? [],
       networkMode: raw.HostConfig?.NetworkMode ?? "",
       raw: res.json,
@@ -118,6 +135,7 @@ export class DockerAdapter implements RuntimeAdapter {
       status: row.Status ?? "",
       labels: row.Labels ?? {},
       created: row.Created ?? 0,
+      ports: formatPorts(row.Ports),
     }));
   }
 
@@ -132,7 +150,16 @@ export class DockerAdapter implements RuntimeAdapter {
     };
     return (async function* () {
       const res = await client.requestStream("GET", path, undefined, query);
-      for await (const frame of demuxStream(res)) yield frame.data.toString("utf8");
+      // Frames are not line-aligned: buffer the partial tail across frames so
+      // callers get whole lines and never half a log record.
+      let pending = "";
+      for await (const frame of demuxStream(res)) {
+        pending += frame.data.toString("utf8");
+        const lines = pending.split("\n");
+        pending = lines.pop() ?? "";
+        for (const line of lines) yield line;
+      }
+      if (pending !== "") yield pending;
     })();
   }
 
