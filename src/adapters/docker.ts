@@ -50,10 +50,6 @@ interface ApiStats {
   networks?: Record<string, { rx_bytes?: number; tx_bytes?: number }>;
 }
 
-interface ApiVersionBody {
-  Version?: string;
-}
-
 export class DockerAdapter implements RuntimeAdapter {
   readonly kind: RuntimeKind = "docker";
 
@@ -239,11 +235,5 @@ export class DockerAdapter implements RuntimeAdapter {
   protected async getJson<T>(path: string, query?: ApiQuery): Promise<T> {
     const res = await this.client.request("GET", path, undefined, query);
     return res.json as T;
-  }
-
-  /** /version is already cached on the adapter; kept for later stages. */
-  protected async probeVersion(): Promise<string> {
-    const body = await this.getJson<ApiVersionBody>("/version");
-    return body.Version ?? this.engineVersion;
   }
 }
