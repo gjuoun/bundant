@@ -19,6 +19,8 @@ jobs:
       - run: bun run src/cli.ts --version
       - run: bun run src/cli.ts deploy --dry-run -f examples/hello/deploy.yml > /dev/null
       - run: bun run src/cli.ts delete --dry-run -f examples/hello/deploy.yml > /dev/null
+      - run: bun run src/cli.ts group install --dry-run -f examples/shop/group.yml > /dev/null
+      - run: bun run src/cli.ts accessory boot --dry-run -f examples/shop/db/accessory.yml > /dev/null
 
   node:
     runs-on: ubuntu-latest
