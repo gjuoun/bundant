@@ -43,7 +43,7 @@ export async function deploy(plan: DeployPlan, loaded: LoadedConfig): Promise<nu
       }
     }
 
-    await acquireLock(primary, m.service);
+    await acquireLock(primary, m.lockKey);
     locked = true;
     console.log(
       "deploy " + m.service + "/" + m.role + " rev=" + m.revision + " -> " + m.hosts.join(", "),
@@ -57,7 +57,8 @@ export async function deploy(plan: DeployPlan, loaded: LoadedConfig): Promise<nu
 
       try {
         if (envLocalFile && m.envRemotePath) {
-          await exec.run("mkdir -p ~/.bundant/env");
+          const envDir = m.envRemotePath.slice(0, m.envRemotePath.lastIndexOf("/"));
+          await exec.run("mkdir -p " + envDir);
           await exec.putFile(envLocalFile, m.envRemotePath, "600");
           console.log("[" + host + "] env uploaded (" + loaded.envCount + " vars, redacted)");
         }
@@ -110,7 +111,7 @@ export async function deploy(plan: DeployPlan, loaded: LoadedConfig): Promise<nu
     console.log("deployed " + m.containerName + " on " + m.hosts.length + " host(s)");
     return 0;
   } finally {
-    if (locked) await releaseLock(primary, m.service);
+    if (locked) await releaseLock(primary, m.lockKey);
     for (const e of execs) await e.close();
   }
 }

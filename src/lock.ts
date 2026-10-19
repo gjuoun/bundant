@@ -13,29 +13,38 @@ export function lockBase(): string {
   return process.env.BUNDANT_LOCK_BASE ?? DEFAULT_LOCK_BASE;
 }
 
-export function lockDir(service: string): string {
-  return lockBase() + "/" + service + ".lock";
+/**
+ * Service-level lock key, namespaced by the group when one is in play:
+ * `<group>/<service>` or just `<service>` for an ungrouped deploy.
+ */
+export function lockKey(group: string | undefined, service: string): string {
+  return group !== undefined && group !== "" ? group + "/" + service : service;
+}
+
+export function lockDir(key: string): string {
+  return lockBase() + "/" + key + ".lock";
 }
 
 /** Atomic acquire: mkdir succeeds for exactly one concurrent deploy. */
-export function acquireCmd(service: string): string {
-  const dir = lockDir(service);
+export function acquireCmd(key: string): string {
+  const dir = lockDir(key);
+  const parent = dir.slice(0, dir.lastIndexOf("/"));
   return (
-    "mkdir -p " + lockBase() + " && mkdir " + dir +
+    "mkdir -p " + parent + " && mkdir " + dir +
     ' && echo "$(id -un) $(date +%s)" > ' + dir + "/owner"
   );
 }
 
-export function readOwnerCmd(service: string): string {
-  return "cat " + lockDir(service) + "/owner 2>/dev/null || true";
+export function readOwnerCmd(key: string): string {
+  return "cat " + lockDir(key) + "/owner 2>/dev/null || true";
 }
 
-export function forceReleaseCmd(service: string): string {
-  return "rm -rf " + lockDir(service);
+export function forceReleaseCmd(key: string): string {
+  return "rm -rf " + lockDir(key);
 }
 
-export function releaseCmd(service: string): string {
-  return "rm -rf " + lockDir(service);
+export function releaseCmd(key: string): string {
+  return "rm -rf " + lockDir(key);
 }
 
 // Plain field assignments (see health.ts): parameter properties are not

@@ -3,7 +3,7 @@ import * as docker from "./commands/docker.ts";
 import * as proxy from "./commands/proxy.ts";
 import { pushImagePipeline } from "./exec/ssh.ts";
 import { expandHome, hostTargets } from "./hosts.ts";
-import { acquireCmd, releaseCmd } from "./lock.ts";
+import { acquireCmd, lockKey, releaseCmd } from "./lock.ts";
 import {
   PORT_FLOOR_KEY,
   portGuardCommand,
@@ -22,6 +22,8 @@ export interface DeployPlan {
   meta: {
     service: string;
     role: string;
+    /** Group namespace when the service is deployed as part of one. */
+    group?: string;
     revision: string;
     image: string;
     localImage?: string;
@@ -33,6 +35,8 @@ export interface DeployPlan {
     envCount: number;
     envHasFile: boolean;
     healthcheck: BundantConfig["healthcheck"];
+    /** Lock key actually used: `<group>/<service>` when grouped, else `<service>`. */
+    lockKey: string;
   };
   lockStep: CmdStep;
   unlockStep: CmdStep;
@@ -41,11 +45,22 @@ export interface DeployPlan {
 }
 
 export function containerName(config: BundantConfig, revision: string): string {
+  // Accessories carry no revision: volumes, ports and clients stay valid across deploys.
+  if (config.kind === "accessory") return config.service;
   return config.service + "-" + config.role + "-" + revision;
 }
 
 export function envRemotePath(config: BundantConfig): string | undefined {
-  return "~/.bundant/env/" + config.service + "-" + config.role + ".env";
+  const base = "~/.bundant/env" + (config.group ? "/" + config.group : "");
+  return config.kind === "accessory"
+    ? base + "/" + config.service + ".env"
+    : base + "/" + config.service + "-" + config.role + ".env";
+}
+
+/** Exact labels every grouped container carries; undefined when ungrouped (byte-identical plan). */
+export function groupLabels(config: BundantConfig): Record<string, string> | undefined {
+  if (!config.group) return undefined;
+  return { "bundant.service": config.service, "bundant.group": config.group };
 }
 
 /**
@@ -64,6 +79,8 @@ export function buildDeployPlan(
   const svcId = proxy.serviceId(config.service, config.role);
   const hasEnv = Object.keys(config.env.vars).length > 0 || config.env.file !== undefined;
   const envPath = hasEnv ? envRemotePath(config) : undefined;
+  const labels = groupLabels(config);
+  const key = lockKey(config.group, config.service);
 
   const hostSteps: CmdStep[] = [];
 
@@ -124,7 +141,7 @@ export function buildDeployPlan(
       (envPath ? ", env: redacted" : "") + ")",
     cmds: [
       docker.removeForce(rt, name),
-      docker.run(rt, { container: name, image, envFile: envPath }),
+      docker.run(rt, { container: name, image, envFile: envPath, labels }),
     ],
   });
 
@@ -173,6 +190,7 @@ export function buildDeployPlan(
     meta: {
       service: config.service,
       role: config.role,
+      group: config.group,
       revision,
       image,
       localImage: opts.localImage,
@@ -184,16 +202,17 @@ export function buildDeployPlan(
       envCount: Object.keys(config.env.vars).length,
       envHasFile: config.env.file !== undefined,
       healthcheck: config.healthcheck,
+      lockKey: key,
     },
     lockStep: {
       phase: "lock",
-      desc: "acquire deploy lock for " + config.service + " on " + targets[0],
-      cmds: [acquireCmd(config.service)],
+      desc: "acquire deploy lock for " + key + " on " + targets[0],
+      cmds: [acquireCmd(key)],
     },
     unlockStep: {
       phase: "unlock",
-      desc: "release deploy lock for " + config.service,
-      cmds: [releaseCmd(config.service)],
+      desc: "release deploy lock for " + key,
+      cmds: [releaseCmd(key)],
     },
     hostSteps,
   };
