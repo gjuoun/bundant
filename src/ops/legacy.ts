@@ -1,9 +1,9 @@
 import * as docker from "../commands/docker.ts";
 import * as proxy from "../commands/proxy.ts";
-import type { ContainerSpec } from "../adapters/types.ts";
+import type { ContainerInfo, ContainerSpec, ContainerSummary } from "../adapters/types.ts";
 import type { BundantConfig } from "../config.ts";
 import type { Executor } from "../types.ts";
-import { waitUntilHealthy } from "../health.ts";
+import { waitUntilHealthy, waitUntilSucceeds } from "../health.ts";
 import { belongsToService } from "../naming.ts";
 import { parseHistory, type RevisionEntry } from "../revisions.ts";
 import { portGuardCommand, runtimeCheckCommands, type Runtime } from "../runtime.ts";
@@ -95,6 +95,60 @@ export class LegacyOps implements RuntimeOps {
     }
   }
 
+  async listContainers(opts: {
+    all?: boolean;
+    labels?: Record<string, string>;
+    namePrefix?: string;
+  }): Promise<ContainerSummary[]> {
+    const format =
+      '{{.Names}}|{{.Image}}|{{.Status}}|{{.Label "bundant.revision"}}|' +
+      '{{.Label "bundant.replica"}}|{{.Label "bundant.kind"}}|' +
+      '{{.Label "bundant.group"}}|{{.Label "bundant.service"}}';
+    let cmd = this.rt.bin + (opts.all === false ? " ps" : " ps -a");
+    if (opts.labels !== undefined) cmd += docker.labelFilters(opts.labels);
+    if (opts.namePrefix !== undefined) {
+      cmd += ' --filter "name=' + opts.namePrefix + '"';
+    }
+    cmd += " --format '" + format + "'";
+    const r = await this.exec.run(cmd);
+    if (r.code !== 0) throw new Error("cannot list containers: " + r.stderr.trim());
+    return parseList(r.stdout);
+  }
+
+  async inspectContainer(name: string): Promise<ContainerInfo> {
+    const r = await this.exec.run(this.rt.bin + " inspect " + name);
+    if (r.code !== 0) throw new Error("cannot inspect " + name + ": " + r.stderr.trim());
+    const rows = JSON.parse(r.stdout) as Array<Record<string, unknown>>;
+    const raw = rows[0] ?? {};
+    const state = (raw.State ?? {}) as Record<string, unknown>;
+    const config = (raw.Config ?? {}) as Record<string, unknown>;
+    const host = (raw.HostConfig ?? {}) as Record<string, unknown>;
+    return {
+      id: String(raw.Id ?? name),
+      name: String(raw.Name ?? name).replace(/^\//, ""),
+      image: String(config.Image ?? ""),
+      state: {
+        status: String(state.Status ?? "unknown"),
+        running: state.Running === true,
+        exitCode: Number(state.ExitCode ?? 0),
+        startedAt: typeof state.StartedAt === "string" ? state.StartedAt : undefined,
+        restarts: Number(raw.RestartCount ?? 0),
+      },
+      labels: (config.Labels ?? {}) as Record<string, string>,
+      env: (config.Env ?? []) as string[],
+      restartPolicy: String((host.RestartPolicy as Record<string, unknown> | undefined)?.Name ?? "no"),
+      logDriver: "",
+      binds: (host.Binds ?? []) as string[],
+      networkMode: String(host.NetworkMode ?? ""),
+      raw,
+    };
+  }
+
+  async removeImage(ref: string): Promise<void> {
+    this.steps.push("rmi:" + ref);
+    await this.run("rmi", this.rt.bin + " rmi " + ref);
+  }
+
   async healthGate(names: string[], opts: HealthGateOptions): Promise<void> {
     this.steps.push("health:" + names.join(","));
     for (const name of names) {
@@ -145,6 +199,56 @@ export class LegacyOps implements RuntimeOps {
     return parseHistory(r.stdout).filter((e) => belongsToService(e.name, config));
   }
 
+  async proxyRemove(serviceId: string): Promise<void> {
+    this.steps.push("proxy-remove:" + serviceId);
+    await this.run(
+      "proxy-remove",
+      this.rt.bin + ' inspect -f "{{.State.Running}}" ' + proxy.PROXY_CONTAINER +
+        " 2>/dev/null | grep -q true && " + this.rt.bin + " exec " + proxy.PROXY_CONTAINER +
+        " kamal-proxy remove " + serviceId + " || true",
+    );
+  }
+
+  async removeEnv(remotePath: string): Promise<void> {
+    this.steps.push("env-remove:" + remotePath);
+    await this.run("env-remove", "rm -f " + remotePath);
+  }
+
+  async logs(name: string, tail: number): Promise<string> {
+    const r = await this.exec.run(docker.logsTail(this.rt, name, tail));
+    return r.stdout + r.stderr;
+  }
+
+  async tcpGate(name: string, port: number, opts: HealthGateOptions): Promise<void> {
+    this.steps.push("tcp:" + name + ":" + port);
+    await waitUntilSucceeds(this.exec, docker.tcpProbe(this.rt, name, port), {
+      timeoutMs: opts.timeoutMs,
+      intervalMs: opts.intervalMs,
+    });
+  }
+
+  async createVolume(name: string, labels: Record<string, string>): Promise<void> {
+    this.steps.push("volume-create:" + name);
+    await this.run("volume-create", docker.volumeCreate(this.rt, name, labels));
+  }
+
+  async removeVolume(name: string): Promise<void> {
+    this.steps.push("volume-remove:" + name);
+    await this.run("volume-remove", this.rt.bin + " volume rm " + name + " 2>/dev/null || true");
+  }
+
+  async inspectVolume(name: string): Promise<{ labels: Record<string, string> }> {
+    const r = await this.exec.run(
+      this.rt.bin + " volume inspect --format '{{json .Labels}}' " + name + " 2>/dev/null || true",
+    );
+    if (r.stdout.trim() === "") return { labels: {} };
+    try {
+      return { labels: JSON.parse(r.stdout) as Record<string, string> };
+    } catch {
+      return { labels: {} };
+    }
+  }
+
   async pruneImages(): Promise<void> {
     this.steps.push("prune-images");
     await this.run("image prune", docker.imagePrune(this.rt));
@@ -154,3 +258,32 @@ export class LegacyOps implements RuntimeOps {
     await this.exec.close();
   }
 }
+
+/** Parse the legacy ps format into ContainerSummary rows. */
+export function parseList(stdout: string): ContainerSummary[] {
+  return stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line !== "")
+    .map((line) => {
+      const [name = "", image = "", status = "", revision = "", replica = "", kind = "", group = "", service = ""] =
+        line.split("|");
+      const labels: Record<string, string> = {};
+      if (revision !== "") labels["bundant.revision"] = revision;
+      if (replica !== "") labels["bundant.replica"] = replica;
+      if (kind !== "") labels["bundant.kind"] = kind;
+      if (group !== "") labels["bundant.group"] = group;
+      if (service !== "") labels["bundant.service"] = service;
+      return {
+        id: name,
+        name,
+        image,
+        state: status.startsWith("Up") ? "running" : "exited",
+        status,
+        labels,
+        created: 0,
+        ports: "",
+      };
+    });
+}
+

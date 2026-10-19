@@ -56,8 +56,9 @@ registry).
 
 | command | what it does |
 |---|---|
-| `deploy [--dry-run] [--local-image n:t] [--rev ID] [-f path]` | full deploy; `--dry-run` prints every command without executing |
-| `scale --replicas n [-f path]` (or `scale n`) | add/remove replicas of the running revision without dropping requests (proxy target set changes before containers are removed) |
+| `validate [-f path] [--json]` | parse one deploy/accessory/group file, print the resolved identity and the full error list; never touches a host |
+| `deploy [--dry-run] [--local-image n:t] [--rev ID] [--via cli\|api] [-f path]` | full deploy; `--dry-run` prints every command without executing |
+| `scale --replicas n [--via cli\|api] [-f path]` (or `scale n`) | add/remove replicas of the running revision without dropping requests (proxy target set changes before containers are removed) |
 | `rollback [--to-revision rev]` | previous revision, or the exact one named by `--to-revision`: re-gate then re-swap |
 | `history` | revisions newest-first with state, current one marked |
 | `status` | per-host containers, proxy targets, live health probe |
@@ -91,6 +92,7 @@ threshold.
 ## More
 
 - [`docs/deploy-yml.md`](docs/deploy-yml.md) — every field, env handling, revisions
+- [`docs/validation.md`](docs/validation.md) — preflight, what is checked, and the `--json` shape
 - [`docs/group.md`](docs/group.md) — group namespaces, `needs:` ordering, accessories and their lifecycle
 - [`docs/schema.md`](docs/schema.md) — `schema/*.json` for editor autocomplete + inline errors
 - [`docs/api-types.md`](docs/api-types.md) — generated engine API types + zod validation at the adapter boundary

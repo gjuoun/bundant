@@ -1,6 +1,11 @@
 import { z } from "zod";
-import type { ContainerSpec, RuntimeAdapter } from "../adapters/types.ts";
-import { CURL_IMAGE, NETWORK } from "../commands/docker.ts";
+import type {
+  ContainerInfo,
+  ContainerSpec,
+  ContainerSummary,
+  RuntimeAdapter,
+} from "../adapters/types.ts";
+import { CURL_IMAGE, NETWORK, TCP_IMAGE } from "../commands/docker.ts";
 import type { BundantConfig } from "../config.ts";
 import type { Executor } from "../types.ts";
 import { belongsToService, serviceLabels } from "../naming.ts";
@@ -112,6 +117,23 @@ export class ApiOps implements RuntimeOps {
       this.steps.push("stop:" + name);
       await this.adapter.stop(name);
     }
+  }
+
+  async listContainers(opts: {
+    all?: boolean;
+    labels?: Record<string, string>;
+    namePrefix?: string;
+  }): Promise<ContainerSummary[]> {
+    return await this.adapter.list(opts);
+  }
+
+  async inspectContainer(name: string): Promise<ContainerInfo> {
+    return await this.adapter.inspect(name);
+  }
+
+  async removeImage(ref: string): Promise<void> {
+    this.steps.push("rmi:" + ref);
+    await this.adapter.removeImage(ref);
   }
 
   async healthGate(names: string[], opts: HealthGateOptions): Promise<void> {
@@ -264,6 +286,81 @@ export class ApiOps implements RuntimeOps {
         state: row.status !== "" ? row.status : row.state,
       }))
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
+  }
+
+  async proxyRemove(serviceId: string): Promise<void> {
+    this.steps.push("proxy-remove:" + serviceId);
+    const r = await this.adapter.exec(PROXY_CONTAINER, ["kamal-proxy", "remove", serviceId]);
+    // Removing an absent route is a no-op for delete's "tolerated" contract.
+    if (r.code !== 0 && !/not found|no such|unknown/i.test(r.stderr + r.stdout)) {
+      throw new Error("proxy-remove failed: " + (r.stderr.trim() || r.stdout.trim()));
+    }
+  }
+
+  async removeEnv(remotePath: string): Promise<void> {
+    this.steps.push("env-remove:" + remotePath);
+    // The API path writes no env file; this removes one left by an older release.
+    await this.hostRun("env-remove", "rm -f " + remotePath);
+  }
+
+  async logs(name: string, tail: number): Promise<string> {
+    const lines: string[] = [];
+    for await (const line of this.adapter.logs(name, { tail })) lines.push(line);
+    return lines.length === 0 ? "" : lines.join("\n") + "\n";
+  }
+
+  async tcpGate(name: string, port: number, opts: HealthGateOptions): Promise<void> {
+    this.steps.push("tcp:" + name + ":" + port);
+    const interval = opts.intervalMs ?? 500;
+    const deadline = Date.now() + opts.timeoutMs;
+    let last = "";
+    while (Date.now() <= deadline) {
+      const code = await this.runTcpProbe(name, port);
+      last = "exit " + code;
+      if (code === 0) return;
+      await sleep(interval);
+    }
+    throw new Error("tcp readiness failed: " + name + ":" + port + " (" + last + ")");
+  }
+
+  private async runTcpProbe(name: string, port: number): Promise<number> {
+    const probeName = "bundant-probe-tcp-" + process.pid.toString(36) + "-" + (++probeCounter).toString(36);
+    const spec: ContainerSpec = {
+      image: TCP_IMAGE,
+      name: probeName,
+      env: [],
+      labels: { "bundant.kind": "probe" },
+      network: NETWORK,
+      restart: "no",
+      cmd: ["sh", "-c", "nc -z -w 3 " + name + " " + port],
+    };
+    const { id } = await this.adapter.create(spec);
+    try {
+      await this.adapter.start(id);
+      const until = Date.now() + 5000;
+      let info = await this.adapter.inspect(id);
+      while (info.state.running && Date.now() < until) {
+        await sleep(100);
+        info = await this.adapter.inspect(id);
+      }
+      return info.state.exitCode;
+    } finally {
+      await this.adapter.remove(id, { force: true });
+    }
+  }
+
+  async createVolume(name: string, labels: Record<string, string>): Promise<void> {
+    this.steps.push("volume-create:" + name);
+    await this.adapter.createVolume(name, labels);
+  }
+
+  async removeVolume(name: string): Promise<void> {
+    this.steps.push("volume-remove:" + name);
+    await this.adapter.removeVolume(name);
+  }
+
+  async inspectVolume(name: string): Promise<{ labels: Record<string, string> }> {
+    return await this.adapter.inspectVolume(name);
   }
 
   async pruneImages(): Promise<void> {

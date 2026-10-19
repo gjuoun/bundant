@@ -3,7 +3,13 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { BundantConfig } from "./config.ts";
-import { buildDeleteSteps, deleteGuardError, remove, selectVictims } from "./delete.ts";
+import {
+  buildDeleteSteps,
+  deleteGuardError,
+  remove,
+  selectDeleteVictims,
+  selectVictims,
+} from "./delete.ts";
 import { LocalExecutor } from "./exec/local.ts";
 
 function cfg(over: Partial<BundantConfig> = {}): BundantConfig {
@@ -34,6 +40,29 @@ function step(config: BundantConfig, o = opts, phase = "containers") {
   if (!s) throw new Error("missing phase " + phase);
   return s;
 }
+
+describe("selectDeleteVictims", () => {
+  const row = (name: string, kind: string, service = "hello") => ({
+    id: name,
+    name,
+    image: "x:1",
+    state: "running",
+    status: "Up",
+    labels: { "bundant.kind": kind, "bundant.service": service, "bundant.group": "default" },
+    created: 0,
+    ports: "",
+  });
+
+  test("never selects an accessory, even with the service prefix", () => {
+    const rows = [row("hello-web-r1", "service"), row("hello-web-db", "accessory"), row("other-web-r1", "service")];
+    expect(selectDeleteVictims(rows, cfg(), true).map((r) => r.name)).toEqual(["hello-web-r1"]);
+  });
+
+  test("group sweep selects by label but still skips accessories", () => {
+    const rows = [row("hello-web-r1", "service"), row("hello-db", "accessory")];
+    expect(selectDeleteVictims(rows, cfg(), false).map((r) => r.name)).toEqual(["hello-web-r1"]);
+  });
+});
 
 describe("buildDeleteSteps", () => {
   test("proxy on: tolerant route removal comes first", () => {

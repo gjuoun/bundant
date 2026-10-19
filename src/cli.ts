@@ -12,6 +12,7 @@ const USAGE = [
   "usage: bundant <command> [options]",
   "",
   "commands:",
+  "  validate [-f file] [--json]  parse and validate deploy.yml / group.yml / accessory.yml",
   "  deploy                deploy the current revision to every host",
   "  scale --replicas <n>   add/remove replicas of the running revision (no drops)",
   "  rollback [--to-revision <rev>]  previous revision, or the one named by --to-revision",
@@ -105,6 +106,18 @@ async function main(): Promise<number> {
   const sub = args.positionals[0];
   if (!sub) usage();
 
+  if (sub === "validate") {
+    const file = args.values.file ?? "deploy.yml";
+    const { renderValidationReport, validatePath } = await import("./validation.ts");
+    const report = await validatePath(file);
+    if (args.values.json === true) {
+      console.log(JSON.stringify(report, null, 2));
+    } else {
+      console.log(renderValidationReport(report));
+    }
+    return report.ok ? 0 : 1;
+  }
+
   if (sub === "deploy") {
     const loaded = loadConfig(args.values.file ?? "deploy.yml");
     if (loaded.config.kind === "accessory") {
@@ -156,10 +169,13 @@ async function main(): Promise<number> {
       );
       return 2;
     }
+    const via = opsVia(args.values.via);
+    if (via === null) return 2;
     const { scale } = await import("./scale.ts");
     return scale(loaded, {
       replicas,
       dryRun: args.values["dry-run"] === true,
+      via,
     });
   }
 
@@ -185,11 +201,14 @@ async function main(): Promise<number> {
 
   if (sub === "delete") {
     const loaded = loadConfig(args.values.file ?? "deploy.yml");
+    const via = opsVia(args.values.via);
+    if (via === null) return 2;
     const { remove } = await import("./delete.ts");
     return remove(loaded, {
       yes: args.values.yes === true,
       images: args.values.images === true,
       dryRun: args.values["dry-run"] === true,
+      via,
     });
   }
 
@@ -324,11 +343,14 @@ async function main(): Promise<number> {
     const loadedGroup = loadGroup(args.values.file ?? "group.yml");
     const { GroupRunner } = await import("./group.ts");
     const runner = new GroupRunner(loadedGroup);
+    const via = opsVia(args.values.via);
+    if (via === null) return 2;
     const opts = {
       dryRun: args.values["dry-run"] === true,
       yes: args.values.yes === true,
       toRevision: args.values["to-revision"],
       rev: args.values.rev,
+      via,
     };
     if (action === "install") return await runner.install(opts);
     if (action === "uninstall") return await runner.uninstall(opts);
@@ -343,6 +365,8 @@ async function main(): Promise<number> {
       return 2;
     }
     const loadedAccessory = loadConfig(args.values.file ?? "accessory.yml");
+    const via = opsVia(args.values.via);
+    if (via === null) return 2;
     const { Accessory } = await import("./accessory.ts");
     const tail = Number(args.values.tail ?? "200");
     if (!Number.isInteger(tail) || tail <= 0) {
@@ -356,6 +380,7 @@ async function main(): Promise<number> {
         volumes: args.values.volumes === true,
         tail,
         dryRun: args.values["dry-run"] === true,
+        via,
       },
     );
   }

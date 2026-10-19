@@ -5,6 +5,7 @@ import { parseHistory, revisionOf, type RevisionEntry } from "./revisions.ts";
 import { runtimeFor } from "./runtime.ts";
 import { belongsToService, serviceLabels } from "./naming.ts";
 import { openOps, type OpsVia } from "./ops/index.ts";
+import { assertPreflight } from "./validation.ts";
 
 export interface PruneEntry {
   name: string;
@@ -93,6 +94,7 @@ function entriesOf(history: RevisionEntry[]): PruneEntry[] {
  */
 export async function prune(loaded: LoadedConfig, opts: PruneOptions): Promise<number> {
   const { config } = loaded;
+  assertPreflight(loaded);
   const rt = runtimeFor(config.runtime);
   const via: OpsVia = opts.via ?? "api";
 

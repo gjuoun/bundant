@@ -71,7 +71,6 @@ class FakeAdapter implements RuntimeAdapter {
     this.steps.push("pull:" + ref);
   }
   async loadImage(): Promise<void> {}
-  async removeImage(): Promise<void> {}
   async pruneImages(): Promise<void> {
     this.steps.push("prune-images");
   }
@@ -113,6 +112,16 @@ class FakeAdapter implements RuntimeAdapter {
   async list(): Promise<ContainerSummary[]> {
     return [];
   }
+  async listContainers(): Promise<ContainerSummary[]> {
+    return [];
+  }
+  async inspectContainer(id: string): Promise<ContainerInfo> {
+    return await this.inspect(id);
+  }
+  async removeImage(): Promise<void> {}
+  async proxyRemove(): Promise<void> {}
+  async removeEnv(): Promise<void> {}
+  async tcpGate(): Promise<void> {}
   logs(): AsyncIterable<string> {
     const body = this.probeBody;
     return (async function* () {
@@ -126,10 +135,14 @@ class FakeAdapter implements RuntimeAdapter {
     this.execCalls.push(argv);
     return { code: 0, stdout: "", stderr: "" };
   }
-  async createVolume(): Promise<void> {}
-  async removeVolume(): Promise<void> {}
   async inspectVolume(): Promise<{ labels: Record<string, string> }> {
     return { labels: {} };
+  }
+  async createVolume(): Promise<void> {
+    this.steps.push("volume-create");
+  }
+  async removeVolume(): Promise<void> {
+    this.steps.push("volume-remove");
   }
   async ensureNetwork(): Promise<void> {
     this.steps.push("network");

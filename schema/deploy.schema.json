@@ -7,8 +7,8 @@
   "properties": {
     "service": {
       "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9-]*$",
-      "description": "service name; also the identity in container names (hyphens allowed)"
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "description": "service name; also the identity in container names (single hyphens allowed)"
     },
     "image": {
       "type": "string",

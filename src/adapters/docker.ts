@@ -259,12 +259,23 @@ export class DockerAdapter implements RuntimeAdapter {
 
   // ----- volumes / networks (stage 5) ---------------------------------------
 
-  async createVolume(_name: string, _labels: Record<string, string>): Promise<void> {
-    throw new NotImplementedInStage1("createVolume");
+  async createVolume(name: string, labels: Record<string, string>): Promise<void> {
+    try {
+      await this.client.request("POST", "/volumes/create", { Name: name, Labels: labels });
+    } catch (err) {
+      // Existing volume with the same name is the desired state.
+      if (err instanceof ApiError && err.status === 409) return;
+      throw err;
+    }
   }
 
-  async removeVolume(_name: string): Promise<void> {
-    throw new NotImplementedInStage1("removeVolume");
+  async removeVolume(name: string): Promise<void> {
+    try {
+      await this.client.request("DELETE", "/volumes/" + encodeURIComponent(name));
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) return;
+      throw err;
+    }
   }
 
   async inspectVolume(name: string): Promise<{ labels: Record<string, string> }> {

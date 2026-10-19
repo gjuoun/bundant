@@ -58,7 +58,7 @@ parse deterministic:
 | segment | pattern | why |
 |---|---|---|
 | group | `[a-z0-9]+` | first segment; no hyphen |
-| service | `[a-z0-9][a-z0-9-]*` | the only multi-word segment |
+| service | `[a-z0-9]+(-[a-z0-9]+)*` | the only multi-word segment; single hyphens between segments only |
 | role | `[a-z0-9]+` | split before the revision; no hyphen |
 | revision | `[a-z0-9]+` | right-most segment before an optional replica index |
 | replica | `\d+` | optional last segment |

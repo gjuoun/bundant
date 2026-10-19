@@ -78,10 +78,12 @@ describe("published JSON Schemas", () => {
 
   test("deploy schema mirrors the zod field set exactly", () => {
     const schema = load("deploy.schema.json") as { properties: Record<string, unknown> };
-    const zodKeys = Object.keys(RawConfigSchema.shape).sort();
+    const zodKeys = Object.keys(RawConfigSchema.innerType().shape).sort();
     expect(Object.keys(schema.properties).sort()).toEqual(zodKeys);
     const groupSchema = load("group.schema.json") as { properties: Record<string, unknown> };
-    expect(Object.keys(groupSchema.properties).sort()).toEqual(Object.keys(GroupFileSchema.shape).sort());
+    expect(Object.keys(groupSchema.properties).sort()).toEqual(
+      Object.keys(GroupFileSchema.innerType().shape).sort(),
+    );
   });
 
   test("accessory-only fields are described for editor hints", () => {

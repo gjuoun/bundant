@@ -14,6 +14,7 @@ import {
 import { runtimeFor } from "./runtime.ts";
 import { belongsToService, serviceLabels } from "./naming.ts";
 import { openOps, type OpsVia } from "./ops/index.ts";
+import { assertPreflight } from "./validation.ts";
 
 export interface RollbackOptions {
   /** Exact revision id (the kubectl --to-revision equivalent); omitted = previous revision. */
@@ -43,6 +44,7 @@ export async function listRevisions(
  */
 export async function rollback(loaded: LoadedConfig, opts: RollbackOptions = {}): Promise<number> {
   const { config } = loaded;
+  assertPreflight(loaded);
   const via: OpsVia = opts.via ?? "api";
 
   for (const conn of resolveConnections(config)) {

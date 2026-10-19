@@ -4,7 +4,7 @@ One file per service. It is the contract: bundant turns it into docker/podman co
 and never stores state of its own on the host.
 
 ```yaml
-service: hello                 # [a-z0-9][a-z0-9-]* — the only segment that may contain '-'
+service: hello                 # [a-z0-9]+(-[a-z0-9]+)* — the only segment that may contain '-'
 image: traefik/whoami:v1.10    # registry ref, or overridden by --local-image
 role: web                      # default: web; [a-z0-9]+ (no hyphens)
 replicas: 1                    # copies per host; > 1 needs proxy.enabled: true

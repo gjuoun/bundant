@@ -10,10 +10,13 @@ import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
 import { connectionForTarget } from "./hosts.ts";
 import { acquireLock, releaseLock } from "./lock.ts";
 import { openOps, type OpsVia, type RuntimeOps } from "./ops/index.ts";
+import { preflightGate } from "./validation.ts";
 
 export interface DeployOptions {
   /** Execution path for mutations: API (default) or the legacy CLI strings. */
   via?: OpsVia;
+  /** Test seam: the factory runs only after preflight passes. */
+  openPrimary?: () => SshExecutor;
 }
 
 export interface DeployOnHostOptions {
@@ -155,7 +158,12 @@ export async function deploy(
     console.log("note: --local-image still uses the CLI path (stage 4 moves image streaming)");
   }
 
-  const primary = new SshExecutor(connectOptionsFor(connectionForTarget(loaded.config, m.hosts[0]!)));
+  // Preflight first: an invalid config must never create a connection or a lock.
+  const primary = preflightGate(loaded, () =>
+    opts.openPrimary !== undefined
+      ? opts.openPrimary()
+      : new SshExecutor(connectOptionsFor(connectionForTarget(loaded.config, m.hosts[0]!))),
+  );
   const execs = new Set<SshExecutor>([primary]);
   let locked = false;
 
