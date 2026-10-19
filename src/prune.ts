@@ -2,6 +2,7 @@ import type { LoadedConfig } from "./config.ts";
 import * as docker from "./commands/docker.ts";
 import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
 import { connectionForTarget, hostTargets } from "./hosts.ts";
+import { revisionOf } from "./revisions.ts";
 import { runtimeFor } from "./runtime.ts";
 
 export interface PruneEntry {
@@ -22,16 +23,50 @@ export function parsePruneListing(stdout: string): PruneEntry[] {
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
 }
 
+/** One revision and all the container entries that belong to it. */
+export interface PruneGroup {
+  revision: string;
+  /** Newest createdAt in the group (the ordering key). */
+  newest: string;
+  entries: PruneEntry[];
+}
+
+/** Group container entries by revision, newest revision first. */
+export function groupByRevision(
+  entries: PruneEntry[],
+  service?: string,
+  role?: string,
+): PruneGroup[] {
+  const groups = new Map<string, PruneGroup>();
+  for (const entry of entries) {
+    const revision = revisionOf(entry.name, service, role);
+    const group = groups.get(revision) ?? { revision, newest: entry.createdAt, entries: [] };
+    group.entries.push(entry);
+    if (entry.createdAt > group.newest) group.newest = entry.createdAt;
+    groups.set(revision, group);
+  }
+  return [...groups.values()].sort((a, b) => (a.newest < b.newest ? 1 : a.newest > b.newest ? -1 : 0));
+}
+
 /**
- * Pure selection: stop-worthy container names = entries beyond the newest
- * keep count that are NOT currently running. Running containers are never
- * pruned (a draining old revision waits for a later run).
+ * Pure selection: keep the newest K *revisions* with all of their replicas,
+ * and remove every stopped container of the older revisions. Running
+ * containers are never pruned (a draining old revision waits for a later run).
  */
-export function selectPrune(entries: PruneEntry[], running: Set<string>, keep: number): string[] {
-  return entries
-    .slice(keep)
-    .filter((e) => !running.has(e.name))
-    .map((e) => e.name);
+export function selectPrune(
+  entries: PruneEntry[],
+  running: Set<string>,
+  keep: number,
+  service?: string,
+  role?: string,
+): string[] {
+  const victims: string[] = [];
+  for (const group of groupByRevision(entries, service, role).slice(keep)) {
+    for (const entry of group.entries) {
+      if (!running.has(entry.name)) victims.push(entry.name);
+    }
+  }
+  return victims;
 }
 
 /**
@@ -70,11 +105,12 @@ export async function prune(
       const runSet = new Set(
         running.stdout.trim().split("\n").filter((l) => l.trim() !== ""),
       );
-      const victims = selectPrune(entries, runSet, opts.keep);
+      const groups = groupByRevision(entries, config.service, config.role);
+      const victims = selectPrune(entries, runSet, opts.keep, config.service, config.role);
 
       console.log(
-        "  revisions: " + entries.length + " total, " + runSet.size +
-        " running, keeping newest " + opts.keep,
+        "  revisions: " + groups.length + " (" + entries.length + " containers), " +
+        runSet.size + " running, keeping newest " + opts.keep + " revision(s)",
       );
 
       if (victims.length === 0) {
