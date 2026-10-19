@@ -125,6 +125,11 @@ export async function runtimeReport(
   return await Promise.all(connections.map((c) => reportFor(c, expected, opts.cacheDir)));
 }
 
+/** 0 only when every host reported ok; schema drift makes the host not-ok. */
+export function runtimeExitCode(reports: RuntimeHostReport[]): number {
+  return reports.every((r) => r.ok) ? 0 : 1;
+}
+
 export function renderRuntimeReport(reports: RuntimeHostReport[]): string {
   const lines: string[] = [];
   for (const report of reports) {

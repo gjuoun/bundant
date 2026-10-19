@@ -1,0 +1,68 @@
+{
+  "Id": "c8d82b37d66fa33edbebd499403b9ac54fa78cf7a0088ac0dd5432d01048779c",
+  "Names": [
+    "/api-web-rev-mvds9k6w"
+  ],
+  "Image": "docker.io/traefik/whoami:v1.10",
+  "ImageID": "sha256:1699d99cb4b9acc17f74ca670b3d8d0b7ba27c948b3445f0593b58ebece92f04",
+  "ImageManifestDescriptor": {
+    "mediaType": "application/vnd.docker.distribution.manifest.v2+json",
+    "digest": "sha256:02d8fe035f170f91cbb5e458a57f4cefab747436f8244a0eb2d66785fe5e565f",
+    "size": 948,
+    "platform": {
+      "architecture": "amd64",
+      "os": "linux"
+    }
+  },
+  "Command": "/whoami",
+  "Created": 1792384557,
+  "Ports": [
+    {
+      "IP": "",
+      "PrivatePort": 80,
+      "Type": "tcp"
+    }
+  ],
+  "Labels": {
+    "bundant.service": "api",
+    "org.opencontainers.image.created": "2025-01-21T09:16:17Z",
+    "org.opencontainers.image.description": "Tiny Go webserver that prints OS information and HTTP request to output",
+    "org.opencontainers.image.documentation": "https://github.com/traefik/whoami",
+    "org.opencontainers.image.revision": "b49779da6892cf6838b3452d436136a63539958d",
+    "org.opencontainers.image.source": "https://github.com/traefik/whoami",
+    "org.opencontainers.image.title": "whoami",
+    "org.opencontainers.image.url": "https://github.com/traefik/whoami",
+    "org.opencontainers.image.version": "1.10.4"
+  },
+  "State": "running",
+  "Status": "Up 12 hours",
+  "HostConfig": {
+    "NetworkMode": "bundant"
+  },
+  "Health": {
+    "Status": "none",
+    "FailingStreak": 0
+  },
+  "NetworkSettings": {
+    "Networks": {
+      "bundant": {
+        "IPAMConfig": null,
+        "Links": null,
+        "Aliases": null,
+        "DriverOpts": null,
+        "GwPriority": 0,
+        "NetworkID": "86eff676a7553e86c2d6379415c02d9540fef3baab704451cef24fbec6b90cc5",
+        "EndpointID": "e0f49da260acc4fee0869048ff6ac79d1fd392e68076012c936a6975214d5cb5",
+        "Gateway": "172.18.0.1",
+        "IPAddress": "172.18.0.4",
+        "MacAddress": "12:c2:e6:a1:fb:66",
+        "IPPrefixLen": 16,
+        "IPv6Gateway": "",
+        "GlobalIPv6Address": "",
+        "GlobalIPv6PrefixLen": 0,
+        "DNSNames": null
+      }
+    }
+  },
+  "Mounts": []
+}

@@ -200,14 +200,14 @@ async function main(): Promise<number> {
       args.values.hosts === undefined
         ? undefined
         : args.values.hosts.split(",").map((s) => s.trim()).filter((s) => s !== "");
-    const { runtimeReport, renderRuntimeReport } = await import("./runtime-report.ts");
+    const { runtimeExitCode, runtimeReport, renderRuntimeReport } = await import("./runtime-report.ts");
     const reports = await runtimeReport(loaded, { hosts });
     if (args.values.json === true) {
       console.log(JSON.stringify(reports, null, 2));
     } else {
       console.log(renderRuntimeReport(reports));
     }
-    return reports.every((r) => r.ok) ? 0 : 1;
+    return runtimeExitCode(reports);
   }
 
   if (sub === "ps" || sub === "stats" || sub === "inspect" || sub === "logs" || sub === "events") {

@@ -1,6 +1,16 @@
+import { z } from "zod";
 import type { ApiClient, ApiQuery } from "./api.ts";
 import { demuxStream } from "./api.ts";
 import type { RuntimeKind } from "../runtime.ts";
+import {
+  eventSchema,
+  inspectSchema,
+  parseOrDrift,
+  statsSchema,
+  summaryListSchema,
+  volumeSchema,
+  type ParseContext,
+} from "./schemas/index.ts";
 import {
   NotImplementedInStage1,
   type ContainerInfo,
@@ -18,37 +28,6 @@ import {
  * where the compat API is lossy move to explicit /libpod paths in the adapter
  * subclasses later — never at the call sites.
  */
-
-interface ApiContainerSummary {
-  Id?: string;
-  Names?: string[];
-  Image?: string;
-  State?: string;
-  Status?: string;
-  Labels?: Record<string, string>;
-  Created?: number;
-}
-
-interface ApiInspect {
-  Id?: string;
-  Name?: string;
-  Config?: { Image?: string; Env?: string[]; Labels?: Record<string, string> };
-  State?: { Status?: string; Running?: boolean; ExitCode?: number; StartedAt?: string };
-  HostConfig?: { RestartPolicy?: { Name?: string }; Binds?: string[]; NetworkMode?: string };
-}
-
-interface ApiStats {
-  read?: string;
-  cpu_stats?: {
-    cpu_usage?: { total_usage?: number; percpu_usage?: number[] };
-    system_cpu_usage?: number;
-    online_cpus?: number;
-  };
-  precpu_stats?: { cpu_usage?: { total_usage?: number }; system_cpu_usage?: number };
-  memory_stats?: { usage?: number; limit?: number };
-  pids_stats?: { current?: number };
-  networks?: Record<string, { rx_bytes?: number; tx_bytes?: number }>;
-}
 
 export class DockerAdapter implements RuntimeAdapter {
   readonly kind: RuntimeKind = "docker";
@@ -95,7 +74,9 @@ export class DockerAdapter implements RuntimeAdapter {
   }
 
   async inspect(id: string): Promise<ContainerInfo> {
-    const raw = await this.getJson<ApiInspect>("/containers/" + encodeURIComponent(id) + "/json");
+    const path = "/containers/" + encodeURIComponent(id) + "/json";
+    const res = await this.client.request("GET", path);
+    const raw = parseOrDrift(inspectSchema, res.json, this.context("GET", path));
     return {
       id: raw.Id ?? id,
       name: (raw.Name ?? id).replace(/^\//, ""),
@@ -111,7 +92,7 @@ export class DockerAdapter implements RuntimeAdapter {
       restartPolicy: raw.HostConfig?.RestartPolicy?.Name ?? "no",
       binds: raw.HostConfig?.Binds ?? [],
       networkMode: raw.HostConfig?.NetworkMode ?? "",
-      raw,
+      raw: res.json,
     };
   }
 
@@ -127,7 +108,7 @@ export class DockerAdapter implements RuntimeAdapter {
     const query: ApiQuery = { all: opts.all === true ? 1 : 0 };
     if (Object.keys(filters).length > 0) query.filters = JSON.stringify(filters);
 
-    const rows = await this.getJson<ApiContainerSummary[]>("/containers/json", query);
+    const rows = await this.getJson(summaryListSchema, "/containers/json", query);
     return rows.map((row) => ({
       id: row.Id ?? "",
       name: (row.Names?.[0] ?? "").replace(/^\//, ""),
@@ -155,7 +136,7 @@ export class DockerAdapter implements RuntimeAdapter {
   }
 
   async stats(id: string): Promise<StatsSample> {
-    const raw = await this.getJson<ApiStats>("/containers/" + encodeURIComponent(id) + "/stats", {
+    const raw = await this.getJson(statsSchema, "/containers/" + encodeURIComponent(id) + "/stats", {
       stream: 0,
       "one-shot": 1,
     });
@@ -194,10 +175,8 @@ export class DockerAdapter implements RuntimeAdapter {
   }
 
   async inspectVolume(name: string): Promise<{ labels: Record<string, string> }> {
-    const raw = await this.getJson<{ Labels?: Record<string, string> | null }>(
-      "/volumes/" + encodeURIComponent(name),
-    );
-    return { labels: raw.Labels ?? {} };
+    const raw = await this.getJson(volumeSchema, "/volumes/" + encodeURIComponent(name));
+    return { labels: raw.Labels };
   }
 
   async ensureNetwork(_name: string): Promise<void> {
@@ -208,6 +187,7 @@ export class DockerAdapter implements RuntimeAdapter {
 
   events(opts: { since?: string; until?: string; labels?: Record<string, string> } = {}): AsyncIterable<RuntimeEvent> {
     const client = this.client;
+    const self = this;
     const query: ApiQuery = {};
     if (opts.since !== undefined) query.since = opts.since;
     if (opts.until !== undefined) query.until = opts.until;
@@ -225,18 +205,39 @@ export class DockerAdapter implements RuntimeAdapter {
           const text = line.trim();
           if (text === "") continue;
           try {
-            yield JSON.parse(text) as RuntimeEvent;
-          } catch {
-            // A partial line cannot happen here (we only take complete lines);
-            // ignore a malformed event rather than kill the stream.
+            const raw = parseOrDrift(eventSchema, JSON.parse(text), { engine: self.kind, method: "GET", path: "/events" });
+            yield {
+              type: raw.Type,
+              action: raw.Action,
+              id: raw.Actor?.ID,
+              time: raw.time,
+              timeNano: raw.timeNano,
+              actor: raw.Actor === undefined
+                ? undefined
+                : { id: raw.Actor.ID, attributes: raw.Actor.Attributes },
+            };
+          } catch (err) {
+            if (err instanceof SyntaxError) {
+              // A malformed line is not shape drift; ignore it rather than kill the stream.
+              continue;
+            }
+            throw err;
           }
         }
       }
     })();
   }
 
-  protected async getJson<T>(path: string, query?: ApiQuery): Promise<T> {
+  protected context(method: string, path: string): ParseContext {
+    return { engine: this.kind, method, path };
+  }
+
+  protected async getJson<T extends z.ZodTypeAny>(
+    schema: T,
+    path: string,
+    query?: ApiQuery,
+  ): Promise<z.infer<T>> {
     const res = await this.client.request("GET", path, undefined, query);
-    return res.json as T;
+    return parseOrDrift(schema, res.json, this.context("GET", path));
   }
 }

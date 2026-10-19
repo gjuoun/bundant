@@ -120,8 +120,8 @@ describe("DockerAdapter read-only surface", () => {
     const { adapter, close } = await adapterOn((_req, res) => {
       res.writeHead(200, { "content-type": "application/json" });
       res.write(
-        JSON.stringify({ type: "container", action: "start", time: 1, actor: { id: "abc" } }) + "\n" +
-          JSON.stringify({ type: "container", action: "die", time: 2, actor: { id: "abc" } }) + "\n",
+        JSON.stringify({ Type: "container", Action: "start", time: 1, Actor: { ID: "abc" } }) + "\n" +
+          JSON.stringify({ Type: "container", Action: "die", time: 2, Actor: { ID: "abc" } }) + "\n",
       );
       res.end();
     });

@@ -12,6 +12,7 @@ import {
 } from "./detect.ts";
 import { DockerAdapter } from "./docker.ts";
 import { PodmanAdapter } from "./podman.ts";
+import { parseOrDrift, versionSchema } from "./schemas/index.ts";
 import { SshSocketForward, defaultForwardDir } from "./transport.ts";
 import type { RuntimeAdapter } from "./types.ts";
 
@@ -91,6 +92,7 @@ async function probesFor(
   exec: SshExecutor,
   uid: string,
   localDir: string | undefined,
+  expected: RuntimeKind,
 ): Promise<SocketProbe[]> {
   const probes: SocketProbe[] = [];
   for (const socketPath of socketCandidates(uid)) {
@@ -114,7 +116,11 @@ async function probesFor(
         });
         try {
           const res = await client.request("GET", "/version");
-          return res.json as VersionPayload;
+          return parseOrDrift(versionSchema, res.json, {
+            engine: expected,
+            method: "GET",
+            path: "/version",
+          });
         } finally {
           await client.close();
         }
@@ -147,7 +153,7 @@ export async function openAdapter(
     throw new Error("unexpected id -u output from " + connection.sshTarget + ": " + uid);
   }
 
-  const probes = await probesFor(connection, exec, uid, localDir);
+  const probes = await probesFor(connection, exec, uid, localDir, expected);
   const detection = await detectRuntime({ probes, expect: expected });
   if (!detection.found || detection.socketPath === undefined) {
     throw new NoRuntimeSocketError(connection, detection, expected, localDir, uid);
