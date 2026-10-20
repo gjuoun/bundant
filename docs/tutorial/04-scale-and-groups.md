@@ -155,6 +155,8 @@ flowchart TD
   class BRIDGE,N1,N2,N3 neutral;
 ```
 
+*Colour legend: blue = an action on your machine or a normal step · green = healthy or live · orange = the one irreversible step · purple = storage and state.*
+
 ## A group with an accessory 🧩
 
 A group is a directory. `shop/group.yml` lists the members; each member has its own complete file:

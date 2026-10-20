@@ -161,6 +161,8 @@ flowchart TD
   class I,NF,N1,N3 neutral;
 ```
 
+*Colour legend: blue = an action on your machine or a normal step · green = healthy or live · orange = the one irreversible step · purple = storage and state.*
+
 The container publishes no host port. **The proxy** is the shared `kamal-proxy` container on the
 host: it owns port 80 and forwards each request by the `Host` header. It reaches the container by
 name, and the header picks the service:

@@ -68,6 +68,8 @@ flowchart TD
   class id,rt,cnote neutral;
 ```
 
+*Colour legend: blue = an action on your machine or a normal step · green = healthy or live · orange = the one irreversible step · purple = storage and state.*
+
 | field | what it decides |
 |---|---|
 | `service` / `role` | the name: `<group>.<service>.<role>.<revision>`; `role` is a segment for variants of one service, default `web` |

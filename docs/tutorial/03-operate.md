@@ -156,6 +156,8 @@ flowchart TD
   class r1,n1 neutral;
 ```
 
+*Colour legend: blue = an action on your machine or a normal step · green = healthy or live · orange = the one irreversible step · purple = storage and state.*
+
 To pick an exact revision, use `bundant rollback --to-revision <sha> -f deploy.yml`. A revision
 is retained until `bundant prune` removes it or you delete the service.
 

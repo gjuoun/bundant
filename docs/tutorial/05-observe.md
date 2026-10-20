@@ -51,6 +51,8 @@ flowchart TD
   class N1,N2 neutral;
 ```
 
+*Colour legend: blue = an action on your machine or a normal step · green = healthy or live · orange = the one irreversible step · purple = storage and state.*
+
 The columns are name, image, status and ports. Widths depend on your terminal, so the spacing below
 will not match exactly:
 
