@@ -7,34 +7,34 @@
       "cmd": "bundant validate",
       "lines": [
         "bundant validate: OK",
-        "  version: 1",
+        "  version: 2",
         "  group: default",
         "  service: demo",
         "  role: web",
         "  revision: r2026a (git short sha of ~/capture)",
-        "  container: demo-web-r2026a",
-        "  proxy id: demo-web",
+        "  container: default.demo.web.r2026a",
+        "  proxy id: default.demo.web",
         "  env path: ~/.bundant/env/default/demo-web.env",
         "  lock key: default/demo",
         "  round-trip: ok"
       ],
-      "durationMs": 208
+      "durationMs": 209
     },
     {
       "cmd": "bundant deploy",
       "lines": [
         "deploy demo/web rev=r2026a -> root@box.example.com (via api)",
-        "[root@box.example.com] deploying demo-web-r2026a",
+        "[root@box.example.com] deploying default.demo.web.r2026a",
         "[root@box.example.com] pull skipped (present, policy=missing)",
         "[root@box.example.com] network ok",
-        "[root@box.example.com] run ok: demo-web-r2026a",
+        "[root@box.example.com] run ok: default.demo.web.r2026a",
         "[root@box.example.com] health gate passed (1 target(s))",
         "[root@box.example.com] proxy-ensure ok",
         "[root@box.example.com] proxy-swap ok",
         "[root@box.example.com] stop-old ok",
-        "deployed demo-web-r2026a on 1 host(s)"
+        "deployed default.demo.web.r2026a on 1 host(s)"
       ],
-      "durationMs": 1903
+      "durationMs": 1869
     },
     {
       "cmd": "bundant status",
@@ -47,7 +47,7 @@
         "    \"expected\": 1,",
         "    \"live\": 1,",
         "    \"containers\": [",
-        "      \"demo-web-r2026a\"",
+        "      \"default.demo.web.r2026a\"",
         "    ]",
         "  },",
         "  {",
@@ -57,21 +57,21 @@
         "    \"expected\": 1,",
         "    \"live\": 0,",
         "    \"containers\": [",
-        "      \"demo-web-r2025z\"",
+        "      \"default.demo.web.r2025z\"",
         "    ]",
         "  }",
         "]"
       ],
-      "durationMs": 452
+      "durationMs": 457
     },
     {
       "cmd": "bundant rollback",
       "lines": [
-        "[root@box.example.com] rollback (via api): r2026a -> r2025z (1 replica(s) as deployed)",
-        "[root@box.example.com] health gate passed on demo-web-r2025z",
-        "[root@box.example.com] rolled back to r2025z (1 replica(s))"
+        "[root@box.example.com] rollback (via api): default.demo.web.r2026a -> default.demo.web.r2025z (1 replica(s) as deployed)",
+        "[root@box.example.com] health gate passed on default.demo.web.r2025z",
+        "[root@box.example.com] rolled back to default.demo.web.r2025z (1 replica(s))"
       ],
-      "durationMs": 1660
+      "durationMs": 1592
     }
   ]
 }

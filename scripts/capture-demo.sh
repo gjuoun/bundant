@@ -34,7 +34,7 @@ trap cleanup EXIT
 mkdir -p "$(dirname "$OUT")"
 
 cat > "$CONFIG" <<YAML
-version: 1
+version: 2
 service: $SVC
 runtime: docker
 image: traefik/whoami:v1.10
