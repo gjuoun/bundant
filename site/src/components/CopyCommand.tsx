@@ -21,7 +21,7 @@ export function CopyCommand({ commands }: { commands: Command[] }) {
 
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card">
-      <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/50 px-2 py-1.5 sm:px-3">
+      <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/50 px-2 py-0.5 sm:px-3">
         <div className="flex items-center gap-0.5">
           <Terminal className="mr-1.5 size-3.5 text-muted-foreground" aria-hidden />
           {commands.map((item, index) => (
@@ -30,7 +30,7 @@ export function CopyCommand({ commands }: { commands: Command[] }) {
               type="button"
               onClick={() => setActive(index)}
               className={cn(
-                'min-h-11 rounded-md px-3 font-mono text-[11px] uppercase tracking-wider transition-colors sm:min-h-8',
+                'min-h-11 rounded-md px-3 font-mono text-[11px] uppercase tracking-wider transition-colors',
                 index === active
                   ? 'bg-card text-foreground shadow-none ring-1 ring-border'
                   : 'text-muted-foreground hover:text-foreground',
@@ -44,7 +44,7 @@ export function CopyCommand({ commands }: { commands: Command[] }) {
           type="button"
           onClick={copy}
           aria-label="Copy install command"
-          className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground sm:min-h-8"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-md px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
           {copied ? <Check className="size-3.5 text-primary" /> : <Copy className="size-3.5" />}
           {copied ? 'Copied' : 'Copy'}
