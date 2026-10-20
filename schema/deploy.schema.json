@@ -44,7 +44,7 @@
         "type": "string",
         "minLength": 1
       },
-      "description": "accessory named volumes, \"name:/path/in/container\" — survive container recreation"
+      "description": "accessory named volumes, \"name:/path/in/container\" - survive container recreation"
     },
     "hosts": {
       "type": "array",
