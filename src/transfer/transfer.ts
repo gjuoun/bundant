@@ -182,6 +182,9 @@ async function loadArchive(
     const contentLength = await built.length;
     await ops.loadImage(built.stream, { contentLength });
     const stats = await built.result;
+    // The tar reader stops at the archive's first zero block; drain whatever
+    // padding remains so the save process is not left blocked on a full pipe.
+    save.stream.resume();
     await save.done;
     const imageId = await waitForImage(ops, ref);
     return { stats, imageId };
