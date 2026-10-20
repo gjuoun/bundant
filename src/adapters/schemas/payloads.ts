@@ -46,7 +46,10 @@ type InspectHostConfig = NonNullable<InspectResponse["HostConfig"]>;
 
 export type InspectWire = Pick<InspectResponse, "Id" | "Name" | "RestartCount"> & {
   Config?: Pick<InspectConfig, "Image" | "Env" | "Labels">;
-  State?: Pick<InspectState, "Status" | "Running" | "ExitCode" | "StartedAt" | "Health">;
+  // Podman's compat API adds "stopping"; the generated Docker wire type omits it.
+  State?: Pick<InspectState, "Running" | "ExitCode" | "StartedAt" | "Health"> & {
+    Status?: InspectState["Status"] | "stopping";
+  };
   HostConfig?: Pick<InspectHostConfig, "RestartPolicy" | "Binds" | "NetworkMode" | "LogConfig">;
 };
 
@@ -65,7 +68,7 @@ export const inspectSchema = z.object({
     .optional(),
   State: z
     .object({
-      Status: z.enum(["created", "running", "paused", "restarting", "removing", "exited", "dead"]),
+      Status: z.enum(["created", "running", "paused", "restarting", "stopping", "removing", "exited", "dead"]),
       Running: z.boolean().optional(),
       ExitCode: z.number().optional(),
       StartedAt: z.string().optional(),
@@ -112,14 +115,17 @@ type Summary = Schemas["ContainerSummary"];
 
 export type SummaryWire = Pick<
   Summary,
-  "Id" | "Names" | "Image" | "State" | "Status" | "Labels" | "Created" | "Ports"
->;
+  "Id" | "Names" | "Image" | "Status" | "Labels" | "Created" | "Ports"
+> & {
+  // Podman reports "stopping" while a container drains; Docker's spec does not.
+  State?: Summary["State"] | "stopping";
+};
 
 export const summarySchema = z.object({
   Id: z.string(),
   Names: z.array(z.string()),
   Image: z.string(),
-  State: z.enum(["created", "running", "paused", "restarting", "removing", "exited", "dead"]),
+  State: z.enum(["created", "running", "paused", "restarting", "stopping", "removing", "exited", "dead"]),
   Status: z.string(),
   Labels: z.record(z.string()),
   Created: z.number(),
