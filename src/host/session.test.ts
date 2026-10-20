@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import type { SshExecutor } from "../exec/ssh.ts";
+import { existsSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { SshExecutor, connectOptionsFor } from "../exec/ssh.ts";
 import { HostSession, withHostSession, type SessionForward } from "./session.ts";
 
 interface State {
@@ -39,6 +42,41 @@ function sessionFor(state: State): HostSession {
     { forwardDir: "/tmp", forwardFactory: fakeForwards(state), executor: fakeExecutor(state) },
   );
 }
+
+describe("HostSession exec reuse", () => {
+  test("two exec calls share one control master and dispose leaves no socket", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "bundant-ssh-"));
+    let handshakes = 0;
+    const runner = async (argv: string[]) => {
+      if (!argv.includes("-O")) {
+        const control = argv.find((arg) => arg.startsWith("ControlPath="));
+        if (control !== undefined) {
+          const path = control.slice("ControlPath=".length);
+          if (!existsSync(path)) {
+            writeFileSync(path, "");
+            handshakes += 1;
+          }
+        }
+      }
+      return { code: 0, stdout: "", stderr: "" };
+    };
+    const connection = { host: "box", user: "root", options: [], sshTarget: "root@box" };
+    const executor = new SshExecutor(
+      { ...connectOptionsFor(connection), controlDir: dir, controlPersistSec: 60 },
+      runner,
+    );
+    const session = new HostSession(connection, {
+      forwardDir: "/tmp",
+      forwardFactory: fakeForwards({ starts: 0, closes: 0 }),
+      executor,
+    });
+    await session.exec("true");
+    await session.exec("true");
+    expect(handshakes).toBe(1);
+    await session.dispose();
+    expect(readdirSync(dir)).toEqual([]);
+  });
+});
 
 describe("HostSession", () => {
   test("dispose closes every forward it created", async () => {

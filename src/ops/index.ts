@@ -32,7 +32,7 @@ export async function openOps(
   opts: OpenOpsOptions = {},
 ): Promise<RuntimeOps> {
   const rt = runtimeFor(config.runtime);
-  const session = new HostSession(connection);
+  const session = new HostSession(connection, { persistControl: true });
   if (via === "cli") {
     return new LegacyOps(session.executor, rt, {
       envRemotePath: opts.envRemotePath,

@@ -1,4 +1,5 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, unlink } from "node:fs/promises";
+import { dirname } from "node:path";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import type { HostConnection } from "../hosts.ts";
@@ -15,6 +16,7 @@ import { runProcess } from "./process.ts";
  */
 
 export const CONTROL_DIR = tmpdir() + "/bundant-cm";
+export type ProcessRunner = (argv: string[]) => Promise<import("../types.ts").ExecResult>;
 
 export interface SshConnectOptions {
   /** user@host as it appears after the ssh options. */
@@ -24,6 +26,21 @@ export interface SshConnectOptions {
   options?: string[];
   connectTimeoutSec?: number;
   controlPersistSec?: number;
+  /** Directory for the multiplexed control socket (default: tmp bundant-cm). */
+  controlDir?: string;
+  /** Leave the master alive for ControlPersist (reuse across CLI commands). */
+  persist?: boolean;
+}
+
+/** Concrete control socket path for one connection. */
+export function controlPath(opts: SshConnectOptions): string {
+  const dir = opts.controlDir ?? CONTROL_DIR;
+  const target = opts.target;
+  const at = target.indexOf("@");
+  const user = at === -1 ? "" : target.slice(0, at);
+  const host = at === -1 ? target : target.slice(at + 1);
+  const port = String(opts.port ?? 22);
+  return dir + "/cm-" + user + "@" + host + "-" + port;
 }
 
 /** Build the connection options for one resolved host. */
@@ -47,7 +64,7 @@ export function buildSshArgs(opts: SshConnectOptions, cmd?: string): string[] {
     "-o", "StrictHostKeyChecking=accept-new",
     "-o", "ConnectTimeout=" + (opts.connectTimeoutSec ?? 10),
     "-o", "ControlMaster=auto",
-    "-o", "ControlPath=" + CONTROL_DIR + "/cm-%r@%h-%p",
+    "-o", "ControlPath=" + controlPath(opts),
     "-o", "ControlPersist=" + (opts.controlPersistSec ?? 60),
   );
   if (opts.options && opts.options.length > 0) args.push(...opts.options);
@@ -80,19 +97,21 @@ export function pushImagePipeline(image: string, rt: Runtime, conn: Partial<SshC
 export class SshExecutor implements Executor {
   readonly kind = "ssh";
   private readonly opts: SshConnectOptions;
+  private readonly runner: ProcessRunner;
 
-  constructor(opts: SshConnectOptions) {
+  constructor(opts: SshConnectOptions, runner: ProcessRunner = runProcess) {
     this.opts = opts;
+    this.runner = runner;
   }
 
   /** Ensure the multiplex socket dir exists (cheap, idempotent). */
   private async ensureControlDir(): Promise<void> {
-    await mkdir(CONTROL_DIR, { recursive: true });
+    await mkdir(dirname(controlPath(this.opts)), { recursive: true });
   }
 
   async run(cmd: string): Promise<ExecResult> {
     await this.ensureControlDir();
-    return runProcess(["ssh", ...buildSshArgs(this.opts, cmd)]);
+    return this.runner(["ssh", ...buildSshArgs(this.opts, cmd)]);
   }
 
   /**
@@ -148,7 +167,7 @@ export class SshExecutor implements Executor {
       "-o", "BatchMode=yes",
       "-o", "StrictHostKeyChecking=accept-new",
       "-o", "ControlMaster=auto",
-      "-o", "ControlPath=" + CONTROL_DIR + "/cm-%r@%h-%p",
+      "-o", "ControlPath=" + controlPath(this.opts),
     );
     if (this.opts.options && this.opts.options.length > 0) scpArgs.push(...this.opts.options);
     scpArgs.push(localPath, this.opts.target + ":" + destPath);
@@ -167,12 +186,14 @@ export class SshExecutor implements Executor {
 
   /** Tear down the multiplexed connection. */
   async close(): Promise<void> {
-    await runProcess([
+    if (this.opts.persist === true) return;
+    await this.runner([
       "ssh",
       ...(this.opts.port !== undefined ? ["-p", String(this.opts.port)] : []),
-      "-o", "ControlPath=" + CONTROL_DIR + "/cm-%r@%h-%p",
+      "-o", "ControlPath=" + controlPath(this.opts),
       "-O", "exit",
       this.opts.target,
     ]);
+    await unlink(controlPath(this.opts)).catch(() => undefined);
   }
 }
