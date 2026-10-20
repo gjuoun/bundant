@@ -76,6 +76,13 @@ registry).
 | `inspect [path]` | state, restarts, health, image, restart policy of the first matched replica |
 | `exec [path] [--replica n] [--all] -- <cmd...>` | exec in the first running replica (or every replica with `--all`) |
 | `ui [--port 8787]` | local read-only monitoring page; binds 127.0.0.1 (tunnel or tailnet for remote) |
+| `errors [--json]` | print the stable error catalog (code + exit status) |
+
+Every command accepts `--json`: stdout then carries exactly one object,
+`{"ok":true,"command":…,"data":…}` or `{"ok":false,"command":…,"error":{…}}`, while
+progress and logs stay on stderr. Exit statuses follow the catalog (`USAGE` 4,
+`NO_MATCH` 3, `LOCK_HELD` 2, everything else 1). See [docs/agent.md](docs/agent.md)
+for the envelope, the code table and the generated `schema/errors.json`.
 
 Env hooks: `BUNDANT_HOSTS=a,b` overrides hosts, `BUNDANT_LOCK_TTL_S` sets the stale-lock
 threshold.
@@ -96,6 +103,7 @@ threshold.
 
 - [`docs/deploy-yml.md`](docs/deploy-yml.md) — every field, env handling, revisions
 - [`docs/naming.md`](docs/naming.md) — dotted container names, selectors and case collisions
+- [`docs/agent.md`](docs/agent.md) — the machine contract: `--json` envelope, stable error codes, exit statuses, schema
 - [`docs/cli.md`](docs/cli.md) — the effect/cli command tree, shared flags and completions
 - [`docs/validation.md`](docs/validation.md) — preflight, what is checked, and the `--json` shape
 - [`docs/group.md`](docs/group.md) — group namespaces, `needs:` ordering, accessories and their lifecycle

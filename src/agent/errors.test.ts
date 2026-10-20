@@ -15,6 +15,9 @@ import {
 } from "../agent/errors.ts";
 import { failureEnvelope, renderEnvelope, successEnvelope } from "../agent/envelope.ts";
 import { commandName, wantsJson } from "../agent/emit.ts";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { buildErrorsSchema } from "../../scripts/gen-errors.ts";
 
 const EXPECTED: Record<string, number> = {
   OK: 0,
@@ -85,6 +88,11 @@ describe("error catalog", () => {
       command: "deploy",
       error: { code: "HEALTH_TIMEOUT", message: "timeout", details: {} },
     });
+  });
+
+  test("schema/errors.json is generated from the catalog", () => {
+    const onDisk = readFileSync(join(import.meta.dir, "../../schema/errors.json"), "utf8");
+    expect(onDisk).toBe(buildErrorsSchema());
   });
 
   test("command naming skips flags, their values and -- passthrough", () => {
