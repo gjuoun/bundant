@@ -37,6 +37,24 @@
   --sl-color-hairline-shade: #494848;
   --sl-color-backdrop-overlay: rgb(31 35 31 / 0.82);
 
+  /* Aside and badge tints. Starlight ships light-mode pastels for these, which
+     read as cream and lavender slabs on a dark page - map them to the palette. */
+  --sl-color-blue: #40c4ff;
+  --sl-color-blue-low: #143038;
+  --sl-color-blue-high: #a6e6ff;
+  --sl-color-purple: #ae81ff;
+  --sl-color-purple-low: #211a33;
+  --sl-color-purple-high: #d3bdff;
+  --sl-color-orange: #fc5d23;
+  --sl-color-orange-low: #2e1a12;
+  --sl-color-orange-high: #ffb08a;
+  --sl-color-red: #f52670;
+  --sl-color-red-low: #2d1220;
+  --sl-color-red-high: #ff9fbf;
+  --sl-color-green: #00c853;
+  --sl-color-green-low: #0f2a17;
+  --sl-color-green-high: #7ef0a6;
+
   --sl-font: var(--font-sans);
   --sl-font-mono: var(--font-mono);
 
