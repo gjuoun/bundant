@@ -7,7 +7,7 @@ sidebar:
   label: "01 · Quick start"
 ---
 
-import { Aside, Badge, CardGrid, FileTree, LinkCard, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+import { CardGrid, FileTree, LinkCard, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
 
 # Quick start
 
@@ -17,22 +17,11 @@ running behind a proxy.
 **Why it matters:** a deploy that replaces a container without dropping requests is usually a
 platform project. Here it is one file and one command, and you can see every step it takes.
 
-Three words come up on this page and everywhere after it:
-
-<Aside type="note" title="revision">
-  The git short sha of the directory that holds `deploy.yml`. Every deploy builds a container
-  named after it, and rollback targets it.
-</Aside>
-
-<Aside type="note" title="health gate">
-  A probe that must answer before traffic moves. A new container that fails it is removed and
-  the old one keeps serving.
-</Aside>
-
-<Aside type="note" title="proxy swap">
-  The single step that points the host's proxy at the new container. Until it happens, nothing
-  user-visible changes.
-</Aside>
+Three terms come up on this page and everywhere after it. The **revision** is the git short sha of
+the directory that holds `deploy.yml`; every deploy builds a container named after it, and rollback
+targets it. The **health gate** is a probe that must answer before traffic moves: a new container
+that fails it is removed and the old one keeps serving. The **proxy swap** is the single step that
+points the host's proxy at the new container — until it happens, nothing user-visible changes.
 
 <Steps>
 
@@ -79,8 +68,9 @@ You should see `bundant v0.1.0`.
 
 ## 2. Write a deploy.yml 📝
 
-`deploy.yml` <Badge text="version: 2" variant="note" /> is the one file that describes a service: which image to run, which hosts run it,
-and how HTTP traffic reaches it. Create a directory, write the file, and commit it:
+`deploy.yml` is the one file that describes a service: which image to run, which hosts run it,
+and how HTTP traffic reaches it. It starts with `version: 2`. Create a directory, write the
+file, and commit it:
 
 The directory holds one file:
 
@@ -157,9 +147,8 @@ bundant validate: OK
   round-trip: ok
 ```
 
-The one thing that will not match is the revision: it is the short git sha of *your* commit, so
-yours differs from the `11a45b2` above. Paths are shortened to `~` here; the CLI prints them
-absolute.
+Your revision will differ: it is the short git sha of your commit. Paths are shortened to `~`
+here; the CLI prints them absolute.
 
 Now deploy:
 
@@ -238,13 +227,9 @@ bundant status '*' -f deploy.yml
 default.hello.web rev=11a45b2 live=1/1 [default.hello.web.11a45b2]
 ```
 
-<Aside type="tip" title="Shortcut">
-  `bundant status '*'` asks for every unit on every host; the `-f` form above narrows it to the
-  service in this file.
-</Aside>
-
-`live=1/1` means one container is running and the file asks for one. The value before the slash
-is what is running now; the value after it is what `deploy.yml` expects.
+`bundant status '*'` asks for every unit on every host; the `-f` form above narrows it to the
+service in this file. `live=1/1` means one container is running and the file asks for one: the
+value before the slash is what is running now, the value after it is what `deploy.yml` expects.
 
 Output here is trimmed to what matters. Container ids, timestamps, `Up 2 seconds` and column widths
 differ on every run and on every machine; the lines that carry meaning do not.
@@ -267,25 +252,6 @@ engine over an ssh-forwarded socket: `/images/load` (or a registry pull),
 `bundant` network; the swap is `kamal-proxy deploy --target <container>:<port> --host <host>`
 inside the proxy container, which blocks until old connections drain. The full call sequence is
 in [Architecture](/bundant/docs/architecture/).
-
-## Did it fail? ⚠️
-
-<Aside type="caution" title="Recoverable failures">
-- **`bundant: command not found`** — `bun link` wrote the command under Bun's global bin,
-  which may not be on PATH. Fix it with `export PATH="$HOME/.bun/bin:$PATH"` and run
-  `bundant --version` again.
-- **`unsupported config version 3 (supported: 2)`** — the file must start with
-  `version: 2`. This is what validation says:
-
-  ```text
-  bundant validate: FAILED (1 error(s))
-    - version: unsupported config version 3 (supported: 2)
-  ```
-
-- **`ssh: connect to host ... port 22: Connection refused`** — `bundant runtime` is the
-  quickest way to see it. Check that the host is reachable and that passwordless ssh works:
-  `ssh root@box.example.com true`.
-</Aside>
 
 <CardGrid>
 <LinkCard title="Chapter 2 — Your first service" href="/bundant/docs/tutorial/02-first-service/" description="Understand deploy.yml by editing it, validate it, then deploy it." />

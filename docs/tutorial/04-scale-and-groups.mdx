@@ -7,7 +7,7 @@ sidebar:
   label: "04 · Scale and groups"
 ---
 
-import { Aside, CardGrid, FileTree, LinkCard, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+import { CardGrid, FileTree, LinkCard, Steps } from '@astrojs/starlight/components';
 
 # Scale and groups
 
@@ -18,15 +18,12 @@ waits for a stateful database before it starts.
 scheduler. Here the proxy already distributes requests, a **replica** is just a numbered copy of
 the same revision, and an **accessory** is a stateful member that keeps its name and its data.
 
-<Aside type="note" title="Three words on this page">
-- **replica** — one of N copies of the same revision on a host; `replicas: 3` names them
-  `.1`, `.2`, `.3` and the proxy balances across all of them.
-- **accessory** — a stateful group member (a database, a queue): stable name, named volumes (a
-  volume is storage that outlives the container), no revision, no proxy, and never recreated by a
-  deploy.
-- **group** — a directory with a `group.yml` that lists members and their `needs` edges; the
-  install order is the topological sort of those edges.
-</Aside>
+Three terms carry this chapter. A **replica** is one of N copies of the same revision on a host:
+`replicas: 3` names them `.1`, `.2`, `.3` and the proxy balances across all of them. An
+**accessory** is a stateful group member (a database, a queue) with a stable name, named volumes
+(a volume is storage that outlives the container), no revision, no proxy, and never recreated by a
+deploy. A **group** is a directory with a `group.yml` that lists members and their `needs` edges;
+the install order is the topological sort of those edges.
 
 <Steps>
 
@@ -84,11 +81,7 @@ default.hello.web rev=7db591d live=3/3 [default.hello.web.7db591d.3, default.hel
 ```
 
 `scale` changes the running revision without a deploy. It never pulls an image and never edits
-your file. Scale up, then back down — the two directions are the same command with a different
-count:
-
-<Tabs>
-<TabItem label="Scale up to 5">
+your file. Scale up to 5:
 
 ```sh
 bundant scale --replicas 5 -f deploy.yml
@@ -104,8 +97,19 @@ bundant scale --replicas 5 -f deploy.yml
 bundant: scale is temporary - deploy.yml replicas: stays authoritative; the next `bundant deploy` re-applies it.
 ```
 
-</TabItem>
-<TabItem label="Scale back down to 3">
+`deploy.yml` still says 3, so after the scale up `status` shows the drift:
+
+```sh
+bundant status '*' -f deploy.yml
+```
+
+```text
+default.hello.web rev=7db591d live=5/3 [default.hello.web.7db591d.5, default.hello.web.7db591d.4, default.hello.web.7db591d.3, default.hello.web.7db591d.2, default.hello.web.7db591d.1]
+```
+
+`live=5/3` means five containers are running while the file still asks for three. Scale back down
+with `bundant scale --replicas 3 -f deploy.yml`; the proxy loses the two targets before the
+containers stop, so no in-flight request is cut off:
 
 ```sh
 bundant scale --replicas 3 -f deploy.yml
@@ -119,27 +123,6 @@ bundant scale --replicas 3 -f deploy.yml
   scaled to 3 replica(s)
 bundant: scale is temporary - deploy.yml replicas: stays authoritative; the next `bundant deploy` re-applies it.
 ```
-
-</TabItem>
-</Tabs>
-
-`deploy.yml` still says 3, so after the scale up `status` shows the drift:
-
-```sh
-bundant status '*' -f deploy.yml
-```
-
-```text
-default.hello.web rev=7db591d live=5/3 [default.hello.web.7db591d.5, default.hello.web.7db591d.4, default.hello.web.7db591d.3, default.hello.web.7db591d.2, default.hello.web.7db591d.1]
-```
-
-<Aside type="tip" title="Shortcut">
-  `bundant status '*' -f deploy.yml` is how you see the drift a temporary `scale` leaves behind:
-  `live=5/3` means five containers are running while the file still asks for three.
-</Aside>
-
-Scale back down with `bundant scale --replicas 3 -f deploy.yml`. The proxy loses the two targets before the containers stop, so no in-flight
-request is cut off. The command and output are the second tab above.
 
 The topology below shows both shapes: three replicas behind one proxy route, and a group whose
 web member depends on an accessory that owns a volume.
@@ -345,15 +328,6 @@ an accessory dependency is checked by a bare TCP connect from a throwaway busybo
 [deploy.yml reference](/bundant/docs/deploy-yml/#replicas), including
 [group.yml](/bundant/docs/deploy-yml/#groupyml) and
 [accessory.yml](/bundant/docs/deploy-yml/#accessoryyml).
-
-## Did it fail? ⚠️
-
-<Aside type="caution" title="Recoverable failures">
-- **`replicas > 1 requires proxy.enabled: true`** — without a proxy nothing distributes
-  traffic between the copies. Add `proxy: { enabled: true, host: ... }`.
-- **The accessory is absent** — `group install` stops and prints the exact `bundant start -f`
-  command. Accessories are never created by a group install, so their data is never surprising.
-</Aside>
 
 <CardGrid>
 <LinkCard title="Chapter 5 — Observe and debug" href="/bundant/docs/tutorial/05-observe/" description="Inspect the host, read events, open the UI and diagnose a failed deploy." />

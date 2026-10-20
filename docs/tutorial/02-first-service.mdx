@@ -7,7 +7,7 @@ sidebar:
   label: "02 · Your first service"
 ---
 
-import { Aside, Badge, CardGrid, FileTree, LinkCard, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+import { CardGrid, FileTree, LinkCard, Steps } from '@astrojs/starlight/components';
 
 # Your first service
 
@@ -92,22 +92,6 @@ flowchart TD
 | `healthcheck` | the gate that must pass before the proxy points at the new container |
 | `proxy` | `enabled: false` for workers; when enabled, `host` is required |
 
-<Aside type="note" title="Identity: service and role">
-  `service` and `role` compose the name `<group>.<service>.<role>.<revision>`. `role` is a segment
-  for variants of one service and defaults to `web`.
-</Aside>
-
-<Aside type="note" title="Container side: image, env, healthcheck">
-  These decide what process runs and when it is considered ready: `image` is what to run, `env`
-  is merged into the container environment, and `healthcheck` is the gate that must pass before
-  the proxy points at the new container.
-</Aside>
-
-<Aside type="note" title="Placement and routing: hosts, proxy">
-  `hosts` lists the ssh targets (one or more); `proxy` decides whether the service gets an HTTP
-  route. For a worker that publishes no route, set `proxy: { enabled: false }`.
-</Aside>
-
 The value of `proxy.host` is the **route host**: the `Host:` header a request must carry for the
 proxy to route it to this service. Two services on one host are told apart by that header, not by
 a port.
@@ -142,15 +126,8 @@ bundant validate: OK
   round-trip: ok
 ```
 
-<Tabs>
-<TabItem label="Human output">
-
-The default prints the identity a deploy would use, one field per line as above.
-
-</TabItem>
-<TabItem label="Machine output">
-
-<Badge text="--json" variant="tip" /> adds one JSON object on stdout, with the same identity:
+The default output prints the identity a deploy would use. `--json` adds one JSON object on
+stdout with the same identity:
 
 ```sh
 bundant validate -f deploy.yml --json
@@ -167,9 +144,6 @@ bundant validate -f deploy.yml --json
 }
 ```
 
-</TabItem>
-</Tabs>
-
 Validation parses the file, checks every field and the composed name, and prints the identity a
 deploy would use. It does not open an ssh connection and does not take the lock.
 
@@ -181,9 +155,6 @@ deploy would use. It does not open an ssh connection and does not take the lock.
 ```sh
 bundant deploy -f deploy.yml
 ```
-
-<Tabs>
-<TabItem label="Docker engine">
 
 ```text
 deploy hello/web rev=0f2c8cc -> root@box.example.com
@@ -198,15 +169,8 @@ deploy hello/web rev=0f2c8cc -> root@box.example.com
 deployed default.hello.web.0f2c8cc on 1 host(s)
 ```
 
-</TabItem>
-<TabItem label="Podman engine">
-
-The same phases run over the podman socket. On a host with only sshd, `bundant bootstrap` installs
-podman and enables its socket first; the deploy output then names the podman endpoint instead of
-the docker one.
-
-</TabItem>
-</Tabs>
+On a host with only sshd, `bundant bootstrap` installs podman and enables its socket first; the
+same phases then run over the podman endpoint instead of the docker one.
 
 What the phases mean:
 
@@ -231,10 +195,8 @@ bundant history -f deploy.yml
   * = running revision
 ```
 
-<Aside type="tip" title="Shortcut">
-  `bundant history -f deploy.yml` shows every retained revision and marks the running one with
-  `*`; no sha has to be remembered to find the rollback target.
-</Aside>
+`bundant history -f deploy.yml` shows every retained revision and marks the running one with
+`*`.
 
 You should see `health gate passed` followed by `proxy-swap ok` and
 `deployed ... on 1 host(s)`; `history` marks the new revision with `*` and keeps the old one
@@ -256,25 +218,8 @@ typed `ContainerSpec` (image, merged env, labels `bundant.kind`/`bundant.revisio
 [deploy.yml reference](/bundant/docs/deploy-yml/) and
 [Architecture](/bundant/docs/architecture/).
 
-## Did it fail? ⚠️
-
-<Aside type="caution" title="Recoverable failures">
-- **A typo in a field name** — unknown keys are rejected. This is a real validation failure:
-
-  ```text
-  bundant validate: FAILED (1 error(s))
-    version: 2
-    - (root): Unrecognized key(s) in object: 'helthcheck'
-  ```
-
-  Rename it to `healthcheck` and validate again.
-- **`proxy.host is required when proxy.enabled is true`** — either add the `Host` name your
-  service answers on, or set `proxy: { enabled: false }` for a worker that publishes no route.
-- **The image cannot be pulled** — the error names the image and the host. Check that the tag
-  exists and, on a private registry, that the host is already logged in.
-</Aside>
-
 <CardGrid>
 <LinkCard title="Chapter 3 — Operate" href="/bundant/docs/tutorial/03-operate/" description="The day-two loop: status, logs, revisions and rollback." />
 <LinkCard title="deploy.yml reference" href="/bundant/docs/deploy-yml/" description="Every field, its default and what changing it does." />
 </CardGrid>
+

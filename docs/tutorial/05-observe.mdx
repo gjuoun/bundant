@@ -7,7 +7,7 @@ sidebar:
   label: "05 · Observe and debug"
 ---
 
-import { Aside, CardGrid, LinkCard, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+import { CardGrid, LinkCard, Steps } from '@astrojs/starlight/components';
 
 # Observe and debug
 
@@ -17,12 +17,10 @@ the same view in a local UI, and explain exactly why a deploy failed.
 **Why it matters:** "it is down" is not a diagnosis. Each question you can ask about a deployment
 has one surface that answers it — and knowing which surface to open is most of debugging.
 
-<Aside type="note" title="unit path and selector">
-  Flat verbs address containers by the unit path from chapter 3: `group.service.role` for a
-  service and `group.service` for an accessory, matched as a glob (`*` = everything, `shop.**` =
-  the group). That path is the selector. Revision and replica are flags (`--revision`,
-  `--replica`), never path segments.
-</Aside>
+Flat verbs address containers by the **unit path** from chapter 3: `group.service.role` for a
+service and `group.service` for an accessory, matched as a glob (`*` is everything, `shop.**`
+is the group). That path is the selector; revision and replica are flags (`--revision`,
+`--replica`), never path segments.
 
 <Steps>
 
@@ -125,11 +123,9 @@ bundant exec 'shop.db' -f shop/db/accessory.yml -- hostname
 ceb403c30372
 ```
 
-<Aside type="tip" title="Fastest diagnostic">
-  When a deploy misbehaves, `bundant events --since 5m -f deploy.yml` shows what the engine did —
-  create, start, die, destroy — in the order it did it. It is the shortest path from "it is down"
-  to the step that failed.
-</Aside>
+When a deploy misbehaves, `bundant events --since 5m -f deploy.yml` shows what the engine did —
+create, start, die, destroy — in the order it did it. It is the shortest path from "it is down" to
+the step that failed.
 
 </li>
 <li>
@@ -200,23 +196,14 @@ bundant ps -f broken/deploy.yml | grep broken || echo 'no broken container left'
 no broken container left
 ```
 
-A held lock stops a second deploy before it touches the host:
-
-```text
-bundant: deploy lock for default/hello is held by tutorial (age 0s; BUNDANT_LOCK_TTL_S reclaims stale locks)
-```
-
 </li>
 <li>
 
 ## When the host has nothing 📦
 
-On a host with only sshd, `bundant bootstrap -f hello-podman.yml` installs podman, configures the registry search path, enables
-the restart unit and runs a smoke container. Every step is idempotent. The complete file used
-below is the podman tab:
-
-<Tabs>
-<TabItem label="Podman host">
+On a host with only sshd, `bundant bootstrap` installs podman, configures the registry search
+path, enables the restart unit and runs a smoke container. Every step is idempotent. The complete
+file used below:
 
 ```yaml
 # hello-podman.yml
@@ -243,14 +230,9 @@ bundant bootstrap -f hello-podman.yml
   ready
 ```
 
-</TabItem>
-<TabItem label="Docker host">
-
-Nothing to bootstrap: the engine is already installed and running. Check it with
-`bundant runtime -f deploy.yml` (chapter 1), which reports the engine, API version and socket.
-
-</TabItem>
-</Tabs>
+On a docker host there is nothing to bootstrap: the engine is already installed and running. Check
+it with `bundant runtime -f deploy.yml` (chapter 1), which reports the engine, API version and
+socket.
 
 You should see `health gate failed` with the probe URL for a broken health check,
 `no broken container left` afterwards, and `ready` from bootstrap. The deploy that failed
@@ -271,19 +253,6 @@ for `stats`, `/containers/{id}/json` for `inspect`, `/events?since=…` for `eve
 window instead of following forever. `bundant ui` is a local read-only HTTP server on
 `127.0.0.1:8787`; each tab triggers the same ssh calls, and nothing is installed on the host.
 The retention limits and the full surface are in [Monitoring](/bundant/docs/monitoring/).
-
-## Did it fail? ⚠️
-
-<Aside type="caution" title="Recoverable failures">
-- **`health gate failed`** — the URL and the port are in the message. Fix
-  `healthcheck.port` (the port your app listens on) or the path, then redeploy.
-- **`deploy lock ... is held`** — another deploy owns the service lock. Wait, or set
-  `BUNDANT_LOCK_TTL_S` to reclaim a stale lock; check `bundant history` for what is running.
-- **`engine=docker ... service=inactive`** from `bundant runtime` — the host has no running
-  engine. On a podman host run `bundant bootstrap -f deploy.yml`; on docker, start the daemon.
-- **`Failed to start server. Is port 8787 in use?`** — another `bundant ui` is still open.
-  Use `bundant ui --port 8788` or close the old one.
-</Aside>
 
 <CardGrid>
 <LinkCard title="deploy.yml reference" href="/bundant/docs/deploy-yml/" description="The file behind every surface on this page." />
