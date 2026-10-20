@@ -66,6 +66,8 @@ async function enforceImageArch(
   image: string,
   host: string,
   allowEmulation: boolean,
+  /** The operator-facing ref (the engine id is not a useful error). */
+  label = image,
 ): Promise<ArchVerdict | undefined> {
   const [imagePlatform, hostPlatform] = await Promise.all([
     ops.imagePlatform(image),
@@ -75,7 +77,7 @@ async function enforceImageArch(
   if (platformsMatch(imagePlatform, hostPlatform)) return undefined;
   const binfmtPresent = allowEmulation ? await ops.binfmtPresent(imagePlatform.arch) : false;
   const verdict = checkArch({
-    image,
+    image: label,
     imagePlatform,
     hostPlatform,
     allowEmulation,
@@ -207,7 +209,13 @@ export async function deployOnHost(
 
   // Must precede every container mutation: the image loads by diffID and the
   // architecture only surfaces at start (or silently under qemu).
-  const emulated = await enforceImageArch(ops, imageForSpec, host, opts.allowEmulation === true);
+  const emulated = await enforceImageArch(
+    ops,
+    imageForSpec,
+    host,
+    opts.allowEmulation === true,
+    m.localImage ?? m.image,
+  );
   if (emulated !== undefined) opts.onEmulation?.(emulated);
 
   const networkStart = performance.now();

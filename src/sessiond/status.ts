@@ -36,7 +36,7 @@ export function renderStatus(status: SessiondHostStatus): string {
   lines.push("  container: " + status.container + " (" + status.state + ")");
   lines.push("  image: " + (status.image === "" ? "-" : status.image));
   lines.push(
-    "  watch: " + status.mode + (status.degraded ? " (degraded)" : " (pidfd)"),
+    "  watch: " + status.mode + (status.degraded ? " (degraded)" : ""),
   );
   lines.push("  sessions: " + status.sessions.length + " open / " + status.events + " events");
   for (const session of status.sessions) {

@@ -159,6 +159,30 @@ describe("arch preflight in the deploy path", () => {
     expect(local.calls).toHaveLength(1);
   });
 
+  test("the default probe falls through to the other local engine", async () => {
+    const host = fakeExec({ "uname -s -m": "Linux x86_64\n" });
+    const local: Executor = {
+      kind: "local",
+      async run(cmd: string) {
+        // podman does not have the image; docker does (a cross-engine build).
+        if (cmd.startsWith("podman")) return { code: 1, stdout: "", stderr: "no such image" };
+        return { code: 0, stdout: "aarch64 linux \n", stderr: "" };
+      },
+      async putFile() {},
+      async close() {},
+    };
+    await expect(
+      defaultArchPreflight({
+        image: IMAGE,
+        isLocal: true,
+        allowEmulation: false,
+        exec: host.exec,
+        rt: runtimeFor("podman"),
+        local,
+      }),
+    ).rejects.toBeInstanceOf(ArchMismatchError);
+  });
+
   test("binfmt is read from the image arch path, not the host arch", async () => {
     const host = fakeExec({ "test -e": "yes\n" });
     expect(await probeBinfmtPresent(host.exec, "arm64")).toBe(true);
