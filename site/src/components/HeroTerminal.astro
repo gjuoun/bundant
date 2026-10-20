@@ -3,7 +3,7 @@ import { ArrowRight, Check, FileCode, GitBranch } from 'lucide-react';
 ---
 
 <div class="overflow-hidden rounded-xl border border-border bg-card">
-  <div class="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
+  <div class="flex items-center justify-between gap-3 border-b border-code-border bg-code-surface px-4 py-2.5">
     <div class="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
       <FileCode className="size-3.5" />
       deploy.yml
@@ -13,34 +13,34 @@ import { ArrowRight, Check, FileCode, GitBranch } from 'lucide-react';
     </span>
   </div>
 
-  <pre class="overflow-x-auto border-b border-border px-4 py-4 font-mono text-[11.5px] leading-6 text-muted-foreground"><code><span class="text-foreground">service</span>: hello
-<span class="text-foreground">image</span>: traefik/whoami:v1.10
-<span class="text-foreground">hosts</span>: [root@box.example.com]
-<span class="text-foreground">healthcheck</span>:
-  path: /
-<span class="text-foreground">proxy</span>:
-  host: hello.example.com</code></pre>
+  <pre class="overflow-x-auto border-b border-code-border bg-code-surface px-4 py-4 font-mono text-[11.5px] leading-6 text-foreground"><code><span class="text-code-key">service</span>: <span class="text-code-string">hello</span>
+<span class="text-code-key">image</span>: <span class="text-code-string">traefik/whoami:v1.10</span>
+<span class="text-code-key">hosts</span>: [<span class="text-code-string">root@box.example.com</span>]
+<span class="text-code-key">healthcheck</span>:
+  <span class="text-code-key">path</span>: <span class="text-code-string">/</span>
+<span class="text-code-key">proxy</span>:
+  <span class="text-code-key">host</span>: <span class="text-code-string">hello.example.com</span></code></pre>
 
   <div class="space-y-3 px-4 py-4">
     <div class="flex items-center gap-2 font-mono text-[11.5px]">
       <span class="text-primary">$</span>
-      <span class="text-foreground">bundant deploy -f deploy.yml</span>
+      <span class="text-code-key">bundant</span> <span class="text-foreground">deploy -f deploy.yml</span>
     </div>
     <ul class="space-y-2.5 font-mono text-[11px]">
       <li class="flex items-start gap-2 text-muted-foreground">
-        <Check className="mt-px size-3.5 shrink-0 text-primary" />
+        <Check className="mt-px size-3.5 shrink-0 text-success" />
         <span>revision <span class="text-foreground">hello-web-59ceb8d</span> started unpublished</span>
       </li>
       <li class="flex items-start gap-2 text-muted-foreground">
-        <Check className="mt-px size-3.5 shrink-0 text-primary" />
+        <Check className="mt-px size-3.5 shrink-0 text-success" />
         <span>health gate passed</span>
       </li>
       <li class="flex items-start gap-2 text-muted-foreground">
-        <ArrowRight className="mt-px size-3.5 shrink-0 text-primary" />
+        <ArrowRight className="mt-px size-3.5 shrink-0 text-arrow" />
         <span>proxy target set swapped in one call</span>
       </li>
       <li class="flex items-start gap-2 text-muted-foreground">
-        <GitBranch className="mt-px size-3.5 shrink-0 text-primary" />
+        <GitBranch className="mt-px size-3.5 shrink-0 text-code-type" />
         <span>old revision kept for rollback</span>
       </li>
     </ul>
