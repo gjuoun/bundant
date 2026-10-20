@@ -211,7 +211,7 @@ bundant: deploy lock for default/hello is held by tutorial (age 0s; BUNDANT_LOCK
 
 ## When the host has nothing 📦
 
-On a host with only sshd, bootstrap installs podman, configures the registry search path, enables
+On a host with only sshd, `bundant bootstrap -f hello-podman.yml` installs podman, configures the registry search path, enables
 the restart unit and runs a smoke container. Every step is idempotent. The complete file used
 below is the podman tab:
 
