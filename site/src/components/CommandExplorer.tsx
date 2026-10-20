@@ -89,12 +89,20 @@ export function CommandExplorer({ commands }: Props) {
     setActiveIndex(0);
   }, [query]);
 
-  // Keep the keyboard cursor inside the scrolled list.
+  // Keep the keyboard cursor inside the scrolled list - and ONLY the list. Using
+  // scrollIntoView here also scrolled every ancestor, so opening the page jumped the
+  // window down to this section, and a reload restored that offset.
   useEffect(() => {
     if (!active) return;
+    const list = listRef.current;
     const option = document.getElementById(`command-option-${active.name}`);
-    if (typeof option?.scrollIntoView === 'function') {
-      option.scrollIntoView({ block: 'nearest' });
+    if (!list || !option) return;
+    const listRect = list.getBoundingClientRect();
+    const optionRect = option.getBoundingClientRect();
+    if (optionRect.top < listRect.top) {
+      list.scrollTop -= listRect.top - optionRect.top;
+    } else if (optionRect.bottom > listRect.bottom) {
+      list.scrollTop += optionRect.bottom - listRect.bottom;
     }
   }, [active]);
 
