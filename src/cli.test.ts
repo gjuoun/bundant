@@ -64,12 +64,14 @@ describe("effect/cli parsing", () => {
           g["all-revisions"],
           g.route,
           g.env,
+          g.pull,
+          g.timings,
         ].join("|");
       }),
     );
     const app = rootCommand.pipe(Command.withSubcommands([probe]));
     await run(["probe"], app);
-    expect(seen).toBe("3|200|2h|8787|api|false|false|false|false|false");
+    expect(seen).toBe("3|200|2h|8787|api|false|false|false|false|false|missing|false");
   });
 
   test("-f alias and long flag both parse", async () => {

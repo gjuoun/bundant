@@ -22,6 +22,7 @@ export const globalFlags = {
   since: Flag.String("since").pipe(Flag.withDefault("2h")),
   port: Flag.String("port").pipe(Flag.withDefault("8787")),
   json: Flag.Boolean("json").pipe(Flag.withDefault(false)),
+  timings: Flag.Boolean("timings").pipe(Flag.withDefault(false)),
   hosts: Flag.String("hosts").pipe(Flag.optional),
   via: Flag.String("via").pipe(Flag.withDefault("api")),
   strict: Flag.Boolean("strict").pipe(Flag.withDefault(false)),

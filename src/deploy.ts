@@ -6,6 +6,7 @@ import type { ContainerSpec } from "./adapters/types.ts";
 import { groupLabels } from "./planner.ts";
 import { NETWORK } from "./commands/docker.ts";
 import { serviceId as legacyServiceId } from "./commands/proxy.ts";
+import { defaultControlDir } from "./host/session.ts";
 import { LocalExecutor } from "./exec/local.ts";
 import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
 import { connectionForTarget } from "./hosts.ts";
@@ -22,6 +23,8 @@ export interface DeployOptions {
   allowCaseCollision?: boolean;
   /** missing (default) skips a pull when the image is present. */
   pullPolicy?: PullPolicy;
+  /** Per-phase milliseconds, written for --timings / --json. */
+  phases?: Record<string, number>;
 }
 
 export interface DeployOnHostOptions {
@@ -32,6 +35,11 @@ export interface DeployOnHostOptions {
   localPushPipeline?: string;
   allowCaseCollision?: boolean;
   pullPolicy?: PullPolicy;
+  phases?: Record<string, number>;
+}
+
+function timed(phases: Record<string, number> | undefined, phase: string, start: number): void {
+  if (phases !== undefined) phases[phase] = (phases[phase] ?? 0) + performance.now() - start;
 }
 
 /** Apply the image pull policy through RuntimeOps. */
@@ -111,14 +119,15 @@ export async function deployOnHost(
   const host = opts.host;
   const env = envArray(loaded.envContent);
 
+  const rows = await ops.listContainers({ all: true });
   if (opts.allowCaseCollision !== true) {
-    const rows = await ops.listContainers({ all: true });
     const collision = findCaseCollision(rows, {
       group: loaded.config.group,
       service: loaded.config.service,
     });
     if (collision !== undefined) throw new Error("case-collision: " + collision);
   }
+  const existingNames = new Set(rows.map((row) => row.name));
 
   await ops.putEnv(opts.envLocalFile ?? null, m.envRemotePath, loaded.envCount);
   if (
@@ -130,7 +139,9 @@ export async function deployOnHost(
     console.log("[" + host + "] env uploaded (" + loaded.envCount + " vars, redacted)");
   }
 
+  const prereqStart = performance.now();
   await ops.hostPrereqs();
+  timed(opts.phases, "connect", prereqStart);
   if (opts.localPushPipeline !== undefined) {
     const r = await new LocalExecutor().run(opts.localPushPipeline.replaceAll("{HOST}", host));
     if (r.code !== 0) {
@@ -139,17 +150,22 @@ export async function deployOnHost(
     console.log("[" + host + "] push-image ok: " + r.stdout.trim());
   } else {
     const policy = opts.pullPolicy ?? "missing";
+    const pullStart = performance.now();
     const pull = await pullForPolicy(ops, m.image, policy);
+    timed(opts.phases, "pull", pullStart);
     console.log(
       "[" + host + "] " +
         (pull === "pulled" ? "pull ok (policy=" + policy + ")" : "pull skipped (present, policy=" + policy + ")"),
     );
   }
 
+  const networkStart = performance.now();
   await ops.ensureNetwork();
+  timed(opts.phases, "network", networkStart);
   console.log("[" + host + "] network ok");
 
   const created: string[] = [];
+  const createStart = performance.now();
   try {
     for (let i = 0; i < m.containerNames.length; i++) {
       const name = m.containerNames[i]!;
@@ -162,20 +178,26 @@ export async function deployOnHost(
         restart: "unless-stopped",
       };
       created.push(name);
-      await ops.removeContainer(name, { force: true });
+      // Only the same revision already on the host needs the rm -f; a brand new
+      // revision skips a 404 round-trip.
+      if (existingNames.has(name)) await ops.removeContainer(name, { force: true });
       const id = await ops.createContainer(spec);
       await ops.startContainer(id);
     }
+    timed(opts.phases, "create", createStart);
     console.log("[" + host + "] run ok: " + m.containerNames.join(", "));
 
+    const healthStart = performance.now();
     await ops.healthGate(m.containerNames, {
       path: m.healthcheck.path,
       port: m.healthcheck.port,
       timeoutMs: m.healthcheck.timeout * 1000,
     });
+    timed(opts.phases, "health", healthStart);
     console.log("[" + host + "] health gate passed (" + m.containerNames.length + " target(s))");
 
     if (loaded.config.proxy.enabled) {
+      const proxyStart = performance.now();
       await ops.proxyEnsure(loaded.config.proxy.image);
       console.log("[" + host + "] proxy-ensure ok");
       const targets = m.containerNames.map(
@@ -207,9 +229,12 @@ export async function deployOnHost(
         await ops.proxyDeploy(m.serviceId, targets, proxyOpts);
         console.log("[" + host + "] proxy-swap ok");
       }
+      timed(opts.phases, "proxy", proxyStart);
     }
 
+    const stopStart = performance.now();
     await ops.stopOld(loaded.config, m.containerNames);
+    timed(opts.phases, "stop-old", stopStart);
     console.log("[" + host + "] stop-old ok");
   } catch (e) {
     for (const name of created) {
@@ -241,11 +266,18 @@ export async function deploy(
   }
 
   // Preflight first: an invalid config must never create a connection or a lock.
+  const preflightStart = performance.now();
   const primary = preflightGate(loaded, () =>
     opts.openPrimary !== undefined
       ? opts.openPrimary()
-      : new SshExecutor(connectOptionsFor(connectionForTarget(loaded.config, m.hosts[0]!))),
+      : new SshExecutor({
+          ...connectOptionsFor(connectionForTarget(loaded.config, m.hosts[0]!)),
+          controlDir: defaultControlDir(),
+          controlPersistSec: 60,
+          persist: true,
+        }),
   );
+  timed(opts.phases, "preflight", preflightStart);
   const execs = new Set<SshExecutor>([primary]);
   let locked = false;
 
@@ -272,7 +304,14 @@ export async function deploy(
       }
     }
 
+    const lockStart = performance.now();
     await acquireLock(primary, m.lockKey);
+    timed(opts.phases, "lock", lockStart);
+    // A second exec on the same connection measures reuse (not the handshake,
+    // which the lock call above already paid).
+    const sshStart = performance.now();
+    await primary.run("true");
+    timed(opts.phases, "ssh", sshStart);
     locked = true;
     console.log(
       "deploy " + m.service + "/" + m.role + " rev=" + m.revision + " -> " +
@@ -281,9 +320,11 @@ export async function deploy(
 
     for (const host of m.hosts) {
       console.log("[" + host + "] deploying " + m.containerNames.join(", "));
+      const connectStart = performance.now();
       const ops = await openOps(via, connectionForTarget(loaded.config, host), loaded.config, {
         envRemotePath: m.envRemotePath,
       });
+      timed(opts.phases, "connect", connectStart);
       try {
         await deployOnHost(ops, plan, loaded, {
           host,
@@ -291,9 +332,12 @@ export async function deploy(
           localPushPipeline: pushStep?.cmds[0],
           allowCaseCollision: opts.allowCaseCollision,
           pullPolicy: opts.pullPolicy,
+          phases: opts.phases,
         });
       } finally {
+        const closeStart = performance.now();
         await ops.close();
+        timed(opts.phases, "disconnect", closeStart);
       }
     }
 
@@ -302,8 +346,10 @@ export async function deploy(
     );
     return 0;
   } finally {
+    const releaseStart = performance.now();
     if (locked) await releaseLock(primary, m.lockKey);
     for (const e of execs) await e.close();
+    timed(opts.phases, "release", releaseStart);
     if (envLocalFile !== null) await unlink(envLocalFile).catch(() => {});
   }
 }

@@ -186,7 +186,6 @@ describe("RuntimeOps equivalence", () => {
     expect(legacy.steps).toEqual([
       "prereqs",
       "network",
-      "remove:hello-web-abc1234",
       "create:hello-web-abc1234",
       "start:hello-web-abc1234",
       "health:hello-web-abc1234",
@@ -307,9 +306,9 @@ describe("zero-downtime contract on the ops layer", () => {
     await expect(deployOnHost(ops, plan, loadedFor(config), { host: "box.test" })).rejects.toThrow(
       /health gate failed/,
     );
-    // Once before create (rm -f) and once by the failure cleanup: a single
-    // removal would mean the cleanup loop never ran.
-    expect(adapter.removed.filter((n) => n === "hello-web-abc1234")).toHaveLength(2);
+    // A new revision skips the pre-create rm; exactly one removal proves the
+    // failure cleanup ran.
+    expect(adapter.removed.filter((n) => n === "hello-web-abc1234")).toHaveLength(1);
     expect(adapter.execCalls).toHaveLength(0);
   });
 
