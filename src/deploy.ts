@@ -31,17 +31,31 @@ export interface DeployOnHostOptions {
   allowCaseCollision?: boolean;
 }
 
-/** Case-only duplicates are unsafe on case-insensitive DNS/hosts. */
+export interface ExistingUnit {
+  name: string;
+  labels: Record<string, string>;
+}
+
+/**
+ * Case-only duplicates are unsafe on case-insensitive DNS/hosts. Compare the
+ * host's labelled units by (group, service), not by full container name: a
+ * redeploy changes the revision, which would hide the collision.
+ */
 export function findCaseCollision(
-  existing: string[],
-  planned: string[],
+  rows: ExistingUnit[],
+  planned: { group?: string; service: string },
 ): string | undefined {
-  for (const name of planned) {
-    for (const other of existing) {
-      if (other !== name && other.toLowerCase() === name.toLowerCase()) {
-        return other + " and " + name + " both resolve to " + name.toLowerCase();
-      }
-    }
+  const group = planned.group !== undefined && planned.group !== "" ? planned.group : "default";
+  const unit = group + "/" + planned.service;
+  for (const row of rows) {
+    const rowGroup = row.labels["bundant.group"];
+    const rowService = row.labels["bundant.service"];
+    if (rowGroup === undefined || rowService === undefined) continue;
+    if (rowGroup.toLowerCase() !== group.toLowerCase()) continue;
+    if (rowService.toLowerCase() !== planned.service.toLowerCase()) continue;
+    if (rowGroup === group && rowService === planned.service) continue;
+    const existing = rowGroup + "/" + rowService;
+    return existing + " and " + unit + " both resolve to " + unit.toLowerCase();
   }
   return undefined;
 }
@@ -78,7 +92,10 @@ export async function deployOnHost(
 
   if (opts.allowCaseCollision !== true) {
     const rows = await ops.listContainers({ all: true });
-    const collision = findCaseCollision(rows.map((row) => row.name), m.containerNames);
+    const collision = findCaseCollision(rows, {
+      group: loaded.config.group,
+      service: loaded.config.service,
+    });
     if (collision !== undefined) throw new Error("case-collision: " + collision);
   }
 

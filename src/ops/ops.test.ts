@@ -66,6 +66,8 @@ class FakeAdapter implements RuntimeAdapter {
   readonly removed: string[] = [];
   /** What the health sidecar prints. */
   probeBody = "200";
+  /** Containers the host already has (case-collision guard tests). */
+  existing: ContainerSummary[] = [];
 
   async pull(ref: string): Promise<void> {
     this.steps.push("pull:" + ref);
@@ -110,7 +112,7 @@ class FakeAdapter implements RuntimeAdapter {
     };
   }
   async list(): Promise<ContainerSummary[]> {
-    return [];
+    return this.existing;
   }
   async listContainers(): Promise<ContainerSummary[]> {
     return [];
@@ -201,6 +203,62 @@ describe("RuntimeOps equivalence", () => {
     expect(ops.steps[0]).toBe("env:1");
     expect(exec.commands.some((c) => c.includes("putFile"))).toBe(false);
     expect(adapter.steps).not.toContain("env:1");
+  });
+});
+
+describe("case-collision guard on the real deploy path", () => {
+  function row(service: string, group = "default"): ContainerSummary {
+    return {
+      id: service,
+      name: group + "." + service + ".web.cc1",
+      image: "traefik/whoami:v1.10",
+      state: "running",
+      status: "Up",
+      labels: { "bundant.group": group, "bundant.service": service, "bundant.kind": "service" },
+      created: 0,
+      ports: "",
+    };
+  }
+
+  function v2Config(over: Partial<BundantConfig> = {}): BundantConfig {
+    return cfg({ version: 2, service: "ShopApi", ...over });
+  }
+
+  test("forward and reverse case-only duplicates fail before create", async () => {
+    for (const existing of ["ShopApi", "shopapi"]) {
+      const config = v2Config({ service: existing === "ShopApi" ? "shopapi" : "ShopApi" });
+      const plan = buildDeployPlan(config, "cc2");
+      const adapter = new FakeAdapter();
+      adapter.existing = [row(existing)];
+      const ops = new ApiOps(adapter, new FakeExecutor(), runtimeFor("docker"), async () => {});
+      await expect(
+        deployOnHost(ops, plan, loadedFor(config), { host: "box.test" }),
+      ).rejects.toThrow(/case-collision: default\//);
+      expect(adapter.steps.some((s) => s.startsWith("create:"))).toBe(false);
+    }
+  });
+
+  test("--allow-case-collision lets the deploy proceed", async () => {
+    const config = v2Config({ service: "shopapi" });
+    const plan = buildDeployPlan(config, "cc2");
+    const adapter = new FakeAdapter();
+    adapter.existing = [row("ShopApi")];
+    const ops = new ApiOps(adapter, new FakeExecutor(), runtimeFor("docker"), async () => {});
+    await deployOnHost(ops, plan, loadedFor(config), {
+      host: "box.test",
+      allowCaseCollision: true,
+    });
+    expect(adapter.steps.some((s) => s.startsWith("create:"))).toBe(true);
+  });
+
+  test("the same service in a different group does not collide", async () => {
+    const config = v2Config({ group: "Other", service: "ShopApi" });
+    const plan = buildDeployPlan(config, "cc2");
+    const adapter = new FakeAdapter();
+    adapter.existing = [row("ShopApi", "default")];
+    const ops = new ApiOps(adapter, new FakeExecutor(), runtimeFor("docker"), async () => {});
+    await deployOnHost(ops, plan, loadedFor(config), { host: "box.test" });
+    expect(adapter.steps.some((s) => s.startsWith("create:"))).toBe(true);
   });
 });
 

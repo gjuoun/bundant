@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { validatePath } from "../../validation.ts";
@@ -63,6 +63,49 @@ describe("v2 dotted composition", () => {
     expect(v1Grammar.compose({ group: "shop", service: "api", role: "web", revision: "r1" })).toBe(
       "shop-api-web-r1",
     );
+  });
+});
+
+describe("v2 accessory validation", () => {
+  const accessory = (service: string) =>
+    [
+      "version: 2",
+      "kind: accessory",
+      'service: "' + service + '"',
+      "image: x",
+      "hosts: [h]",
+      'volumes: ["v:/d"]',
+      "healthcheck: { tcp: 5432, timeout: 5 }",
+      "proxy: {enabled: false}",
+    ].join("\n");
+
+  test("ungrouped names: shopdb, Shop-DB, Shop_DB", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "bundant-v2-acc-"));
+    for (const service of ["shopdb", "Shop-DB", "Shop_DB"]) {
+      const file = join(dir, service + ".yml");
+      writeFileSync(file, accessory(service));
+      const report = await validatePath(file);
+      expect(report.ok, service + " " + JSON.stringify(report.errors)).toBe(true);
+      expect(report.identity?.kind).toBe("accessory");
+    }
+  });
+
+  test("grouped accessory and the shipped example validate", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "bundant-v2-grp-"));
+    mkdirSync(join(dir, "db"), { recursive: true });
+    writeFileSync(
+      join(dir, "group.yml"),
+      ["version: 2", "group: Shop", "services:", "  - name: Shop-DB", "    file: ./db/accessory.yml"].join("\n"),
+    );
+    const file = join(dir, "db", "accessory.yml");
+    writeFileSync(file, accessory("Shop-DB"));
+    const grouped = await validatePath(file);
+    expect(grouped.ok, JSON.stringify(grouped.errors)).toBe(true);
+    expect(grouped.identity?.kind).toBe("accessory");
+
+    const shipped = await validatePath(join(import.meta.dir, "../../../examples/v2/db/accessory.yml"));
+    expect(shipped.ok, JSON.stringify(shipped.errors)).toBe(true);
+    expect(shipped.identity?.kind).toBe("accessory");
   });
 });
 

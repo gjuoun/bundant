@@ -217,7 +217,9 @@ export function inferGroupForMember(path: string): string | undefined {
   for (const manifest of [resolve(dirname(dirname(abs)), "group.yml"), resolve(dirname(abs), "group.yml")]) {
     if (!existsSync(manifest)) continue;
     try {
-      const parsed = defaultRegistry.get(1).groupSchema.safeParse(parseYaml(readFileSync(manifest, "utf8")));
+      const doc = parseYaml(readFileSync(manifest, "utf8"));
+      const resolved = defaultRegistry.resolve(doc);
+      const parsed = resolved.module.groupSchema.safeParse(doc);
       if (!parsed.success) continue;
       const data = parsed.data as z.infer<typeof GroupFileSchema>;
       const dir = dirname(manifest);

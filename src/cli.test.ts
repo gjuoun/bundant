@@ -140,11 +140,16 @@ describe("effect/cli parsing", () => {
 
   test("case-only duplicates fail with the case-collision message", () => {
     const collision = findCaseCollision(
-      ["Shop.Api-Web-r1"],
-      ["shop.Api-Web-r1"],
+      [
+        {
+          name: "default.ShopApi.web.r1",
+          labels: { "bundant.group": "default", "bundant.service": "ShopApi" },
+        },
+      ],
+      { group: "default", service: "shopapi" },
     );
     expect(collision).toBe(
-      "Shop.Api-Web-r1 and shop.Api-Web-r1 both resolve to shop.api-web-r1",
+      "default/ShopApi and default/shopapi both resolve to default/shopapi",
     );
   });
 

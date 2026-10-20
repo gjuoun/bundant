@@ -108,11 +108,17 @@ export function buildServiceIdentity(
 
   let roundTrip = false;
   if (identity.kind === "accessory") {
-    const service =
-      identity.group === grammar.defaultGroup
-        ? composed
-        : composed.slice(identity.group.length + 1);
-    roundTrip = grammar.group.test(identity.group) && grammar.service.test(service);
+    if (grammar.accessoryCompose !== undefined) {
+      try {
+        const parsed = grammar.parse(composed, group);
+        const kind = (parsed as { kind?: string }).kind;
+        roundTrip = kind === "accessory" && parsed.service === config.service;
+      } catch {
+        roundTrip = false;
+      }
+    } else {
+      roundTrip = grammar.group.test(identity.group) && grammar.service.test(identity.service);
+    }
   } else {
     try {
       const parsed = grammar.parse(composed, group);
