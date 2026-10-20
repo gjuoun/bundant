@@ -35,7 +35,7 @@ const icons: Record<FeatureIcon, typeof Boxes> = {
         const Icon = icons[feature.icon];
         return (
           <article data-feature class="rounded-xl border border-border bg-card p-6">
-            <span class="grid size-9 place-items-center rounded-lg border border-border bg-background text-muted-foreground">
+            <span class="grid size-9 place-items-center rounded-lg border border-border bg-muted text-muted-foreground">
               <Icon className="size-4" />
             </span>
             <h3 class="mt-4 text-[0.9375rem] font-semibold tracking-tight">{feature.title}</h3>

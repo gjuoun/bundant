@@ -17,8 +17,9 @@
   --bf-border-muted: #333333;
   --bf-selection: #646464;
 
-  --code-surface: var(--bf-bg-deep);
-  --code-border: var(--bf-border-muted);
+  /* Inside a panel: the code surface is bgPanel, its outline is border. */
+  --code-surface: var(--bf-bg-panel);
+  --code-border: var(--bf-border);
   --syntax-comment: #75715e;
   --syntax-keyword: #00b0ff;
   --syntax-string: #e5e500;

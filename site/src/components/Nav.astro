@@ -11,7 +11,7 @@ const links = [
 ];
 ---
 
-<header class="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
+<header class="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur">
   <div class="container-page flex h-16 items-center justify-between gap-4">
     <a href={withBase('')} class="flex items-center gap-2.5" aria-label="bundant home">
       <span class="grid size-8 place-items-center rounded-md bg-primary font-mono text-[15px] font-bold text-primary-foreground">b</span>
@@ -52,7 +52,7 @@ const links = [
     </div>
   </div>
 
-  <div id="mobile-menu" class="hidden border-t border-border bg-background md:hidden">
+  <div id="mobile-menu" class="hidden border-t border-border-muted bg-card md:hidden">
     <nav class="container-page grid gap-1 py-3" aria-label="Mobile">
       {links.map((link) => (
         <a href={link.href} class="flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground">

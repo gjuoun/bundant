@@ -14,7 +14,7 @@ const bigfaceTheme = {
   name: 'bigface',
   type: 'dark',
   colors: {
-    'editor.background': '#1f231f',
+    'editor.background': '#2e332e',
     'editor.foreground': '#d9d9d4',
     'editorLineNumber.foreground': '#6e6b68',
     'editor.selectionBackground': '#646464',

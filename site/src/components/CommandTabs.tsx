@@ -19,7 +19,7 @@ export function CommandTabs({ groups }: { groups: CommandGroup[] }) {
       {groups.map((group) => (
         <TabsContent key={group.id} value={group.id} forceMount className="mt-5 data-[state=inactive]:hidden">
           <div className="rounded-xl border border-border bg-card">
-            <div className="flex flex-col gap-1 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-1 border-b border-border-muted px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm text-muted-foreground">{group.blurb}</p>
               <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{group.commands.length} commands</span>
             </div>
@@ -28,7 +28,7 @@ export function CommandTabs({ groups }: { groups: CommandGroup[] }) {
                 <Fragment key={command.name}>
                   <div
                     data-command
-                    className="grid gap-1 border-b border-border py-3.5 last:border-b-0 sm:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] sm:items-baseline sm:gap-6"
+                    className="grid gap-1 border-b border-border-muted py-3.5 last:border-b-0 sm:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] sm:items-baseline sm:gap-6"
                   >
                     <code className="font-mono text-[11px] leading-relaxed text-foreground sm:text-[0.78rem]">{command.usage}</code>
                     <p className="text-[0.8125rem] leading-relaxed text-muted-foreground">{command.description}</p>

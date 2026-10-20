@@ -3,7 +3,7 @@ import { ArrowRight, Check, FileCode, GitBranch } from 'lucide-react';
 ---
 
 <div class="overflow-hidden rounded-xl border border-border bg-card">
-  <div class="flex items-center justify-between gap-3 border-b border-code-border bg-code-surface px-4 py-2.5">
+  <div class="flex items-center justify-between gap-3 border-b border-border-muted bg-code-surface px-4 py-2.5">
     <div class="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
       <FileCode className="size-3.5" />
       deploy.yml
@@ -13,7 +13,7 @@ import { ArrowRight, Check, FileCode, GitBranch } from 'lucide-react';
     </span>
   </div>
 
-  <pre class="overflow-x-auto border-b border-code-border bg-code-surface px-4 py-4 font-mono text-[11.5px] leading-6 text-foreground"><code><span class="text-code-key">service</span>: <span class="text-code-string">hello</span>
+  <pre class="overflow-x-auto border-b border-border-muted bg-code-surface px-4 py-4 font-mono text-[11.5px] leading-6 text-foreground"><code><span class="text-code-key">service</span>: <span class="text-code-string">hello</span>
 <span class="text-code-key">image</span>: <span class="text-code-string">traefik/whoami:v1.10</span>
 <span class="text-code-key">hosts</span>: [<span class="text-code-string">root@box.example.com</span>]
 <span class="text-code-key">healthcheck</span>:

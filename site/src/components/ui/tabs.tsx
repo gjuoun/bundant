@@ -12,7 +12,7 @@ function TabsList({ className, ...props }: React.ComponentProps<typeof TabsPrimi
     <TabsPrimitive.List
       data-slot="tabs-list"
       className={cn(
-        'bg-code-surface text-muted-foreground inline-flex h-11 w-fit items-center justify-center rounded-lg border border-code-border p-1 sm:h-10',
+        'inline-flex h-11 w-fit items-center justify-center gap-1 rounded-lg bg-transparent p-1 text-muted-foreground sm:h-10',
         className,
       )}
       {...props}
@@ -25,7 +25,7 @@ function TabsTrigger({ className, ...props }: React.ComponentProps<typeof TabsPr
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
       className={cn(
-        "data-[state=active]:bg-card data-[state=active]:text-foreground inline-flex h-full flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-3.5 text-sm font-medium whitespace-nowrap transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 data-[state=active]:border-border [&_svg]:pointer-events-none [&_svg]:size-3.5",
+        "relative inline-flex h-full flex-1 items-center justify-center gap-1.5 rounded-md px-3.5 text-sm font-medium whitespace-nowrap text-muted-foreground transition-colors after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-primary after:opacity-0 data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:after:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/30 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-3.5",
         className,
       )}
       {...props}
