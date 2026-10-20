@@ -17,6 +17,8 @@ export interface DeployOptions {
   via?: OpsVia;
   /** Test seam: the factory runs only after preflight passes. */
   openPrimary?: () => SshExecutor;
+  /** v2: allow two units that differ only by case. */
+  allowCaseCollision?: boolean;
 }
 
 export interface DeployOnHostOptions {
@@ -25,6 +27,22 @@ export interface DeployOnHostOptions {
   envLocalFile?: string | null;
   /** Legacy --local-image pipeline, when the CLI path is forced. */
   localPushPipeline?: string;
+  allowCaseCollision?: boolean;
+}
+
+/** Case-only duplicates are unsafe on case-insensitive DNS/hosts. */
+export function findCaseCollision(
+  existing: string[],
+  planned: string[],
+): string | undefined {
+  for (const name of planned) {
+    for (const other of existing) {
+      if (other !== name && other.toLowerCase() === name.toLowerCase()) {
+        return other + " and " + name + " both resolve to " + name.toLowerCase();
+      }
+    }
+  }
+  return undefined;
 }
 
 /** Turn a merged KEY=VAL file into the engine's Env array (values stay redacted in logs). */
@@ -56,6 +74,12 @@ export async function deployOnHost(
   const m = plan.meta;
   const host = opts.host;
   const env = envArray(loaded.envContent);
+
+  if (opts.allowCaseCollision !== true) {
+    const rows = await ops.listContainers({ all: true });
+    const collision = findCaseCollision(rows.map((row) => row.name), m.containerNames);
+    if (collision !== undefined) throw new Error("case-collision: " + collision);
+  }
 
   await ops.putEnv(opts.envLocalFile ?? null, m.envRemotePath, loaded.envCount);
   if (
@@ -207,6 +231,7 @@ export async function deploy(
           host,
           envLocalFile,
           localPushPipeline: pushStep?.cmds[0],
+          allowCaseCollision: opts.allowCaseCollision,
         });
       } finally {
         await ops.close();

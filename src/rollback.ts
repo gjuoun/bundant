@@ -1,6 +1,7 @@
 import type { LoadedConfig } from "./config.ts";
 import * as docker from "./commands/docker.ts";
 import * as proxy from "./commands/proxy.ts";
+import { ServiceIdentity } from "./domain/identity.ts";
 import { SshExecutor } from "./exec/ssh.ts";
 import { resolveConnections } from "./hosts.ts";
 import {
@@ -100,7 +101,7 @@ export async function rollback(loaded: LoadedConfig, opts: RollbackOptions = {})
 
       if (config.proxy.enabled) {
         await ops.proxyDeploy(
-          proxy.serviceId(config.service, config.role, config.group),
+          ServiceIdentity.from(config).proxyId(),
           targetNames.map((n) => n + ":" + config.proxy.port),
           {
             host: config.proxy.host,

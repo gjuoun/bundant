@@ -2,6 +2,7 @@ import type { BundantConfig, LoadedConfig } from "./config.ts";
 import type { ContainerSummary } from "./adapters/types.ts";
 import * as docker from "./commands/docker.ts";
 import * as proxy from "./commands/proxy.ts";
+import { ServiceIdentity } from "./domain/identity.ts";
 import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
 import { connectionForTarget, hostTargets } from "./hosts.ts";
 import { acquireLock, lockKey, releaseLock } from "./lock.ts";
@@ -65,7 +66,7 @@ export function selectDeleteVictims(
 /** Proxy route removal, shared by delete and the group sweep. */
 function proxyRemoveStep(config: BundantConfig, rt: ReturnType<typeof runtimeFor>): CmdStep[] {
   if (!config.proxy.enabled) return [];
-  const svcId = proxy.serviceId(config.service, config.role, config.group);
+  const svcId = ServiceIdentity.from(config).proxyId();
   return [
     {
       phase: "proxy-remove",
@@ -237,7 +238,7 @@ async function executeDelete(
       const ops = await openOps(via, connectionForTarget(config, host), config);
       try {
         if (config.proxy.enabled) {
-          await ops.proxyRemove(proxy.serviceId(config.service, config.role, config.group));
+          await ops.proxyRemove(ServiceIdentity.from(config).proxyId());
           console.log("  proxy-remove ok");
         }
         const rows = await ops.listContainers({

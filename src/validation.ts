@@ -132,7 +132,8 @@ export function buildServiceIdentity(
     service: config.service,
     role: config.role,
     composedName: composed,
-    containerNamePattern: replicas > 1 ? base + "-<i>" : composed,
+    containerNamePattern:
+      replicas > 1 ? base + (grammar.replicaSeparator ?? "-") + "<i>" : composed,
     proxyId: config.proxy.enabled ? identity.proxyId() : undefined,
     envPath: identity.envPath(),
     lockKey: identity.lockKey(),

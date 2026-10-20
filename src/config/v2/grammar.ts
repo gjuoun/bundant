@@ -105,4 +105,6 @@ export const v2Grammar: NameGrammar = {
   compose: composeDotted,
   parse: parseDotted,
   roundTrips: roundTripsDotted,
+  accessoryCompose: composeAccessory,
+  replicaSeparator: ".",
 };
