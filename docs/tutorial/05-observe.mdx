@@ -7,6 +7,8 @@ sidebar:
   label: "05 · Observe and debug"
 ---
 
+import { Aside, CardGrid, LinkCard, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
 # Observe and debug
 
 **What you get:** you can see what every host is running, read what it said and what it cost, open
@@ -15,10 +17,17 @@ the same view in a local UI, and explain exactly why a deploy failed.
 **Why it matters:** "it is down" is not a diagnosis. Each question you can ask about a deployment
 has one surface that answers it — and knowing which surface to open is most of debugging.
 
-Flat verbs address containers by the **unit path** from chapter 3: `group.service.role` for a
-service and `group.service` for an accessory, matched as a glob (`*` = everything, `shop.**` = the
-group). That path is the selector. Revision and replica are flags (`--revision`, `--replica`),
-never path segments.
+<Aside type="note" title="unit path and selector">
+  Flat verbs address containers by the unit path from chapter 3: `group.service.role` for a
+  service and `group.service` for an accessory, matched as a glob (`*` = everything, `shop.**` =
+  the group). That path is the selector. Revision and replica are flags (`--revision`,
+  `--replica`), never path segments.
+</Aside>
+
+<Steps>
+
+<ol>
+<li>
 
 ## Look at the host 🔍
 
@@ -116,6 +125,15 @@ bundant exec 'shop.db' -f shop/db/accessory.yml -- hostname
 ceb403c30372
 ```
 
+<Aside type="tip" title="Fastest diagnostic">
+  When a deploy misbehaves, `bundant events --since 5m -f deploy.yml` shows what the engine did —
+  create, start, die, destroy — in the order it did it. It is the shortest path from "it is down"
+  to the step that failed.
+</Aside>
+
+</li>
+<li>
+
 ## The local UI 🖥️
 
 `bundant ui` serves one read-only page from your machine. It binds `127.0.0.1` by default, so
@@ -134,6 +152,9 @@ bundant ui - http://127.0.0.1:8787
 
 It returns `200` on `http://127.0.0.1:8787/`; the containers, stats, logs, proxy and events
 tabs fill in as the page polls.
+
+</li>
+<li>
 
 ## Diagnose a failed deploy ⚠️
 
@@ -185,11 +206,17 @@ A held lock stops a second deploy before it touches the host:
 bundant: deploy lock for default/hello is held by tutorial (age 0s; BUNDANT_LOCK_TTL_S reclaims stale locks)
 ```
 
+</li>
+<li>
+
 ## When the host has nothing 📦
 
 On a host with only sshd, bootstrap installs podman, configures the registry search path, enables
-the restart unit and runs a smoke container. Every step is idempotent. This is the complete file
-used below:
+the restart unit and runs a smoke container. Every step is idempotent. The complete file used
+below is the podman tab:
+
+<Tabs>
+<TabItem label="Podman host">
 
 ```yaml
 # hello-podman.yml
@@ -216,9 +243,23 @@ bundant bootstrap -f hello-podman.yml
   ready
 ```
 
+</TabItem>
+<TabItem label="Docker host">
+
+Nothing to bootstrap: the engine is already installed and running. Check it with
+`bundant runtime -f deploy.yml` (chapter 1), which reports the engine, API version and socket.
+
+</TabItem>
+</Tabs>
+
 You should see `health gate failed` with the probe URL for a broken health check,
 `no broken container left` afterwards, and `ready` from bootstrap. The deploy that failed
 never swapped the proxy, so the previous revision keeps serving.
+
+</li>
+</ol>
+
+</Steps>
 
 ## What actually happens ⚙️
 
@@ -233,6 +274,7 @@ The retention limits and the full surface are in [Monitoring](/bundant/docs/moni
 
 ## Did it fail? ⚠️
 
+<Aside type="caution" title="Recoverable failures">
 - **`health gate failed`** — the URL and the port are in the message. Fix
   `healthcheck.port` (the port your app listens on) or the path, then redeploy.
 - **`deploy lock ... is held`** — another deploy owns the service lock. Wait, or set
@@ -241,6 +283,9 @@ The retention limits and the full surface are in [Monitoring](/bundant/docs/moni
   engine. On a podman host run `bundant bootstrap -f deploy.yml`; on docker, start the daemon.
 - **`Failed to start server. Is port 8787 in use?`** — another `bundant ui` is still open.
   Use `bundant ui --port 8788` or close the old one.
+</Aside>
 
-Next: the reference starts at [deploy.yml](/bundant/docs/deploy-yml/); the internals are in
-[Architecture](/bundant/docs/architecture/).
+<CardGrid>
+<LinkCard title="deploy.yml reference" href="/bundant/docs/deploy-yml/" description="The file behind every surface on this page." />
+<LinkCard title="Architecture" href="/bundant/docs/architecture/" description="The call sequence behind ps, logs, stats, events and deploy." />
+</CardGrid>
