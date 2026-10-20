@@ -56,8 +56,8 @@ function parseFlags(lines) {
 const groups = {
   deploy: ["deploy", "scale", "rollback", "history", "prune", "delete"],
   units: ["validate", "start", "stop", "restart", "rm", "logs", "exec", "inspect", "status"],
-  groups: ["group", "accessory", "bootstrap"],
-  ops: ["runtime", "ui", "ps", "stats", "events"],
+  groups: ["group", "bootstrap"],
+  ops: ["runtime", "ui", "ps", "stats", "events", "errors"],
 };
 
 /** One runnable example per command, taken from docs/cli.md or README.md. */
@@ -66,7 +66,7 @@ const examples = {
   start: "bundant start shop.api.web",
   stop: "bundant stop 'shop.**'",
   restart: "bundant restart shop.api.web",
-  rm: "bundant rm 'legacy.**' --yes --dry-run",
+  rm: "bundant rm 'shop.**' --yes --dry-run",
   deploy: "bundant deploy -f deploy.yml",
   scale: "bundant scale --replicas 3 -f deploy.yml",
   rollback: "bundant rollback --to-revision 59ceb8d",
@@ -75,7 +75,6 @@ const examples = {
   delete: "bundant delete --yes",
   prune: "bundant prune --keep 3 -f deploy.yml",
   group: "bundant group install -f group.yml",
-  accessory: "bundant accessory status -f accessory.yml",
   bootstrap: "bundant bootstrap --dry-run",
   runtime: "bundant runtime --json",
   ui: "bundant ui --port 8787",
@@ -85,6 +84,7 @@ const examples = {
   inspect: "bundant inspect shop.api.web",
   logs: "bundant logs '**.web' --tail 50",
   events: "bundant events --since 2h",
+  errors: "bundant errors --json",
 };
 
 const groupOf = new Map(

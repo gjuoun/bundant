@@ -38,8 +38,7 @@ bundant rollback -f deploy.yml           # back to the previous revision
 ```
 
 Anything ssh can reach works — LAN, VPN, cloud, tailscale. The login user comes from
-the host itself (`root@10.0.0.5`) or from a top-level `user: root`; a per-host prefix
-wins. Use `--local-image
+the host itself (`root@10.0.0.5`) or from `ssh.user`; a per-host prefix wins. Use `--local-image
 <name:tag>` when the image lives only on your machine (it is streamed, not pushed to a
 registry; the API path sends only the layers the host lacks — see
 [`docs/transfer.md`](docs/transfer.md)).
@@ -59,8 +58,8 @@ registry; the API path sends only the layers the host lacks — see
 | command | what it does |
 |---|---|
 | `validate [-f path] [--json]` | parse one deploy/accessory/group file, print the resolved identity and the full error list; never touches a host |
-| `deploy [--dry-run] [--local-image n:t] [--rev ID] [--via cli\|api] [-f path]` | full deploy; `--dry-run` prints every command without executing |
-| `scale --replicas n [--via cli\|api] [-f path]` (or `scale n`) | add/remove replicas of the running revision without dropping requests (proxy target set changes before containers are removed) |
+| `deploy [--dry-run] [--local-image n:t] [--rev ID] [-f path]` | full deploy; `--dry-run` prints every command without executing |
+| `scale --replicas n [-f path]` (or `scale n`) | add/remove replicas of the running revision without dropping requests (proxy target set changes before containers are removed) |
 | `rollback [--to-revision rev]` | previous revision, or the exact one named by `--to-revision`: re-gate then re-swap |
 | `history` | revisions newest-first with state, current one marked |
 | `start <path>` / `stop <path>` / `restart <path>` | flat lifecycle verbs over one unit or a glob path (`shop.**`, `**.web`, `*`); `start` can create an accessory from `-f` |
@@ -69,7 +68,6 @@ registry; the API path sends only the layers the host lacks — see
 | `prune [--keep k]` | drop stopped revisions beyond the newest k (default 3) + dangling layers |
 | `delete [--yes] [--images]` | remove the service everywhere: proxy route, this service-role's containers, rendered env file (images kept unless `--images`); prints the plan and refuses without `--yes` |
 | `group <install\|uninstall\|status\|rollback> -f group.yml` | namespace lifecycle: ordered install (`needs:` topo-sorted), labelled-sweep uninstall that leaves accessories alone, aggregated status, whole-group rollback to one shared sha |
-| `accessory <boot\|reboot\|stop\|logs\|status\|remove> -f accessory.yml` | deprecated aliases for the flat verbs; stable name + named volumes, `healthcheck.tcp` readiness, `remove --yes [--volumes]` |
 | `bootstrap [--dry-run] [--skip-smoke]` | make each host ready: install podman when missing (apt/dnf/yum/apk/pacman/zypper), enable `podman-restart.service`, set the registry search path, smoke-test one container |
 | `runtime [--json] [--hosts a,b]` | per-host engine detection over the forwarded socket: engine, engine/API version, socket path, forward path, and socket-service state |
 | `ps` / `stats` / `events [--since 2h]` | read-only monitoring: every container with state and ports, one resource snapshot per host, a bounded runtime-event window |

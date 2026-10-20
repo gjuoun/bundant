@@ -90,10 +90,6 @@
         "description": "filter to a comma-separated host list"
       },
       {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
-      },
-      {
         "flag": "--strict",
         "description": "validate: require an explicit version"
       },
@@ -237,10 +233,6 @@
       {
         "flag": "--hosts string",
         "description": "filter to a comma-separated host list"
-      },
-      {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
       },
       {
         "flag": "--strict",
@@ -388,10 +380,6 @@
         "description": "filter to a comma-separated host list"
       },
       {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
-      },
-      {
         "flag": "--strict",
         "description": "validate: require an explicit version"
       },
@@ -535,10 +523,6 @@
       {
         "flag": "--hosts string",
         "description": "filter to a comma-separated host list"
-      },
-      {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
       },
       {
         "flag": "--strict",
@@ -686,10 +670,6 @@
         "description": "filter to a comma-separated host list"
       },
       {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
-      },
-      {
         "flag": "--strict",
         "description": "validate: require an explicit version"
       },
@@ -833,10 +813,6 @@
       {
         "flag": "--hosts string",
         "description": "filter to a comma-separated host list"
-      },
-      {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
       },
       {
         "flag": "--strict",
@@ -984,10 +960,6 @@
         "description": "filter to a comma-separated host list"
       },
       {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
-      },
-      {
         "flag": "--strict",
         "description": "validate: require an explicit version"
       },
@@ -1131,10 +1103,6 @@
       {
         "flag": "--hosts string",
         "description": "filter to a comma-separated host list"
-      },
-      {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
       },
       {
         "flag": "--strict",
@@ -1282,10 +1250,6 @@
         "description": "filter to a comma-separated host list"
       },
       {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
-      },
-      {
         "flag": "--strict",
         "description": "validate: require an explicit version"
       },
@@ -1429,10 +1393,6 @@
       {
         "flag": "--hosts string",
         "description": "filter to a comma-separated host list"
-      },
-      {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
       },
       {
         "flag": "--strict",
@@ -1580,10 +1540,6 @@
         "description": "filter to a comma-separated host list"
       },
       {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
-      },
-      {
         "flag": "--strict",
         "description": "validate: require an explicit version"
       },
@@ -1636,7 +1592,7 @@
         "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
       }
     ],
-    "example": "bundant rm 'legacy.**' --yes --dry-run"
+    "example": "bundant rm 'shop.**' --yes --dry-run"
   },
   {
     "name": "status",
@@ -1727,10 +1683,6 @@
       {
         "flag": "--hosts string",
         "description": "filter to a comma-separated host list"
-      },
-      {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
       },
       {
         "flag": "--strict",
@@ -1878,10 +1830,6 @@
         "description": "filter to a comma-separated host list"
       },
       {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
-      },
-      {
         "flag": "--strict",
         "description": "validate: require an explicit version"
       },
@@ -2025,10 +1973,6 @@
       {
         "flag": "--hosts string",
         "description": "filter to a comma-separated host list"
-      },
-      {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
       },
       {
         "flag": "--strict",
@@ -2176,10 +2120,6 @@
         "description": "filter to a comma-separated host list"
       },
       {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
-      },
-      {
         "flag": "--strict",
         "description": "validate: require an explicit version"
       },
@@ -2325,10 +2265,6 @@
         "description": "filter to a comma-separated host list"
       },
       {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
-      },
-      {
         "flag": "--strict",
         "description": "validate: require an explicit version"
       },
@@ -2382,155 +2318,6 @@
       }
     ],
     "example": "bundant group install -f group.yml"
-  },
-  {
-    "name": "accessory",
-    "group": "groups",
-    "summary": "stateful member lifecycle: boot, reboot, stop, logs, status, remove",
-    "usage": "bundant accessory <subcommand> [flags]",
-    "flags": [
-      {
-        "flag": "--file, -f string",
-        "description": "config path (hosts/runtime; filters read verbs to one unit)"
-      },
-      {
-        "flag": "--dry-run",
-        "description": "print the plan without executing it"
-      },
-      {
-        "flag": "--rev string",
-        "description": "override the revision for file-driven deploys"
-      },
-      {
-        "flag": "--local-image string",
-        "description": "stream a locally built image (name:tag) instead of pulling"
-      },
-      {
-        "flag": "--pull string",
-        "description": "image pull policy: missing, always or never"
-      },
-      {
-        "flag": "--keep string",
-        "description": "prune: revisions to keep (default 3)"
-      },
-      {
-        "flag": "--replicas string",
-        "description": "scale: target replica count"
-      },
-      {
-        "flag": "--yes",
-        "description": "skip the confirmation prompt"
-      },
-      {
-        "flag": "--images",
-        "description": "rm/delete: also remove images"
-      },
-      {
-        "flag": "--volumes",
-        "description": "rm: also remove volumes"
-      },
-      {
-        "flag": "--to-revision string",
-        "description": "rollback: revision to return to"
-      },
-      {
-        "flag": "--skip-smoke",
-        "description": "bootstrap: skip the smoke container"
-      },
-      {
-        "flag": "--host string",
-        "description": "filter to one host"
-      },
-      {
-        "flag": "--container string",
-        "description": "filter to one container"
-      },
-      {
-        "flag": "--tail string",
-        "description": "logs: lines to show (default 200)"
-      },
-      {
-        "flag": "--follow",
-        "description": "logs: keep streaming new lines"
-      },
-      {
-        "flag": "--since string",
-        "description": "events: window to query (default 2h)"
-      },
-      {
-        "flag": "--port string",
-        "description": "ui: port to bind (default 8787)"
-      },
-      {
-        "flag": "--json",
-        "description": "emit machine-readable JSON"
-      },
-      {
-        "flag": "--timings",
-        "description": "print per-phase timings"
-      },
-      {
-        "flag": "--hosts string",
-        "description": "filter to a comma-separated host list"
-      },
-      {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
-      },
-      {
-        "flag": "--strict",
-        "description": "validate: require an explicit version"
-      },
-      {
-        "flag": "--allow-case-collision",
-        "description": "deploy v2: permit case-only duplicate units"
-      },
-      {
-        "flag": "--replica string",
-        "description": "flat verbs: select one replica"
-      },
-      {
-        "flag": "--revision string",
-        "description": "flat verbs: select one revision"
-      },
-      {
-        "flag": "--all-revisions",
-        "description": "flat verbs: include stopped revisions"
-      },
-      {
-        "flag": "--route",
-        "description": "rm: also remove the proxy route"
-      },
-      {
-        "flag": "--env",
-        "description": "rm: also remove the rendered env file"
-      },
-      {
-        "flag": "--all",
-        "description": "exec: run in every matching replica"
-      },
-      {
-        "flag": "--help, -h",
-        "description": "Show help information"
-      },
-      {
-        "flag": "--version, -v",
-        "description": "Show version information"
-      },
-      {
-        "flag": "--wizard",
-        "description": "Start wizard mode for a command"
-      },
-      {
-        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
-        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
-      },
-      {
-        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
-        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
-      }
-    ],
-    "example": "bundant accessory status -f accessory.yml"
   },
   {
     "name": "bootstrap",
@@ -2621,10 +2408,6 @@
       {
         "flag": "--hosts string",
         "description": "filter to a comma-separated host list"
-      },
-      {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
       },
       {
         "flag": "--strict",
@@ -2772,10 +2555,6 @@
         "description": "filter to a comma-separated host list"
       },
       {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
-      },
-      {
         "flag": "--strict",
         "description": "validate: require an explicit version"
       },
@@ -2919,10 +2698,6 @@
       {
         "flag": "--hosts string",
         "description": "filter to a comma-separated host list"
-      },
-      {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
       },
       {
         "flag": "--strict",
@@ -3070,10 +2845,6 @@
         "description": "filter to a comma-separated host list"
       },
       {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
-      },
-      {
         "flag": "--strict",
         "description": "validate: require an explicit version"
       },
@@ -3217,10 +2988,6 @@
       {
         "flag": "--hosts string",
         "description": "filter to a comma-separated host list"
-      },
-      {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
       },
       {
         "flag": "--strict",
@@ -3368,8 +3135,149 @@
         "description": "filter to a comma-separated host list"
       },
       {
-        "flag": "--via string",
-        "description": "ops transport: api or cli (default api)"
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant events --since 2h"
+  },
+  {
+    "name": "errors",
+    "group": "ops",
+    "summary": "print the stable error catalog (code + exit status)",
+    "usage": "bundant errors [flags]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
       },
       {
         "flag": "--strict",
@@ -3424,6 +3332,6 @@
         "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
       }
     ],
-    "example": "bundant events --since 2h"
+    "example": "bundant errors --json"
   }
 ]
