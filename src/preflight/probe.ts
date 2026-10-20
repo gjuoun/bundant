@@ -1,6 +1,6 @@
-import { runtimeFor, type Runtime } from "../runtime.ts";
+import type { Runtime } from "../runtime.ts";
 import { parsePlatform, type Platform } from "../platform.ts";
-import { localImagePlatform } from "../transfer/layers.ts";
+import { resolveLocalImagePlatform } from "../transfer/layers.ts";
 import type { Executor } from "../types.ts";
 import { LocalExecutor } from "../exec/local.ts";
 import { binfmtPath, checkArch, type ArchVerdict } from "./arch.ts";
@@ -21,6 +21,8 @@ export interface ArchPreflightContext {
   rt: Runtime;
   /** Test seam: local image inspection. */
   local?: Executor;
+  /** Already resolved by the deploy path before ssh was opened. */
+  imagePlatform?: Platform;
 }
 
 export interface ArchPreflightResult {
@@ -62,13 +64,8 @@ export const defaultArchPreflight: ArchPreflight = async (ctx) => {
   // the comparison on the image the host actually received.
   if (!ctx.isLocal) return { emulated: false, hostPlatform: host };
 
-  // The local image may live in the other engine than the host runs (a docker
-  // build pushed to a podman host is normal), so probe both, exactly like the
-  // transfer path does.
-  const local = ctx.local ?? new LocalExecutor();
-  const other = runtimeFor(ctx.rt.kind === "docker" ? "podman" : "docker");
-  let image = await localImagePlatform(ctx.image, ctx.rt, local);
-  if (image === undefined) image = await localImagePlatform(ctx.image, other, local);
+  const image = ctx.imagePlatform ??
+    await resolveLocalImagePlatform(ctx.image, ctx.rt, ctx.local ?? new LocalExecutor());
   if (image === undefined) return { emulated: false, hostPlatform: host };
 
   const needsEmulation = image.os !== host.os || image.arch !== host.arch;
