@@ -1,14 +1,62 @@
 import { Effect } from "effect";
-import { Command } from "effect/cli";
-import { status as runStatus } from "../../status.ts";
+import { Argument, Command } from "effect/cli";
+import { ServiceIdentity } from "../../domain/identity.ts";
+import { unitPath } from "../../select/selector.ts";
 import { rootCommand } from "../root.ts";
-import { finish, loadedFor, runPromise } from "./common.ts";
+import { finish, loadedFor, opsVia, runPromise, value } from "./common.ts";
+import { selectorFor, withFlatUnits } from "./flat-common.ts";
 
-export const status = Command.make("status", {}, () =>
-  Effect.gen(function* () {
-    const g = yield* rootCommand;
-    const loaded = yield* runPromise(async () => loadedFor(g));
-    const code = yield* runPromise(() => runStatus(loaded));
-    yield* finish(code);
-  }),
-).pipe(Command.withDescription("per-host containers, proxy targets, health"));
+export const status = Command.make(
+  "status",
+  { path: Argument.String("path").pipe(Argument.optional) },
+  ({ path }) =>
+    Effect.gen(function* () {
+      const g = yield* rootCommand;
+      const via = opsVia(g.via);
+      if (via === null) return yield* finish(2);
+      const loaded = yield* runPromise(async () => loadedFor(g));
+      const pattern = selectorFor(
+        g,
+        loaded,
+        path._tag === "Some" ? path.value : undefined,
+      );
+      const units = yield* runPromise(() =>
+        withFlatUnits(loaded, via, pattern, {
+          revision: value(g.revision) ?? value(g["to-revision"]),
+          allRevisions: g["all-revisions"],
+        }, async (ctx) =>
+          ctx.units.map((unit) => {
+            const live = unit.containers.filter((c) => c.state === "running").length;
+            const identity = ServiceIdentity.from(loaded.config);
+            const configPath = unitPath({
+              group: identity.group,
+              service: identity.service,
+              role: identity.role,
+              kind: identity.kind,
+            });
+            const expected =
+              unit.path === configPath ? identity.replicas : unit.containers.length;
+            return {
+              path: unit.path,
+              kind: unit.kind,
+              revision: unit.revision,
+              expected,
+              live,
+              containers: unit.containers.map((c) => c.name),
+            };
+          }),
+        ),
+      );
+      if (g.json) {
+        console.log(JSON.stringify(units, null, 2));
+      } else {
+        for (const unit of units) {
+          console.log(
+            unit.path + " rev=" + unit.revision + " live=" + unit.live + "/" + unit.expected +
+              " [" + unit.containers.join(", ") + "]",
+          );
+        }
+      }
+      yield* finish(0);
+    }),
+).pipe(Command.withDescription("unit status by path (no path = every unit; --json for scripts)"));

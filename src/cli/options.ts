@@ -30,4 +30,5 @@ export const globalFlags = {
   "all-revisions": Flag.Boolean("all-revisions").pipe(Flag.withDefault(false)),
   route: Flag.Boolean("route").pipe(Flag.withDefault(false)),
   env: Flag.Boolean("env").pipe(Flag.withDefault(false)),
+  all: Flag.Boolean("all").pipe(Flag.withDefault(false)),
 };

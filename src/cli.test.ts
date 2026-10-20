@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect, FileSystem, Layer, Path, Stdio, Terminal } from "effect";
+import { Effect, FileSystem, Layer, Option, Path, Stdio, Terminal } from "effect";
 import { ChildProcessSpawner } from "effect/process";
 import { Argument, Command } from "effect/cli";
 import { rootCommand } from "./cli/root.ts";
@@ -12,6 +12,8 @@ import { runMain } from "./effect/runtime.ts";
 import { findCaseCollision } from "./deploy.ts";
 import { ACCESSORY_ALIASES, ACCESSORY_DEFAULT_ACTION } from "./cli/commands/accessory.ts";
 import { GROUP_DEFAULT_ACTION, GROUP_STATUS_ALIAS } from "./cli/commands/group.ts";
+import { selectorFor } from "./cli/commands/flat-common.ts";
+import { loadConfig } from "./config.ts";
 
 const TestLayer = Layer.mergeAll(
   Stdio.layerTest({}),
@@ -209,6 +211,15 @@ describe("effect/cli parsing", () => {
     ]) {
       expect(names).toContain(name);
     }
+  });
+
+  test("status with no path means every unit; -f filters to its unit", () => {
+    const loaded = loadConfig("examples/hello/deploy.yml");
+    expect(selectorFor({ file: Option.none() }, loaded, undefined)).toBe("*");
+    expect(selectorFor({ file: Option.some("examples/hello/deploy.yml") }, loaded, undefined)).toBe(
+      "default.hello.web",
+    );
+    expect(selectorFor({ file: Option.some("x") }, loaded, "shop.**")).toBe("shop.**");
   });
 
   test("validate accepts the example file", async () => {
