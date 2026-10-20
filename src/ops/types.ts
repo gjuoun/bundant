@@ -1,5 +1,6 @@
 import type { ContainerInfo, ContainerSpec, ContainerSummary } from "../adapters/types.ts";
 import type { BundantConfig } from "../config.ts";
+import type { Platform } from "../platform.ts";
 import type { RevisionEntry } from "../revisions.ts";
 
 /** Image pull policy: missing (default), always, never. */
@@ -47,6 +48,8 @@ export interface RuntimeOps {
   imageLayers(): Promise<Set<string>>;
   /** Resolve a local tag to an image id; the id is create-safe where the tag is not. */
   imageId(image: string): Promise<string | undefined>;
+  /** The image's own os/arch, as the host engine sees it. */
+  imagePlatform(image: string): Promise<Platform | undefined>;
   /** Stream a save/OCI archive into the engine's POST /images/load. */
   loadImage(stream: NodeJS.ReadableStream, opts?: { contentLength?: number }): Promise<void>;
   ensureNetwork(): Promise<void>;

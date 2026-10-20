@@ -26,6 +26,31 @@ async function adapterOn(
   };
 }
 
+describe("image platform", () => {
+  test("reads Architecture/Os and normalizes the engine spelling", async () => {
+    const { adapter, close } = await adapterOn((req, res) => {
+      expect(req.url.startsWith("/images/app%3At1/json")).toBe(true);
+      json(res, 200, { Id: "sha256:abc", Architecture: "x86_64", Os: "linux" });
+    });
+    try {
+      expect(await adapter.imagePlatform("app:t1")).toEqual({ os: "linux", arch: "amd64" });
+    } finally {
+      await close();
+    }
+  });
+
+  test("an absent image answers undefined instead of throwing", async () => {
+    const { adapter, close } = await adapterOn((_req, res) => {
+      json(res, 404, { message: "no such image" });
+    });
+    try {
+      expect(await adapter.imagePlatform("app:t1")).toBeUndefined();
+    } finally {
+      await close();
+    }
+  });
+});
+
 describe("adapter streaming and drift", () => {
   test("logs --follow streams frames and splits lines across frame boundaries", async () => {
     let follow = "";

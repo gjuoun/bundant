@@ -1,4 +1,5 @@
 import type { ExecResult } from "../types.ts";
+import type { Platform } from "../platform.ts";
 import type { RuntimeKind } from "../runtime.ts";
 
 export type { ExecResult, RuntimeKind };
@@ -102,6 +103,8 @@ export interface RuntimeAdapter {
   imageId(ref: string): Promise<string | undefined>;
   /** One image's ordered layer diffIDs (GET /images/{ref}/json RootFS.Layers). */
   imageLayers(ref: string): Promise<string[]>;
+  /** The image's own os/arch (GET /images/{ref}/json Architecture + Os). */
+  imagePlatform(ref: string): Promise<Platform | undefined>;
   loadImage(stream: NodeJS.ReadableStream, opts?: { contentLength?: number }): Promise<void>;
   removeImage(ref: string): Promise<void>;
   /** Remove dangling image layers (the old `image prune -f`). */

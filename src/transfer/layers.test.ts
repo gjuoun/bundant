@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   HostLayerCache,
   loadHostLayers,
+  localImagePlatform,
   localLayers,
   missingLayers,
   normalizeLayerId,
@@ -91,6 +92,33 @@ describe("local and host reads", () => {
     await expect(localLayers("nope:t1", runtimeFor("docker"), exec)).rejects.toThrow(
       "no such image",
     );
+  });
+
+  test("localImagePlatform normalizes uname spelling from image inspect", async () => {
+    const exec = {
+      kind: "local" as const,
+      async run() {
+        return { code: 0, stdout: "aarch64 linux \n", stderr: "" };
+      },
+      async putFile() {},
+      async close() {},
+    };
+    expect(await localImagePlatform("app:t1", runtimeFor("docker"), exec)).toEqual({
+      os: "linux",
+      arch: "arm64",
+    });
+  });
+
+  test("localImagePlatform defers to the remote check when inspect fails", async () => {
+    const exec = {
+      kind: "local" as const,
+      async run() {
+        return { code: 1, stdout: "", stderr: "no such image" };
+      },
+      async putFile() {},
+      async close() {},
+    };
+    expect(await localImagePlatform("nope:t1", runtimeFor("docker"), exec)).toBeUndefined();
   });
 
   test("host layers fold every image and the cache is reusable until refreshed", async () => {

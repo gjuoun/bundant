@@ -96,6 +96,9 @@ class FakeAdapter implements RuntimeAdapter {
   async imageLayers(ref: string): Promise<string[]> {
     return this.imageLayerMap[ref] ?? [];
   }
+  async imagePlatform(): Promise<{ os: string; arch: string } | undefined> {
+    return undefined;
+  }
   async pruneImages(): Promise<void> {
     this.steps.push("prune-images");
   }

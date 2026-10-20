@@ -1,4 +1,5 @@
 import type { RuntimeAdapter } from "../adapters/types.ts";
+import { parsePlatform, type Platform } from "../platform.ts";
 import type { Runtime } from "../runtime.ts";
 import type { Executor } from "../types.ts";
 
@@ -63,6 +64,27 @@ export async function localLayers(ref: string, rt: Runtime, exec: Executor): Pro
     throw new Error("local image inspect returned no layer list for " + ref);
   }
   return parsed.map((entry) => normalizeLayerId(String(entry))).filter((id) => id !== "");
+}
+
+/**
+ * The local image's os/arch, or undefined when the engine cannot inspect it.
+ * A missing platform must not block a deploy: the remote side still checks the
+ * image it actually received.
+ */
+export async function localImagePlatform(
+  ref: string,
+  rt: Runtime,
+  exec: Executor,
+): Promise<Platform | undefined> {
+  const format = "{{.Architecture}} {{.Os}} {{.Variant}}";
+  const r = await exec.run(
+    rt.bin + " image inspect --format '" + format + "' " + shellQuote(ref),
+  );
+  if (r.code !== 0) return undefined;
+  const parts = r.stdout.trim().split(/\s+/);
+  if (parts.length < 2) return undefined;
+  const variant = parts[2] === "<no value>" ? undefined : parts[2];
+  return parsePlatform(parts[1], parts[0], variant);
 }
 
 /** Fold every layer of every image the host holds into one set. */

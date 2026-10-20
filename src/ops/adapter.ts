@@ -7,6 +7,7 @@ import type {
 } from "../adapters/types.ts";
 import { CURL_IMAGE, NETWORK, TCP_IMAGE } from "../commands/docker.ts";
 import type { BundantConfig } from "../config.ts";
+import type { Platform } from "../platform.ts";
 import type { Executor } from "../types.ts";
 import { belongsToService, serviceLabels } from "../naming.ts";
 import { revisionOf, type RevisionEntry } from "../revisions.ts";
@@ -94,6 +95,10 @@ export class ApiOps implements RuntimeOps {
 
   async imageId(image: string): Promise<string | undefined> {
     return await this.adapter.imageId(image);
+  }
+
+  async imagePlatform(image: string): Promise<Platform | undefined> {
+    return await this.adapter.imagePlatform(image);
   }
 
   async pull(image: string): Promise<void> {
