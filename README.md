@@ -104,6 +104,7 @@ threshold.
 - [`docs/replicas.md`](docs/replicas.md) — N copies on one host, `bundant scale`, the drain ordering invariant
 - [`docs/monitoring.md`](docs/monitoring.md) — CLI + local UI monitoring, and what it deliberately leaves out
 - [`docs/architecture.md`](docs/architecture.md) — internals, proxy integration, design rules
+- [`docs/design.md`](docs/design.md) — the site's Bigface palette, token mapping and re-sync steps
 - [`examples/hello`](examples/hello) — runnable fixture
 - [`examples/shop`](examples/shop) — a group: db (accessory) + api + web
 - [`examples/replicas`](examples/replicas) — three copies of one service behind the proxy
@@ -114,6 +115,10 @@ threshold.
 bun run typecheck && bun test    # unit suites, no docker needed
 bun run schema:gen               # regenerate schema/*.json after editing src/config.ts
 bun run api:gen                  # regenerate engine API types from specs/ + the allowlist
+
+# product site (site/): one Bigface dark theme, tokens derived from site/src/data/bigface.json
+# palette upstream: https://github.com/gjuoun/bigface-theme (see docs/design.md)
+cd site && bun run build
 
 # dual-runtime smoke: everything below must work (same sources, both runtimes)
 bun  src/cli.ts --version
