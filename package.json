@@ -48,6 +48,7 @@
   },
   "dependencies": {
     "effect": "4.0.5",
+    "picomatch": "4",
     "yaml": "^2.6.0",
     "zod": "^3.24.0"
   },
