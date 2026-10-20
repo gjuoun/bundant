@@ -8,7 +8,7 @@
  * legacy /docs/cli/, /docs/naming/ and /docs/transfer/ URLs must still resolve,
  * and /docs/design/ must be gone.
  */
-import { access, readFile } from 'node:fs/promises';
+import { access, readdir, readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -98,6 +98,15 @@ async function main() {
   // The Design page left the site for good.
   if (await exists(join(distDir, 'docs', 'design', 'index.html'))) {
     failures.push('/docs/design/ still exists');
+  }
+
+  // The tutorial is published: no private addresses or machine paths may leak into it.
+  const sourceFiles = (await readdir(join(repoRoot, "docs", "tutorial"))).filter((name) => name.endsWith('.md'));
+  for (const name of sourceFiles) {
+    const body = await readFile(join(repoRoot, "docs", "tutorial", name), "utf8");
+    const ip = body.match(/\b(?:192\.168|10\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}\b/);
+    if (ip) failures.push(`${name} leaks a private address (${ip[0]})`);
+    if (/\/Users\/[a-z]/.test(body)) failures.push(`${name} leaks a home directory path`);
   }
 
   if (failures.length) {

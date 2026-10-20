@@ -44,7 +44,7 @@ cat > deploy.yml <<'YAML'
 version: 2
 service: hello
 image: traefik/whoami:v1.10
-hosts: [root@192.168.2.104]
+hosts: [root@box.example.com]
 proxy:
   enabled: true
   host: hello.bundant.test
@@ -68,7 +68,7 @@ bundant runtime -f deploy.yml
 ```
 
 ```text
-root@192.168.2.104 engine=docker version=29.1.3 api=1.52 socket=/var/run/docker.sock service=active
+root@box.example.com engine=docker version=29.1.3 api=1.52 socket=/var/run/docker.sock service=active
   forward=~/.cache/bundant/forward/fwd-11154-1-mvh5zkk3.sock
 ```
 
@@ -101,15 +101,15 @@ bundant deploy -f deploy.yml
 ```
 
 ```text
-deploy hello/web rev=11a45b2 -> root@192.168.2.104
-[root@192.168.2.104] deploying default.hello.web.11a45b2
-[root@192.168.2.104] pull skipped (present, policy=missing)
-[root@192.168.2.104] network ok
-[root@192.168.2.104] run ok: default.hello.web.11a45b2
-[root@192.168.2.104] health gate passed (1 target(s))
-[root@192.168.2.104] proxy-ensure ok
-[root@192.168.2.104] proxy-swap ok
-[root@192.168.2.104] stop-old ok
+deploy hello/web rev=11a45b2 -> root@box.example.com
+[root@box.example.com] deploying default.hello.web.11a45b2
+[root@box.example.com] pull skipped (present, policy=missing)
+[root@box.example.com] network ok
+[root@box.example.com] run ok: default.hello.web.11a45b2
+[root@box.example.com] health gate passed (1 target(s))
+[root@box.example.com] proxy-ensure ok
+[root@box.example.com] proxy-swap ok
+[root@box.example.com] stop-old ok
 deployed default.hello.web.11a45b2 on 1 host(s)
 ```
 
@@ -117,7 +117,7 @@ The container is not published on a host port. The proxy reaches it by name, and
 header picks the service:
 
 ```sh
-curl -s -H 'Host: hello.bundant.test' http://192.168.2.104/
+curl -s -H 'Host: hello.bundant.test' http://box.example.com/
 ```
 
 ```text
@@ -155,6 +155,6 @@ You should see `deployed default.hello.web.11a45b2 on 1 host(s)` followed by
 
 - **`ssh: connect to host ... port 22: Connection refused`** — `bundant runtime` is the
   quickest way to see it. Check that the host is reachable and that passwordless ssh works:
-  `ssh root@192.168.2.104 true`.
+  `ssh root@box.example.com true`.
 
 Next: [Chapter 2 — Your first service](/bundant/docs/tutorial/02-first-service/).

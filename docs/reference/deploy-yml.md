@@ -61,7 +61,7 @@ pipeline.
   `user@host` on a hosts entry › `ssh.user` › whatever `~/.ssh/config`
   provides (the local username when nothing is configured). Use it for hosts where
   the login name differs from your local one — the classic case is a bare IP:
-  `hosts: [root@192.168.2.104]` instead of an `ssh junguo@192.168.2.104` denial.
+  `hosts: [root@box.example.com]` instead of an `ssh junguo@box.example.com` denial.
   IPv6 literals go in brackets (`root@[2001:db8::1]`); a port goes after the
   host (`root@box.example.com:2222`, `root@[2001:db8::1]:2222`). `IdentityFile`
   and `ProxyJump` still belong in `~/.ssh/config`, which ssh itself reads.

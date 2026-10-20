@@ -1,0 +1,68 @@
+[
+  {
+    "label": "Tutorial",
+    "items": [
+      {
+        "label": "01 · Quick start",
+        "link": "/docs/tutorial/01-quickstart/"
+      },
+      {
+        "label": "02 · Your first service",
+        "link": "/docs/tutorial/02-first-service/"
+      },
+      {
+        "label": "03 · Operate",
+        "link": "/docs/tutorial/03-operate/"
+      },
+      {
+        "label": "04 · Scale and groups",
+        "link": "/docs/tutorial/04-scale-and-groups/"
+      },
+      {
+        "label": "05 · Observe and debug",
+        "link": "/docs/tutorial/05-observe/"
+      }
+    ]
+  },
+  {
+    "label": "Reference",
+    "items": [
+      {
+        "label": "deploy.yml reference",
+        "link": "/docs/deploy-yml/"
+      },
+      {
+        "label": "CLI reference",
+        "link": "/docs/cli/"
+      },
+      {
+        "label": "Naming",
+        "link": "/docs/naming/"
+      },
+      {
+        "label": "Editor schema",
+        "link": "/docs/schema/"
+      },
+      {
+        "label": "Image transfer",
+        "link": "/docs/transfer/"
+      },
+      {
+        "label": "podman",
+        "link": "/docs/podman/"
+      },
+      {
+        "label": "Validation",
+        "link": "/docs/validation/"
+      },
+      {
+        "label": "Monitoring",
+        "link": "/docs/monitoring/"
+      },
+      {
+        "label": "Architecture (internals)",
+        "link": "/docs/architecture/"
+      }
+    ]
+  }
+]

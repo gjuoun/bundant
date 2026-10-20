@@ -32,15 +32,15 @@ bundant deploy -f deploy.yml
 ```
 
 ```text
-deploy hello/web rev=8de4a23 -> root@192.168.2.104
-[root@192.168.2.104] deploying default.hello.web.8de4a23
-[root@192.168.2.104] pull skipped (present, policy=missing)
-[root@192.168.2.104] network ok
-[root@192.168.2.104] run ok: default.hello.web.8de4a23
-[root@192.168.2.104] health gate passed (1 target(s))
-[root@192.168.2.104] proxy-ensure ok
-[root@192.168.2.104] proxy-swap ok
-[root@192.168.2.104] stop-old ok
+deploy hello/web rev=8de4a23 -> root@box.example.com
+[root@box.example.com] deploying default.hello.web.8de4a23
+[root@box.example.com] pull skipped (present, policy=missing)
+[root@box.example.com] network ok
+[root@box.example.com] run ok: default.hello.web.8de4a23
+[root@box.example.com] health gate passed (1 target(s))
+[root@box.example.com] proxy-ensure ok
+[root@box.example.com] proxy-swap ok
+[root@box.example.com] stop-old ok
 deployed default.hello.web.8de4a23 on 1 host(s)
 ```
 
@@ -70,7 +70,7 @@ bundant history -f deploy.yml
 ```
 
 ```text
-== root@192.168.2.104 (hello-web) ==
+== root@box.example.com (hello-web) ==
  * default.hello.web.8de4a23 1 replica    Up                       2026-10-20 20:57:31 +0000 UTC
    default.hello.web.0f2c8cc 1 replica    Exited (2) 1 second ago  2026-10-20 20:57:28 +0000 UTC
    default.hello.web.11a45b2 1 replica    Exited (2) 4 seconds ago 2026-10-20 20:57:25 +0000 UTC
@@ -87,9 +87,9 @@ bundant rollback -f deploy.yml
 ```
 
 ```text
-[root@192.168.2.104] rollback: default.hello.web.8de4a23 -> default.hello.web.0f2c8cc (1 replica(s) as deployed)
-[root@192.168.2.104] health gate passed on default.hello.web.0f2c8cc
-[root@192.168.2.104] rolled back to default.hello.web.0f2c8cc (1 replica(s))
+[root@box.example.com] rollback: default.hello.web.8de4a23 -> default.hello.web.0f2c8cc (1 replica(s) as deployed)
+[root@box.example.com] health gate passed on default.hello.web.0f2c8cc
+[root@box.example.com] rolled back to default.hello.web.0f2c8cc (1 replica(s))
 ```
 
 ```sh
@@ -105,7 +105,7 @@ bundant history -f deploy.yml
 ```
 
 ```text
-== root@192.168.2.104 (hello-web) ==
+== root@box.example.com (hello-web) ==
    default.hello.web.8de4a23 1 replica    Exited (2) Less than a second ago 2026-10-20 20:57:31 +0000 UTC
  * default.hello.web.0f2c8cc 1 replica    Up                       2026-10-20 20:57:28 +0000 UTC
    default.hello.web.11a45b2 1 replica    Exited (2) 6 seconds ago 2026-10-20 20:57:25 +0000 UTC
@@ -123,7 +123,7 @@ after `rev=` change from `8de4a23` back to `0f2c8cc`.
   exit status 3, not a silent success:
 
   ```text
-  bundant: no unit matches "shop.nope.**" (searched labels bundant.group/bundant.service on root@192.168.2.104)
+  bundant: no unit matches "shop.nope.**" (searched labels bundant.group/bundant.service on root@box.example.com)
   ```
 
   Check the pattern and remember that revision and replica are flags, not path segments.

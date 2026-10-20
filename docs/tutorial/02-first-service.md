@@ -22,7 +22,7 @@ version: 2
 service: hello                 # identifier: letters, digits, - or _
 role: web                      # defaults to web
 image: traefik/whoami:v1.10    # the host pulls this, or --local-image streams it
-hosts: [root@192.168.2.104]    # user@host:port forms are allowed
+hosts: [root@box.example.com]    # user@host:port forms are allowed
 env:
   vars:
     BUNDANT_DEMO: "1"          # merged into the container environment, never printed
@@ -81,15 +81,15 @@ bundant deploy -f deploy.yml
 ```
 
 ```text
-deploy hello/web rev=0f2c8cc -> root@192.168.2.104
-[root@192.168.2.104] deploying default.hello.web.0f2c8cc
-[root@192.168.2.104] pull skipped (present, policy=missing)
-[root@192.168.2.104] network ok
-[root@192.168.2.104] run ok: default.hello.web.0f2c8cc
-[root@192.168.2.104] health gate passed (1 target(s))
-[root@192.168.2.104] proxy-ensure ok
-[root@192.168.2.104] proxy-swap ok
-[root@192.168.2.104] stop-old ok
+deploy hello/web rev=0f2c8cc -> root@box.example.com
+[root@box.example.com] deploying default.hello.web.0f2c8cc
+[root@box.example.com] pull skipped (present, policy=missing)
+[root@box.example.com] network ok
+[root@box.example.com] run ok: default.hello.web.0f2c8cc
+[root@box.example.com] health gate passed (1 target(s))
+[root@box.example.com] proxy-ensure ok
+[root@box.example.com] proxy-swap ok
+[root@box.example.com] stop-old ok
 deployed default.hello.web.0f2c8cc on 1 host(s)
 ```
 
@@ -110,7 +110,7 @@ bundant history -f deploy.yml
 ```
 
 ```text
-== root@192.168.2.104 (hello-web) ==
+== root@box.example.com (hello-web) ==
  * default.hello.web.0f2c8cc 1 replica    Up                       2026-10-20 20:57:28 +0000 UTC
    default.hello.web.11a45b2 1 replica    Exited (2) Less than a second ago 2026-10-20 20:57:25 +0000 UTC
   * = running revision

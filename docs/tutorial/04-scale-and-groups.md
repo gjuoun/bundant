@@ -23,7 +23,7 @@ bundant deploy -f deploy.yml
 ```
 
 ```text
-deploy hello/web rev=7db591d -> root@192.168.2.104
+deploy hello/web rev=7db591d -> root@box.example.com
 deployed default.hello.web.7db591d.1, default.hello.web.7db591d.2, default.hello.web.7db591d.3 on 1 host(s)
 ```
 
@@ -89,7 +89,7 @@ version: 2
 kind: accessory
 service: db
 image: docker.io/library/postgres:16-alpine
-hosts: [root@192.168.2.104]
+hosts: [root@box.example.com]
 env: { vars: { POSTGRES_DB: shop, POSTGRES_USER: shop, POSTGRES_PASSWORD: tutorial } }
 volumes: ["pgdata:/var/lib/postgresql/data"]
 healthcheck: { tcp: 5432, timeout: 60 }
@@ -116,7 +116,7 @@ bundant validate: OK
 
 ```text
 bundant group install - shop rev=e05b32b order=db -> web
-  shop.db: absent on root@192.168.2.104
+  shop.db: absent on root@box.example.com
 bundant: accessory 'db' is not ready - start it first:
   bundant start -f ~/bundant-tutorial/app/shop/db/accessory.yml
 group install report: applied [] failed [db] skipped [db, web]
@@ -136,7 +136,7 @@ group install report: applied [db, web]
 
 ```sh
 bundant group status -f shop/group.yml | grep -E '===|volumes:|replicas:|revision:|health'
-curl -s -H 'Host: shop.bundant.test' http://192.168.2.104/
+curl -s -H 'Host: shop.bundant.test' http://box.example.com/
 ```
 
 ```text

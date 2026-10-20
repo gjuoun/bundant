@@ -34,11 +34,11 @@ bundant events --since 5m -f deploy.yml | sed -n '1,8p'
 ```
 
 ```text
-== root@192.168.2.104 ==
+== root@box.example.com ==
   shop.web.web.e05b32b         0.00%  1.45MiB / 8.00GiB   0.02%  5
   shop.db                      0.00%  66.85MiB / 8.00GiB  0.82%  6
   default.hello.web.7db591d.3  0.00%  2.47MiB / 8.00GiB   0.03%  5
-== root@192.168.2.104 ==
+== root@box.example.com ==
   1792529941|container|die|default.hello.web.0f2c8cc
   1792529942|container|create|default.hello.web.7db591d.4
   1792529943|container|start|default.hello.web.7db591d.4
@@ -53,7 +53,7 @@ bundant exec 'shop.db' -f shop/db/accessory.yml -- hostname
 ```
 
 ```text
-== root@192.168.2.104 ==
+== root@box.example.com ==
   name          shop.web.web.e05b32b
   state         running
   restarts      0  exitCode=0
@@ -72,7 +72,7 @@ bundant ui -f deploy.yml
 
 ```text
 bundant ui - http://127.0.0.1:8787
-  hosts: root@192.168.2.104
+  hosts: root@box.example.com
   read-only, pull-on-demand: every query is one ssh round trip per host; nothing runs on them
   remote access: ssh -L 8787:127.0.0.1:8787 <host> (or tailscale)
 ```
@@ -90,7 +90,7 @@ nothing listens on:
 version: 2
 service: broken
 image: traefik/whoami:v1.10
-hosts: [root@192.168.2.104]
+hosts: [root@box.example.com]
 healthcheck: { path: /, port: 59999, timeout: 5 }
 proxy: { enabled: false }
 ```
@@ -100,9 +100,9 @@ bundant deploy -f broken/deploy.yml
 ```
 
 ```text
-deploy broken/web rev=e05b32b -> root@192.168.2.104
-[root@192.168.2.104] run ok: default.broken.web.e05b32b
-[root@192.168.2.104] aborted, removed containers started by this run (default.broken.web.e05b32b)
+deploy broken/web rev=e05b32b -> root@box.example.com
+[root@box.example.com] run ok: default.broken.web.e05b32b
+[root@box.example.com] aborted, removed containers started by this run (default.broken.web.e05b32b)
 bundant: health gate failed: GET http://default.broken.web.e05b32b:59999/ never returned 200
 (last: curl: (7) Failed to connect to default.broken.web.e05b32b port 59999 after 0 ms: Could not connect to server
 000)
