@@ -16,6 +16,10 @@ export interface EngineVersion {
   version: string;
   apiVersion: string;
   minApiVersion?: string;
+  /** GET /version Arch: the engine host's own CPU architecture. */
+  arch?: string;
+  os?: string;
+  kernelVersion?: string;
 }
 
 export type SocketState = "active" | "inactive" | "absent";
@@ -35,6 +39,9 @@ export interface RuntimeDetection {
   socketPath?: string;
   state: SocketState;
   candidates: CandidateResult[];
+  arch?: string;
+  os?: string;
+  kernelVersion?: string;
 }
 
 export interface SocketProbe {
@@ -82,6 +89,11 @@ export function parseEngineVersion(payload: VersionPayload): EngineVersion {
     version: payload.Version ?? engineComponent?.Version ?? "unknown",
     apiVersion,
     minApiVersion: engineComponent?.Details?.MinAPIVersion ?? payload.MinAPIVersion,
+    // Only present keys are copied: detection results are compared by value
+    // in tests and a missing key is not the same fact as an empty string.
+    ...(payload.Arch !== undefined ? { arch: payload.Arch } : {}),
+    ...(payload.Os !== undefined ? { os: payload.Os } : {}),
+    ...(payload.KernelVersion !== undefined ? { kernelVersion: payload.KernelVersion } : {}),
   };
 }
 
@@ -128,6 +140,9 @@ export async function detectRuntime(opts: DetectOptions): Promise<RuntimeDetecti
       socketPath: matching.socketPath,
       state: "active",
       candidates,
+      ...(engine.arch !== undefined ? { arch: engine.arch } : {}),
+      ...(engine.os !== undefined ? { os: engine.os } : {}),
+      ...(engine.kernelVersion !== undefined ? { kernelVersion: engine.kernelVersion } : {}),
     };
   }
 

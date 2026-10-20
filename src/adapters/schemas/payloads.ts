@@ -28,6 +28,9 @@ export const versionSchema = z.object({
   Version: z.string().optional(),
   ApiVersion: z.string().optional(),
   MinAPIVersion: z.string().optional(),
+  Arch: z.string().optional(),
+  Os: z.string().optional(),
+  KernelVersion: z.string().optional(),
   Components: z
     .array(
       z.object({
