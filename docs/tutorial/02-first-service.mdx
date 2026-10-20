@@ -7,6 +7,8 @@ sidebar:
   label: "02 · Your first service"
 ---
 
+import { Aside, Badge, CardGrid, FileTree, LinkCard, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
 # Your first service
 
 **What you get:** you can read every line of `deploy.yml`, say which fields change the container
@@ -15,10 +17,21 @@ and which change routing, and validate a change before any host sees it.
 **Why it matters:** the file is the whole contract. Once you can read it, you can predict what a
 deploy will do — and validation catches most mistakes locally, for free.
 
+<Steps>
+
+<ol>
+<li>
+
 ## The file, field by field 📝
 
 This is the complete file from the quick start, with a role, an environment variable and an
-explicit health check added:
+explicit health check added. The app directory still holds that one file:
+
+<FileTree>
+- ~/bundant-tutorial/
+  - app/
+    - deploy.yml
+</FileTree>
 
 ```yaml
 version: 2
@@ -79,6 +92,22 @@ flowchart TD
 | `healthcheck` | the gate that must pass before the proxy points at the new container |
 | `proxy` | `enabled: false` for workers; when enabled, `host` is required |
 
+<Aside type="note" title="Identity: service and role">
+  `service` and `role` compose the name `<group>.<service>.<role>.<revision>`. `role` is a segment
+  for variants of one service and defaults to `web`.
+</Aside>
+
+<Aside type="note" title="Container side: image, env, healthcheck">
+  These decide what process runs and when it is considered ready: `image` is what to run, `env`
+  is merged into the container environment, and `healthcheck` is the gate that must pass before
+  the proxy points at the new container.
+</Aside>
+
+<Aside type="note" title="Placement and routing: hosts, proxy">
+  `hosts` lists the ssh targets (one or more); `proxy` decides whether the service gets an HTTP
+  route. For a worker that publishes no route, set `proxy: { enabled: false }`.
+</Aside>
+
 The value of `proxy.host` is the **route host**: the `Host:` header a request must carry for the
 proxy to route it to this service. Two services on one host are told apart by that header, not by
 a port.
@@ -89,6 +118,9 @@ Commit the edit. The new git short sha is the new revision:
 git add deploy.yml
 git commit -m 'add health, env and role'
 ```
+
+</li>
+<li>
 
 ## Validate before you deploy ✅
 
@@ -110,14 +142,48 @@ bundant validate: OK
   round-trip: ok
 ```
 
+<Tabs>
+<TabItem label="Human output">
+
+The default prints the identity a deploy would use, one field per line as above.
+
+</TabItem>
+<TabItem label="Machine output">
+
+<Badge text="--json" variant="tip" /> adds one JSON object on stdout, with the same identity:
+
+```sh
+bundant validate -f deploy.yml --json
+```
+
+```json
+{
+  "ok": true,
+  "version": 2,
+  "versionExplicit": true,
+  "notes": [],
+  "errors": [],
+  "identity": { "kind": "service", "group": "default", "service": "hello" }
+}
+```
+
+</TabItem>
+</Tabs>
+
 Validation parses the file, checks every field and the composed name, and prints the identity a
 deploy would use. It does not open an ssh connection and does not take the lock.
+
+</li>
+<li>
 
 ## Deploy 🚀
 
 ```sh
 bundant deploy -f deploy.yml
 ```
+
+<Tabs>
+<TabItem label="Docker engine">
 
 ```text
 deploy hello/web rev=0f2c8cc -> root@box.example.com
@@ -131,6 +197,16 @@ deploy hello/web rev=0f2c8cc -> root@box.example.com
 [root@box.example.com] stop-old ok
 deployed default.hello.web.0f2c8cc on 1 host(s)
 ```
+
+</TabItem>
+<TabItem label="Podman engine">
+
+The same phases run over the podman socket. On a host with only sshd, `bundant bootstrap` installs
+podman and enables its socket first; the deploy output then names the podman endpoint instead of
+the docker one.
+
+</TabItem>
+</Tabs>
 
 What the phases mean:
 
@@ -155,9 +231,19 @@ bundant history -f deploy.yml
   * = running revision
 ```
 
+<Aside type="tip" title="Shortcut">
+  `bundant history -f deploy.yml` shows every retained revision and marks the running one with
+  `*`; no sha has to be remembered to find the rollback target.
+</Aside>
+
 You should see `health gate passed` followed by `proxy-swap ok` and
 `deployed ... on 1 host(s)`; `history` marks the new revision with `*` and keeps the old one
 stopped.
+
+</li>
+</ol>
+
+</Steps>
 
 ## What actually happens ⚙️
 
@@ -172,6 +258,7 @@ typed `ContainerSpec` (image, merged env, labels `bundant.kind`/`bundant.revisio
 
 ## Did it fail? ⚠️
 
+<Aside type="caution" title="Recoverable failures">
 - **A typo in a field name** — unknown keys are rejected. This is a real validation failure:
 
   ```text
@@ -185,5 +272,9 @@ typed `ContainerSpec` (image, merged env, labels `bundant.kind`/`bundant.revisio
   service answers on, or set `proxy: { enabled: false }` for a worker that publishes no route.
 - **The image cannot be pulled** — the error names the image and the host. Check that the tag
   exists and, on a private registry, that the host is already logged in.
+</Aside>
 
-Next: [Chapter 3 — Operate](/bundant/docs/tutorial/03-operate/).
+<CardGrid>
+<LinkCard title="Chapter 3 — Operate" href="/bundant/docs/tutorial/03-operate/" description="The day-two loop: status, logs, revisions and rollback." />
+<LinkCard title="deploy.yml reference" href="/bundant/docs/deploy-yml/" description="Every field, its default and what changing it does." />
+</CardGrid>

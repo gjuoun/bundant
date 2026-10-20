@@ -7,6 +7,8 @@ sidebar:
   label: "01 · Quick start"
 ---
 
+import { Aside, Badge, CardGrid, FileTree, LinkCard, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
 # Quick start
 
 **What you get:** the `bundant` command installed, one host checked over ssh, and one service
@@ -17,17 +19,33 @@ platform project. Here it is one file and one command, and you can see every ste
 
 Three words come up on this page and everywhere after it:
 
-- **revision** — the git short sha of the directory that holds `deploy.yml`; every deploy
-  builds a container named after it, and rollback targets it.
-- **health gate** — a probe that must answer before traffic moves; a new container that fails it
-  is removed and the old one keeps serving.
-- **proxy swap** — the single step that points the host's proxy at the new container. Until it
-  happens, nothing user-visible changes.
+<Aside type="note" title="revision">
+  The git short sha of the directory that holds `deploy.yml`. Every deploy builds a container
+  named after it, and rollback targets it.
+</Aside>
+
+<Aside type="note" title="health gate">
+  A probe that must answer before traffic moves. A new container that fails it is removed and
+  the old one keeps serving.
+</Aside>
+
+<Aside type="note" title="proxy swap">
+  The single step that points the host's proxy at the new container. Until it happens, nothing
+  user-visible changes.
+</Aside>
+
+<Steps>
+
+<ol>
+<li>
 
 ## 1. Install the CLI 📦
 
 `bundant` is not on npm yet, so install it from a checkout. This builds the Node bundle and
-links the command into Bun's global bin directory:
+links the command into Bun's global bin directory.
+
+<Tabs>
+<TabItem label="From a checkout (recommended)">
 
 ```sh
 git clone https://github.com/gjuoun/bundant.git
@@ -38,15 +56,39 @@ bun link
 bundant --version
 ```
 
+</TabItem>
+<TabItem label="Run from source with Bun">
+
+`bundant-bun` executes the TypeScript sources directly, so it needs no build step:
+
+```sh
+git clone https://github.com/gjuoun/bundant.git
+cd bundant
+bun install
+bun link
+bundant-bun --version
+```
+
+</TabItem>
+</Tabs>
+
 You should see `bundant v0.1.0`.
 
-Bun users can also run `bundant-bun`, which executes the TypeScript sources directly and needs
-no build step.
+</li>
+<li>
 
 ## 2. Write a deploy.yml 📝
 
-`deploy.yml` is the one file that describes a service: which image to run, which hosts run it,
+`deploy.yml` <Badge text="version: 2" variant="note" /> is the one file that describes a service: which image to run, which hosts run it,
 and how HTTP traffic reaches it. Create a directory, write the file, and commit it:
+
+The directory holds one file:
+
+<FileTree>
+- ~/bundant-tutorial/
+  - app/
+    - deploy.yml
+</FileTree>
 
 ```sh
 mkdir -p ~/bundant-tutorial/app
@@ -72,6 +114,9 @@ git rev-parse --short HEAD
 The short sha is the **revision** — the commit-derived identity of this deploy. Ours was
 `11a45b2`; yours will differ.
 
+</li>
+<li>
+
 ## 3. Check the host 🖥️
 
 `bundant runtime` asks the host which container engine it has, over the same ssh connection a
@@ -85,6 +130,9 @@ bundant runtime -f deploy.yml
 root@box.example.com engine=docker version=29.1.3 api=1.52 socket=/var/run/docker.sock service=active
   forward=~/.cache/bundant/forward/fwd-20078-1-mvh77n88.sock
 ```
+
+</li>
+<li>
 
 ## 4. Validate, then deploy 🚀
 
@@ -177,6 +225,9 @@ IP: 127.0.0.1
 IP: ::1
 ```
 
+</li>
+<li>
+
 ## 5. Read the state back 📊
 
 ```sh
@@ -187,6 +238,11 @@ bundant status '*' -f deploy.yml
 default.hello.web rev=11a45b2 live=1/1 [default.hello.web.11a45b2]
 ```
 
+<Aside type="tip" title="Shortcut">
+  `bundant status '*'` asks for every unit on every host; the `-f` form above narrows it to the
+  service in this file.
+</Aside>
+
 `live=1/1` means one container is running and the file asks for one. The value before the slash
 is what is running now; the value after it is what `deploy.yml` expects.
 
@@ -195,6 +251,11 @@ differ on every run and on every machine; the lines that carry meaning do not.
 
 You should see `deployed default.hello.web.11a45b2 on 1 host(s)` followed by `live=1/1` — one
 running container, serving through the proxy.
+
+</li>
+</ol>
+
+</Steps>
 
 ## What actually happens ⚙️
 
@@ -209,6 +270,7 @@ in [Architecture](/bundant/docs/architecture/).
 
 ## Did it fail? ⚠️
 
+<Aside type="caution" title="Recoverable failures">
 - **`bundant: command not found`** — `bun link` wrote the command under Bun's global bin,
   which may not be on PATH. Fix it with `export PATH="$HOME/.bun/bin:$PATH"` and run
   `bundant --version` again.
@@ -223,5 +285,9 @@ in [Architecture](/bundant/docs/architecture/).
 - **`ssh: connect to host ... port 22: Connection refused`** — `bundant runtime` is the
   quickest way to see it. Check that the host is reachable and that passwordless ssh works:
   `ssh root@box.example.com true`.
+</Aside>
 
-Next: [Chapter 2 — Your first service](/bundant/docs/tutorial/02-first-service/).
+<CardGrid>
+<LinkCard title="Chapter 2 — Your first service" href="/bundant/docs/tutorial/02-first-service/" description="Understand deploy.yml by editing it, validate it, then deploy it." />
+<LinkCard title="deploy.yml reference" href="/bundant/docs/deploy-yml/" description="Every field in the file this chapter writes." />
+</CardGrid>
