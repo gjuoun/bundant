@@ -1,0 +1,219 @@
+{
+  "_source": "Vendored from https://github.com/gjuoun/bigface-theme/blob/main/palette/bigface.json @ 77ca012f80b0f163e0a112441bbcd14a145772c4 (2026-10-19). Do not edit colours here; re-sync from upstream.",
+  "name": "Bigface",
+  "appearance": "dark",
+  "colors": {
+    "bg": {
+      "hex": "#252925",
+      "source": "jetbrains:TEXT#BACKGROUND"
+    },
+    "bgPanel": {
+      "hex": "#2e332e",
+      "source": "derived"
+    },
+    "bgDeep": {
+      "hex": "#1f231f",
+      "source": "derived"
+    },
+    "fg": {
+      "hex": "#d9d9d4",
+      "source": "jetbrains:TEXT#FOREGROUND"
+    },
+    "fgMuted": {
+      "hex": "#9c9a8f",
+      "source": "derived"
+    },
+    "fgDim": {
+      "hex": "#6e6b68",
+      "source": "jetbrains:colors#LINE_NUMBERS_COLOR"
+    },
+    "border": {
+      "hex": "#494848",
+      "source": "jetbrains:colors#INDENT_GUIDE"
+    },
+    "borderMuted": {
+      "hex": "#333333",
+      "source": "jetbrains:colors#RIGHT_MARGIN_COLOR"
+    },
+    "selection": {
+      "hex": "#646464",
+      "source": "jetbrains:colors#SELECTION_BACKGROUND"
+    },
+    "cursorLine": {
+      "hex": "#3b3c32",
+      "source": "jetbrains:colors#CARET_ROW_COLOR"
+    },
+    "braceMatch": {
+      "hex": "#3b514d",
+      "source": "jetbrains:MATCHED_BRACE_ATTRIBUTES#BACKGROUND"
+    },
+    "blue": {
+      "hex": "#00b0ff",
+      "source": "jetbrains:DEFAULT_KEYWORD#FOREGROUND"
+    },
+    "skyBlue": {
+      "hex": "#81d4fa",
+      "source": "jetbrains:CONSOLE_BLUE_OUTPUT#FOREGROUND"
+    },
+    "lightBlue": {
+      "hex": "#40c4ff",
+      "source": "jetbrains:DEFAULT_TAG#FOREGROUND"
+    },
+    "paleBlue": {
+      "hex": "#b3e5fc",
+      "source": "jetbrains:DEFAULT_PARAMETER#FOREGROUND"
+    },
+    "cyan": {
+      "hex": "#66d9ef",
+      "source": "jetbrains:TYPEDEF#FOREGROUND"
+    },
+    "green": {
+      "hex": "#00c853",
+      "source": "jetbrains:DEFAULT_IDENTIFIER#FOREGROUND"
+    },
+    "limeGreen": {
+      "hex": "#8bc34a",
+      "source": "jetbrains:CONSOLE_GREEN_OUTPUT#FOREGROUND"
+    },
+    "lime": {
+      "hex": "#c6ff00",
+      "source": "jetbrains:DEFAULT_FUNCTION_CALL#FOREGROUND"
+    },
+    "yellow": {
+      "hex": "#e5e500",
+      "source": "jetbrains:DEFAULT_STRING#FOREGROUND"
+    },
+    "brightYellow": {
+      "hex": "#ffeb3b",
+      "source": "jetbrains:DEFAULT_OPERATION_SIGN#FOREGROUND"
+    },
+    "orange": {
+      "hex": "#ff9800",
+      "source": "jetbrains:LOG_WARNING_OUTPUT#FOREGROUND"
+    },
+    "burntOrange": {
+      "hex": "#fc5d23",
+      "source": "jetbrains:DEFAULT_NUMBER#FOREGROUND"
+    },
+    "pink": {
+      "hex": "#f52670",
+      "source": "jetbrains:CONSOLE_ERROR_OUTPUT#FOREGROUND"
+    },
+    "purple": {
+      "hex": "#ae81ff",
+      "source": "jetbrains:PHP_CONSTANT#FOREGROUND"
+    },
+    "comment": {
+      "hex": "#75715e",
+      "source": "jetbrains:OC.LINE_COMMENT#FOREGROUND"
+    },
+    "toolPending": {
+      "hex": "#2f2f22",
+      "source": "derived"
+    },
+    "toolSuccess": {
+      "hex": "#1f3320",
+      "source": "derived"
+    },
+    "toolError": {
+      "hex": "#3a2028",
+      "source": "derived"
+    },
+    "customMessage": {
+      "hex": "#2b2740",
+      "source": "derived"
+    },
+    "searchBg": {
+      "hex": "#ffe792",
+      "source": "jetbrains:TEXT_SEARCH_RESULT_ATTRIBUTES#BACKGROUND"
+    },
+    "searchFg": {
+      "hex": "#252621",
+      "source": "jetbrains:TEXT_SEARCH_RESULT_ATTRIBUTES#FOREGROUND"
+    },
+    "caret": {
+      "hex": "#f8f8f0",
+      "source": "jetbrains:colors#CARET_COLOR"
+    }
+  },
+  "ansi": {
+    "black": {
+      "hex": "#494848",
+      "source": "jetbrains:colors#INDENT_GUIDE"
+    },
+    "red": {
+      "hex": "#f44336",
+      "source": "jetbrains:CONSOLE_RED_OUTPUT#FOREGROUND"
+    },
+    "green": {
+      "hex": "#8bc34a",
+      "source": "jetbrains:CONSOLE_GREEN_OUTPUT#FOREGROUND"
+    },
+    "yellow": {
+      "hex": "#ffeb3b",
+      "source": "jetbrains:CONSOLE_YELLOW_OUTPUT#FOREGROUND"
+    },
+    "blue": {
+      "hex": "#81d4fa",
+      "source": "jetbrains:CONSOLE_BLUE_OUTPUT#FOREGROUND"
+    },
+    "magenta": {
+      "hex": "#e91e63",
+      "source": "jetbrains:CONSOLE_MAGENTA_OUTPUT#FOREGROUND"
+    },
+    "cyan": {
+      "hex": "#00bcd4",
+      "source": "jetbrains:CONSOLE_CYAN_OUTPUT#FOREGROUND"
+    },
+    "white": {
+      "hex": "#9e9e9e",
+      "source": "jetbrains:CONSOLE_GRAY_OUTPUT#FOREGROUND"
+    },
+    "brightBlack": {
+      "hex": "#6e6b68",
+      "source": "jetbrains:colors#LINE_NUMBERS_COLOR"
+    },
+    "brightRed": {
+      "hex": "#ff0000",
+      "source": "jetbrains:CONSOLE_RED_BRIGHT_OUTPUT#FOREGROUND"
+    },
+    "brightGreen": {
+      "hex": "#00ff00",
+      "source": "jetbrains:CONSOLE_GREEN_BRIGHT_OUTPUT#FOREGROUND"
+    },
+    "brightYellow": {
+      "hex": "#ccff90",
+      "source": "jetbrains:CONSOLE_YELLOW_BRIGHT_OUTPUT#FOREGROUND"
+    },
+    "brightBlue": {
+      "hex": "#40c4ff",
+      "source": "jetbrains:CONSOLE_BLUE_BRIGHT_OUTPUT#FOREGROUND"
+    },
+    "brightMagenta": {
+      "hex": "#7e57c2",
+      "source": "jetbrains:CONSOLE_MAGENTA_BRIGHT_OUTPUT#FOREGROUND"
+    },
+    "brightCyan": {
+      "hex": "#00ffff",
+      "source": "jetbrains:CONSOLE_CYAN_BRIGHT_OUTPUT#FOREGROUND"
+    },
+    "brightWhite": {
+      "hex": "#ffffff",
+      "source": "jetbrains:CONSOLE_WHITE_OUTPUT#FOREGROUND"
+    }
+  },
+  "syntax": {
+    "comment": "comment",
+    "keyword": "blue",
+    "function": "lime",
+    "variable": "green",
+    "string": "yellow",
+    "number": "burntOrange",
+    "type": "cyan",
+    "operator": "brightYellow",
+    "punctuation": "fg",
+    "constant": "purple",
+    "tag": "lightBlue",
+    "parameter": "paleBlue"
+  }
+}

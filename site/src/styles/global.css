@@ -1,6 +1,5 @@
 @import "tailwindcss";
-
-@custom-variant dark (&:where(.dark, .dark *));
+@import "./bigface.css";
 
 @theme inline {
   --color-background: var(--background);
@@ -21,6 +20,17 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-code-surface: var(--code-surface);
+  --color-code-border: var(--code-border);
+  --color-code-key: var(--syntax-keyword);
+  --color-code-string: var(--syntax-string);
+  --color-code-number: var(--syntax-number);
+  --color-code-comment: var(--syntax-comment);
+  --color-code-fn: var(--syntax-function);
+  --color-code-type: var(--syntax-type);
+  --color-success: var(--syntax-success);
+  --color-arrow: var(--syntax-arrow);
+  --color-warning: var(--syntax-warning);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -31,52 +41,31 @@
   --animate-accordion-up: accordion-up 0.18s ease-out;
 }
 
+/* Bigface is the only theme: one dark palette, no light/dark pair.
+   Every value below maps to an entry in site/src/data/bigface.json. */
 :root {
   --radius: 0.625rem;
   --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 
-  /* Light is the default: near-white surface, near-black type, one sky accent. */
-  --background: oklch(0.995 0.0015 240);
-  --foreground: oklch(0.19 0.012 250);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.19 0.012 250);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.19 0.012 250);
-  --primary: oklch(0.685 0.148 237.5);
-  --primary-foreground: oklch(0.19 0.028 245);
-  --secondary: oklch(0.965 0.005 240);
-  --secondary-foreground: oklch(0.25 0.012 250);
-  --muted: oklch(0.965 0.004 240);
-  --muted-foreground: oklch(0.46 0.012 250);
-  --accent: oklch(0.955 0.03 235);
-  --accent-foreground: oklch(0.43 0.11 237);
-  --destructive: oklch(0.58 0.2 25);
-  --border: oklch(0.905 0.006 240);
-  --input: oklch(0.905 0.006 240);
-  --ring: oklch(0.685 0.148 237.5);
-  color-scheme: light;
-}
-
-.dark {
-  --background: oklch(0.17 0.008 250);
-  --foreground: oklch(0.96 0.004 240);
-  --card: oklch(0.205 0.009 250);
-  --card-foreground: oklch(0.96 0.004 240);
-  --popover: oklch(0.205 0.009 250);
-  --popover-foreground: oklch(0.96 0.004 240);
-  --primary: oklch(0.75 0.13 237);
-  --primary-foreground: oklch(0.18 0.03 240);
-  --secondary: oklch(0.245 0.01 250);
-  --secondary-foreground: oklch(0.95 0.004 240);
-  --muted: oklch(0.245 0.01 250);
-  --muted-foreground: oklch(0.71 0.012 240);
-  --accent: oklch(0.285 0.05 237);
-  --accent-foreground: oklch(0.82 0.1 237);
-  --destructive: oklch(0.66 0.19 25);
-  --border: oklch(0.31 0.012 250);
-  --input: oklch(0.31 0.012 250);
-  --ring: oklch(0.75 0.13 237);
+  --background: #252925;        /* bg */
+  --foreground: #d9d9d4;        /* fg */
+  --card: #2e332e;              /* bgPanel */
+  --card-foreground: #d9d9d4;   /* fg */
+  --popover: #2e332e;           /* bgPanel */
+  --popover-foreground: #d9d9d4;/* fg */
+  --primary: #40c4ff;           /* lightBlue */
+  --primary-foreground: #1f231f;/* bgDeep — dark ink on the light-blue button */
+  --secondary: #2e332e;         /* bgPanel */
+  --secondary-foreground: #d9d9d4; /* fg */
+  --muted: #2e332e;             /* bgPanel */
+  --muted-foreground: #9c9a8f;  /* fgMuted */
+  --accent: #00b0ff;            /* blue */
+  --accent-foreground: #1f231f; /* bgDeep */
+  --destructive: #f52670;       /* pink */
+  --border: #494848;            /* border */
+  --input: #333333;             /* borderMuted */
+  --ring: #40c4ff;              /* lightBlue */
   color-scheme: dark;
 }
 
@@ -188,7 +177,7 @@
   color: var(--muted-foreground);
 }
 .docs-prose a {
-  color: var(--accent-foreground);
+  color: var(--primary);
   text-decoration: underline;
   text-underline-offset: 3px;
   text-decoration-thickness: 1px;
@@ -203,16 +192,16 @@
 .docs-prose code {
   font-family: var(--font-mono);
   font-size: 0.84em;
-  background: var(--muted);
-  border: 1px solid var(--border);
+  background: var(--code-surface);
+  border: 1px solid var(--code-border);
   border-radius: 0.3rem;
   padding: 0.08rem 0.3rem;
-  color: var(--foreground);
+  color: var(--syntax-string);
   overflow-wrap: anywhere;
 }
 .docs-prose pre {
-  background: var(--muted);
-  border: 1px solid var(--border);
+  background: var(--code-surface);
+  border: 1px solid var(--code-border);
   border-radius: 0.75rem;
   padding: 1rem;
   overflow-x: auto;
@@ -225,6 +214,7 @@
   border-radius: 0;
   padding: 0;
   font-size: 0.78rem;
+  color: var(--foreground);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }

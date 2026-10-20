@@ -1,0 +1,33 @@
+/*
+ * Bigface — extra palette hooks used by code, terminal and docs surfaces.
+ *
+ * The palette lives in site/src/data/bigface.json (vendored from
+ * github.com/gjuoun/bigface-theme @ 77ca012f80b0f163e0a112441bbcd14a145772c4).
+ * The shadcn semantic tokens are defined literally in global.css so the contrast
+ * gate can read them; the values below are the same palette entries.
+ */
+:root {
+  --bf-bg: #252925;
+  --bf-bg-panel: #2e332e;
+  --bf-bg-deep: #1f231f;
+  --bf-fg: #d9d9d4;
+  --bf-fg-muted: #9c9a8f;
+  --bf-fg-dim: #6e6b68;
+  --bf-border: #494848;
+  --bf-border-muted: #333333;
+  --bf-selection: #646464;
+
+  --code-surface: var(--bf-bg-deep);
+  --code-border: var(--bf-border-muted);
+  --syntax-comment: #75715e;
+  --syntax-keyword: #00b0ff;
+  --syntax-string: #e5e500;
+  --syntax-number: #fc5d23;
+  --syntax-function: #c6ff00;
+  --syntax-type: #66d9ef;
+  --syntax-success: #00c853;
+  --syntax-arrow: #40c4ff;
+  --syntax-warning: #ff9800;
+  --syntax-constant: #ae81ff;
+  --syntax-error: #f52670;
+}
