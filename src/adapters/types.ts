@@ -98,6 +98,8 @@ export interface RuntimeAdapter {
   imagePresent(ref: string): Promise<boolean>;
   /** Every image id the engine holds (GET /images/json). */
   imageIds(): Promise<string[]>;
+  /** Resolve a tag/ref to an image id (undefined when absent). */
+  imageId(ref: string): Promise<string | undefined>;
   /** One image's ordered layer diffIDs (GET /images/{ref}/json RootFS.Layers). */
   imageLayers(ref: string): Promise<string[]>;
   loadImage(stream: NodeJS.ReadableStream, opts?: { contentLength?: number }): Promise<void>;

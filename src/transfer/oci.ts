@@ -341,7 +341,14 @@ function tagOf(ref: string): string {
   return colon > slash ? ref.slice(colon + 1) : "latest";
 }
 
-function readJsonConfig(bytes: Buffer): { diffIds: string[] } | null {
+interface ImageConfigInfo {
+  diffIds: string[];
+  architecture?: string;
+  os?: string;
+  variant?: string;
+}
+
+function readJsonConfig(bytes: Buffer): ImageConfigInfo | null {
   let parsed: unknown;
   try {
     parsed = JSON.parse(bytes.toString("utf8"));
@@ -349,10 +356,22 @@ function readJsonConfig(bytes: Buffer): { diffIds: string[] } | null {
     return null;
   }
   if (typeof parsed !== "object" || parsed === null) return null;
-  const rootfs = (parsed as { rootfs?: { diff_ids?: unknown } }).rootfs;
+  const image = parsed as {
+    rootfs?: { diff_ids?: unknown };
+    architecture?: unknown;
+    os?: unknown;
+    variant?: unknown;
+  };
+  const rootfs = image.rootfs;
   if (typeof rootfs !== "object" || rootfs === null || !Array.isArray(rootfs.diff_ids)) return null;
   const diffIds = rootfs.diff_ids.filter((id): id is string => typeof id === "string");
-  return diffIds.length === 0 ? null : { diffIds: diffIds.map(normalizeLayerId) };
+  if (diffIds.length === 0) return null;
+  return {
+    diffIds: diffIds.map(normalizeLayerId),
+    architecture: typeof image.architecture === "string" ? image.architecture : undefined,
+    os: typeof image.os === "string" ? image.os : undefined,
+    variant: typeof image.variant === "string" ? image.variant : undefined,
+  };
 }
 
 function isLayerName(name: string): boolean {
@@ -528,6 +547,15 @@ async function assemble(
           mediaType: manifest.mediaType,
           digest: manifestDigest,
           size: manifestBytes.length,
+          ...(config.os !== undefined && config.architecture !== undefined
+            ? {
+                platform: {
+                  os: config.os,
+                  architecture: config.architecture,
+                  ...(config.variant !== undefined ? { variant: config.variant } : {}),
+                },
+              }
+            : {}),
           annotations: {
             "io.containerd.image.name": opts.ref,
             "org.opencontainers.image.ref.name": tag,

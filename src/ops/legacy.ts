@@ -64,6 +64,14 @@ export class LegacyOps implements RuntimeOps {
     return r.code === 0;
   }
 
+  async imageId(image: string): Promise<string | undefined> {
+    const r = await this.exec.run(
+      this.rt.bin + " image inspect --format '{{.Id}}' " + image + " 2>/dev/null",
+    );
+    const id = r.stdout.trim();
+    return r.code === 0 && id !== "" ? id : undefined;
+  }
+
   async pull(image: string): Promise<void> {
     this.steps.push("pull:" + image);
     await this.run("pull", docker.pull(this.rt, image));

@@ -238,6 +238,7 @@ describe("OCI delta builder", () => {
     const index = JSON.parse(members.get("index.json")!.toString());
     expect(index.manifests[0].annotations["org.opencontainers.image.ref.name"]).toBe("t2");
     expect(index.manifests[0].annotations["io.containerd.image.name"]).toBe("app:t2");
+    expect(index.manifests[0].platform).toEqual({ os: "linux", architecture: "amd64" });
   });
 
   test("a manifest referencing a layer absent from the stream is a documented error", async () => {

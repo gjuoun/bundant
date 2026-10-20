@@ -23,6 +23,8 @@ export interface TransferReport {
   missingLayers: number;
   /** Why the complete archive was sent, when mode is "full". */
   fallback?: string;
+  /** The engine id the deploy creates containers from (create-by-tag can 404). */
+  imageId?: string;
 }
 
 export interface TransferOps {
@@ -33,16 +35,24 @@ export interface TransferOps {
   ): Promise<void>;
   /** Optional readiness probe: some engines acknowledge load before the tag is visible. */
   imagePresent?(ref: string): Promise<boolean>;
+  /** Optional id lookup; docker 29 can list a tag it refuses to resolve by name. */
+  imageId?(ref: string): Promise<string | undefined>;
 }
 
-async function waitForImage(ops: TransferOps, ref: string): Promise<void> {
-  if (ops.imagePresent === undefined) return;
+/**
+ * Wait for the tag to be visible, then resolve its engine id. The id is what
+ * container creation must use: docker 29 with the containerd store lists the
+ * short tag but answers 404 for GET /images/<tag>/json and create by tag.
+ */
+async function waitForImage(ops: TransferOps, ref: string): Promise<string | undefined> {
+  let visible = ops.imagePresent === undefined;
   const deadline = Date.now() + 5_000;
-  while (Date.now() < deadline) {
-    if (await ops.imagePresent(ref)) return;
-    await new Promise((resolve) => setTimeout(resolve, 50));
+  while (!visible && Date.now() < deadline) {
+    if (await ops.imagePresent!(ref)) visible = true;
+    else await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  throw new Error("image load completed but the engine never exposed " + ref);
+  if (!visible) throw new Error("image load completed but the engine never exposed " + ref);
+  return ops.imageId === undefined ? undefined : await ops.imageId(ref);
 }
 
 export interface SaveStream {
@@ -156,6 +166,7 @@ const EMPTY_STATS: DeltaStats = {
 
 interface LoadResult {
   stats: DeltaStats;
+  imageId?: string;
   failure?: unknown;
 }
 
@@ -172,8 +183,8 @@ async function loadArchive(
     await ops.loadImage(built.stream, { contentLength });
     const stats = await built.result;
     await save.done;
-    await waitForImage(ops, ref);
-    return { stats };
+    const imageId = await waitForImage(ops, ref);
+    return { stats, imageId };
   } catch (err) {
     const settled = built.result.catch(() => undefined);
     built.length.catch(() => undefined);
@@ -206,6 +217,7 @@ export async function transferLocalImage(
       layersReused: first.stats.layersReused,
       layersTotal: first.stats.layersTotal,
       missingLayers: first.stats.missingLayers.length,
+      ...(first.imageId !== undefined ? { imageId: first.imageId } : {}),
     };
   }
   if (!isMissingBlobError(first.failure)) throw first.failure;
@@ -221,5 +233,6 @@ export async function transferLocalImage(
     layersTotal: full.stats.layersTotal || delta.total,
     missingLayers: full.stats.missingLayers.length || delta.total,
     fallback: first.failure instanceof Error ? first.failure.message : String(first.failure),
+    ...(full.imageId !== undefined ? { imageId: full.imageId } : {}),
   };
 }

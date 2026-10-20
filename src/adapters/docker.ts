@@ -76,9 +76,35 @@ export class DockerAdapter implements RuntimeAdapter {
       await this.client.request("GET", "/images/" + encodeURIComponent(ref) + "/json");
       return true;
     } catch (err) {
-      if (err instanceof ApiError && err.status === 404) return false;
-      throw err;
+      if (!(err instanceof ApiError && err.status === 404)) throw err;
     }
+    // docker 29 + containerd image store can 404 a valid short tag that the
+    // image list itself reports; fall back to the list before saying absent.
+    const res = await this.client.request("GET", "/images/json");
+    const rows = imageListSchema.safeParse(res.json);
+    if (!rows.success) return false;
+    return rows.data.some((row) =>
+      (row.RepoTags ?? []).some((tag) => tag === ref || tag.replace(/^docker\.io\/library\//, "") === ref.replace(/^docker\.io\/library\//, "")),
+    );
+  }
+
+  async imageId(ref: string): Promise<string | undefined> {
+    try {
+      const res = await this.client.request("GET", "/images/" + encodeURIComponent(ref) + "/json");
+      if (typeof res.json === "object" && res.json !== null) {
+        const id = (res.json as { Id?: unknown }).Id;
+        if (typeof id === "string" && id !== "") return id;
+      }
+    } catch (err) {
+      if (!(err instanceof ApiError && err.status === 404)) throw err;
+    }
+    const res = await this.client.request("GET", "/images/json");
+    const rows = imageListSchema.safeParse(res.json);
+    if (!rows.success) return undefined;
+    const bare = ref.replace(/^docker\.io\/library\//, "");
+    return rows.data.find((row) =>
+      (row.RepoTags ?? []).some((tag) => tag === ref || tag.replace(/^docker\.io\/library\//, "") === bare),
+    )?.Id;
   }
 
   async imageIds(): Promise<string[]> {
@@ -424,7 +450,7 @@ export class DockerAdapter implements RuntimeAdapter {
 }
 
 const createResponse = z.object({ Id: z.string() });
-const imageListSchema = z.array(z.object({ Id: z.string() }));
+const imageListSchema = z.array(z.object({ Id: z.string(), RepoTags: z.array(z.string()).nullish() }));
 const execCreateResponse = z.object({ Id: z.string() });
 const execInspectSchema = z.object({ ExitCode: z.number().nullish() });
 

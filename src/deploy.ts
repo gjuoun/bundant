@@ -153,6 +153,7 @@ export async function deployOnHost(
   const prereqStart = performance.now();
   await ops.hostPrereqs();
   timed(opts.phases, "connect", prereqStart);
+  let imageForSpec = m.image;
   if (opts.localPushPipeline !== undefined) {
     const r = await new LocalExecutor().run(opts.localPushPipeline.replaceAll("{HOST}", host));
     if (r.code !== 0) {
@@ -164,6 +165,7 @@ export async function deployOnHost(
     const report = await opts.localImageTransfer(ops);
     timed(opts.phases, "transfer", transferStart);
     opts.onTransfer?.(host, report);
+    imageForSpec = (await ops.imageId(m.image)) ?? m.image;
     console.log(
       "[" + host + "] image transfer ok (" + report.mode +
         ", layers reused " + report.layersReused + "/" + report.layersTotal +
@@ -192,7 +194,7 @@ export async function deployOnHost(
     for (let i = 0; i < m.containerNames.length; i++) {
       const name = m.containerNames[i]!;
       const spec: ContainerSpec = {
-        image: m.image,
+        image: imageForSpec,
         name,
         env,
         labels: groupLabels(loaded.config, m.revision, i + 1),
