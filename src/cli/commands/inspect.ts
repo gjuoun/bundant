@@ -1,17 +1,38 @@
-import { Effect, Option } from "effect";
+import { Effect } from "effect";
 import { Argument, Command } from "effect/cli";
+import { monitorFor } from "../../monitor.ts";
+import { renderInspect } from "../../monitor-render.ts";
 import { rootCommand } from "../root.ts";
-import { finish, loadedFor, runPromise } from "./common.ts";
-import { runRead } from "./read-common.ts";
+import { finish, opsVia, runPromise } from "./common.ts";
+import { flatLoadedFor, resolutionOptions, selectorFor, withFlatUnits } from "./flat-common.ts";
 
 export const inspect = Command.make(
   "inspect",
-  { selector: Argument.String("selector").pipe(Argument.optional) },
-  ({ selector }) =>
+  { path: Argument.String("path").pipe(Argument.optional) },
+  ({ path }) =>
     Effect.gen(function* () {
       const g = yield* rootCommand;
-      const loaded = yield* runPromise(async () => loadedFor(g));
-      const value = Option.isSome(selector) ? selector.value : undefined;
-      yield* finish(yield* runRead(g, loaded, "inspect", value));
+      const via = opsVia(g.via);
+      if (via === null) return yield* finish(2);
+      const loaded = yield* runPromise(async () => flatLoadedFor(g));
+      const pattern = selectorFor(g, loaded, path._tag === "Some" ? path.value : undefined);
+      const first = yield* runPromise(() =>
+        withFlatUnits(loaded, via, pattern, resolutionOptions(g), async (ctx) => {
+          const unit = ctx.units[0];
+          return unit?.containers.find((c) => c.state === "running") ?? unit?.containers[0];
+        }),
+      );
+      if (first === undefined) {
+        console.error("bundant: inspect found no running container");
+        return yield* finish(1);
+      }
+      const monitor = yield* runPromise(() => monitorFor(loaded));
+      try {
+        const rows = yield* runPromise(() => monitor.inspect(first.name));
+        console.log(renderInspect(rows));
+        yield* finish(0);
+      } finally {
+        yield* runPromise(() => monitor.close());
+      }
     }),
-).pipe(Command.withDescription("state, restarts, health, image, restart policy"));
+).pipe(Command.withDescription("inspect the first running replica matched by the path"));

@@ -6,6 +6,10 @@ import { toAppError, type AppError } from "../effect/errors.ts";
 import { rootCommand } from "./root.ts";
 import { CliLayer } from "./layer.ts";
 import { validate } from "./commands/validate.ts";
+import { start } from "./commands/start.ts";
+import { stop } from "./commands/stop.ts";
+import { restart } from "./commands/restart.ts";
+import { rm } from "./commands/rm.ts";
 import { deploy } from "./commands/deploy.ts";
 import { rollback } from "./commands/rollback.ts";
 import { history } from "./commands/history.ts";
@@ -28,6 +32,10 @@ import { logs } from "./commands/logs.ts";
 export const command = rootCommand.pipe(
   Command.withSubcommands([
     validate,
+    start,
+    stop,
+    restart,
+    rm,
     deploy,
     scale,
     rollback,
