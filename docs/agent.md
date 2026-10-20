@@ -28,11 +28,13 @@ arch mismatch: image app:t1 is linux/arm64 but host linux/amd64 (pass --allow-em
 
 ## Arch preflight
 
-- The check runs after the ssh session exists (it needs `uname`) but **before**
-  the deploy lock and before any engine call. A local image is checked there; a
-  registry ref is checked on the image the host actually received, before the
-  first container create, so a foreign tag fails as `ARCH_MISMATCH`, not as an
-  engine error.
+- For `--local-image` the platform is read from the local engine **before** the
+  ssh session opens; the target's `uname` then completes the comparison. The
+  verdict lands before the deploy lock, before any transfer/load and before any
+  engine call, so a foreign image never reaches the host store.
+- A registry ref is checked on the image the host actually received, after the
+  pull but before the first container create, so a foreign tag fails as
+  `ARCH_MISMATCH`, not as an engine error.
 - `--allow-emulation` downgrades the failure only when
   `/proc/sys/fs/binfmt_misc/qemu-<image-arch>` exists on the target. Otherwise
   the deploy is still refused.
