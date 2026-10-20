@@ -1,6 +1,47 @@
 ---
 import { Check } from 'lucide-react';
 import { dryRunExcerpt, howSteps } from '@/lib/features';
+
+type Segment = { text: string; cls?: string };
+
+/** Colour the dry-run excerpt with Bigface syntax tokens instead of plain text. */
+const dryRun = dryRunExcerpt.split('\n').map((line, index): Segment[] => {
+  if (index === 0) return [{ text: line, cls: 'text-code-key' }];
+  const step = /^(\s*)(\d+\))(\s+)(\[[^\]]+\])(.*)$/.exec(line);
+  if (step) {
+    return [
+      { text: step[1] },
+      { text: step[2], cls: 'text-code-number' },
+      { text: step[3] },
+      { text: step[4], cls: 'text-code-key' },
+      { text: step[5], cls: 'text-muted-foreground' },
+    ];
+  }
+  const kv = /^(\s*)([A-Za-z0-9_.-]+):(\s*)(.*)$/.exec(line);
+  if (kv) {
+    return [
+      { text: kv[1] },
+      { text: kv[2], cls: 'text-code-key' },
+      { text: ':' },
+      { text: kv[3] },
+      { text: kv[4], cls: 'text-code-string' },
+    ];
+  }
+  return line.split(/(\s+)/).filter(Boolean).flatMap((token): Segment[] => {
+    const pair = /^([A-Za-z_][\w.-]*)=(.*)$/.exec(token);
+    if (!pair) return [{ text: token, cls: 'text-muted-foreground' }];
+    return [
+      { text: pair[1], cls: 'text-code-key' },
+      { text: '=' },
+      { text: pair[2], cls: /^\d+$/.test(pair[2]) ? 'text-code-number' : 'text-code-string' },
+    ];
+  });
+});
+
+const dryRunSpans: Segment[] = dryRun.flatMap((segments, index) => [
+  ...segments,
+  ...(index < dryRun.length - 1 ? [{ text: '\n' }] : []),
+]);
 ---
 
 <section id="how" class="border-b border-border py-16 md:py-24">
@@ -17,10 +58,10 @@ import { dryRunExcerpt, howSteps } from '@/lib/features';
     </div>
 
     <div class="mt-10 grid min-w-0 overflow-hidden rounded-xl border border-border bg-card lg:grid-cols-[0.95fr_1.05fr]">
-      <ol class="min-w-0 divide-y divide-border">
+      <ol class="min-w-0 divide-y divide-border-muted">
         {howSteps.map((step) => (
           <li class="flex min-w-0 gap-5 p-6 sm:p-7">
-            <span class="grid size-8 shrink-0 place-items-center rounded-full border border-border bg-background font-mono text-[11px] text-accent-foreground">
+            <span class="grid size-8 shrink-0 place-items-center rounded-full border border-border bg-muted font-mono text-[11px] text-primary">
               {step.step}
             </span>
             <div class="min-w-0">
@@ -31,17 +72,17 @@ import { dryRunExcerpt, howSteps } from '@/lib/features';
         ))}
       </ol>
 
-      <div class="min-w-0 border-t border-border bg-muted/40 p-5 sm:p-7 lg:border-l lg:border-t-0">
+      <div class="min-w-0 border-t border-border-muted bg-code-surface p-5 sm:p-7 lg:border-l lg:border-t-0">
         <div class="flex items-center justify-between gap-3">
           <div class="flex min-w-0 items-center gap-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            <span class="size-1.5 shrink-0 rounded-full bg-primary"></span>
+            <span class="size-1.5 shrink-0 rounded-full bg-code-key"></span>
             <span class="truncate">bundant deploy --dry-run</span>
           </div>
           <span class="shrink-0 rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">fragment</span>
         </div>
-        <pre class="mt-4 max-w-full overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-[1.75] text-muted-foreground"><code>{dryRunExcerpt}</code></pre>
-        <div class="mt-5 flex items-start gap-2 rounded-lg border border-border bg-background px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
-          <Check className="mt-0.5 size-3.5 shrink-0 text-primary" />
+        <pre class="mt-4 max-w-full overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-[1.75] text-muted-foreground"><code>{dryRunSpans.map((segment) => <span class={segment.cls}>{segment.text}</span>)}</code></pre>
+        <div class="mt-5 flex items-start gap-2 rounded-lg border border-border bg-card px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
+          <Check className="mt-0.5 size-3.5 shrink-0 text-success" />
           <span>Every step is printed before it runs. <span class="text-foreground">Nothing hidden, nothing implicit.</span></span>
         </div>
       </div>

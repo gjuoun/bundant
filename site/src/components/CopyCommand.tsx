@@ -21,7 +21,7 @@ export function CopyCommand({ commands }: { commands: Command[] }) {
 
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-card">
-      <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/50 px-2 py-0.5 sm:px-3">
+      <div className="flex items-center justify-between gap-2 border-b border-border-muted bg-code-surface px-2 py-0.5 sm:px-3">
         <div className="flex items-center gap-0.5">
           <Terminal className="mr-1.5 size-3.5 text-muted-foreground" aria-hidden />
           {commands.map((item, index) => (
@@ -30,9 +30,9 @@ export function CopyCommand({ commands }: { commands: Command[] }) {
               type="button"
               onClick={() => setActive(index)}
               className={cn(
-                'min-h-11 rounded-md px-3 font-mono text-[11px] uppercase tracking-wider transition-colors',
+                'relative min-h-11 rounded-md px-3 font-mono text-[11px] uppercase tracking-wider transition-colors after:absolute after:inset-x-2 after:bottom-1 after:h-0.5 after:rounded-full after:bg-primary after:opacity-0',
                 index === active
-                  ? 'bg-card text-foreground shadow-none ring-1 ring-border'
+                  ? 'bg-card text-foreground after:opacity-100'
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >
@@ -51,7 +51,7 @@ export function CopyCommand({ commands }: { commands: Command[] }) {
         </button>
       </div>
       <div className="flex items-center gap-2.5 px-4 py-3">
-        <span className="select-none font-mono text-sm text-accent-foreground">$</span>
+        <span className="select-none font-mono text-sm text-primary">$</span>
         <code className="overflow-x-auto whitespace-nowrap font-mono text-[0.8125rem] text-foreground">
           {current.command}
         </code>

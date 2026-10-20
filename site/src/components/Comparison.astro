@@ -47,14 +47,14 @@ const rows = [
       <table class="w-full border-collapse text-left text-[10px] sm:text-[13px]">
         <caption class="sr-only">Deployment tool comparison</caption>
         <thead>
-          <tr class="border-b border-border">
+          <tr class="border-b border-border-muted">
             <th scope="col" class="px-1.5 py-3 font-medium uppercase tracking-wider text-muted-foreground sm:px-4">Attribute</th>
             {columns.map((column) => (
               <th
                 scope="col"
                 class:list={[
                   'px-1.5 py-3 text-[10px] font-semibold sm:px-4 sm:text-[11px]',
-                  column === 'bundant' ? 'bg-accent/40 text-accent-foreground' : 'text-muted-foreground',
+                  column === 'bundant' ? 'bg-primary/10 text-primary' : 'text-muted-foreground',
                 ]}
               >
                 {column}
@@ -64,13 +64,13 @@ const rows = [
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr class="border-b border-border last:border-b-0">
+            <tr class="border-b border-border-muted last:border-b-0">
               <th scope="row" class="px-1.5 py-3 align-top font-medium sm:px-4">{row.attribute}</th>
               {row.values.map((value, index) => (
                 <td
                   class:list={[
                     'px-1.5 py-3 align-top sm:px-4',
-                    index === 0 ? 'bg-accent/25 font-medium text-foreground' : 'text-muted-foreground',
+                    index === 0 ? 'bg-primary/10 font-medium text-foreground' : 'text-muted-foreground',
                   ]}
                 >
                   {value}

@@ -24,7 +24,7 @@ const docs = (await getCollection('docs')).sort((a, b) => docRank(a.id) - docRan
     <div class="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {docs.map((doc) => (
         <a href={withBase(`docs/${doc.id}/`)} class="group rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/40">
-          <h2 class="text-[0.9375rem] font-semibold tracking-tight group-hover:text-accent-foreground">{docTitle(doc.id)}</h2>
+          <h2 class="text-[0.9375rem] font-semibold tracking-tight group-hover:text-primary">{docTitle(doc.id)}</h2>
           <p class="mt-2 text-[0.8125rem] leading-relaxed text-muted-foreground">{docDescriptions[doc.id]}</p>
           <span class="mt-4 inline-block font-mono text-[10px] uppercase tracking-wider text-muted-foreground">/docs/{doc.id}</span>
         </a>
