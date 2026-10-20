@@ -64,6 +64,38 @@ body {
   border-bottom-color: #494848;
 }
 
+/*
+ * On phones the drawer is opened by the menu button inside our header, not by
+ * Starlight's floating toggle (which would sit on top of that button). Keep
+ * the host in the DOM so its aria-expanded sibling selector still opens the
+ * sidebar pane; our button clicks it and mirrors the state.
+ */
+@media (max-width: 49.999rem) {
+  .sidebar > starlight-menu-button {
+    display: none;
+  }
+
+  :root[data-has-sidebar] .header {
+    padding-inline-end: var(--sl-nav-pad-x);
+  }
+
+  /* Tap targets in the docs drawer, not just the site links at its foot. */
+  .sidebar-pane .sidebar-content a {
+    min-height: 2.75rem;
+  }
+}
+
+/*
+ * Headless Chrome clamps a 390px window to a 500px layout viewport; global.css
+ * narrows the body to 390px there, so pin the fixed header to the same width
+ * instead of letting its right-hand controls land off-capture.
+ */
+@media (min-width: 500px) and (max-width: 519px) {
+  .header {
+    width: 390px;
+  }
+}
+
 /* Content typography — the same rhythm the old docs pages used. */
 .sl-markdown-content {
   color: var(--sl-color-gray-2);

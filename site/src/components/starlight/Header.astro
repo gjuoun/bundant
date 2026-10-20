@@ -26,6 +26,21 @@ const links = [
 
     <div class="bf-actions">
       <div class="bf-search"><Search /></div>
+      <button
+        type="button"
+        class="bf-menu"
+        data-bf-menu
+        aria-label="Menu"
+        aria-controls="starlight__sidebar"
+        aria-expanded="false"
+      >
+        <svg class="bf-menu-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+        <svg class="bf-close-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M6 6l12 12M18 6L6 18" />
+        </svg>
+      </button>
       <a
         href="https://github.com/gjuoun/bundant"
         target="_blank"
@@ -143,6 +158,38 @@ const links = [
     height: 2.5rem;
   }
 
+  .bf-menu {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0;
+    border: 1px solid #494848;
+    border-radius: 0.5rem;
+    background: #252925;
+    color: #d9d9d4;
+    cursor: pointer;
+  }
+
+  .bf-menu:hover {
+    background: #2e332e;
+  }
+
+  .bf-menu[aria-expanded='true'] {
+    border-color: #40c4ff;
+    color: #40c4ff;
+  }
+
+  .bf-close-icon,
+  .bf-menu[aria-expanded='true'] .bf-menu-icon {
+    display: none;
+  }
+
+  .bf-menu[aria-expanded='true'] .bf-close-icon {
+    display: inline;
+  }
+
   .bf-github {
     display: none;
     align-items: center;
@@ -172,6 +219,15 @@ const links = [
     }
   }
 
+  @media (max-width: 49.999rem) {
+    .bf-search :global(button[data-open-modal]) {
+      width: 2.75rem;
+      height: 2.75rem;
+      justify-content: center;
+      padding: 0;
+    }
+  }
+
   @media (min-width: 50rem) {
     .bf-bar {
       padding-inline: 2rem;
@@ -179,6 +235,10 @@ const links = [
 
     .bf-nav {
       display: flex;
+    }
+
+    .bf-menu {
+      display: none;
     }
 
     .bf-search :global(button[data-open-modal]) {
@@ -196,3 +256,31 @@ const links = [
     }
   }
 </style>
+
+<script>
+  const local = document.querySelector<HTMLButtonElement>('[data-bf-menu]');
+  const host = document.querySelector('starlight-menu-button');
+  const trigger = host?.querySelector<HTMLButtonElement>('button');
+
+  if (local && host && trigger) {
+    const sync = () => {
+      local.setAttribute('aria-expanded', host.getAttribute('aria-expanded') === 'true' ? 'true' : 'false');
+    };
+
+    local.addEventListener('click', () => {
+      trigger.click();
+      requestAnimationFrame(sync);
+    });
+
+    new MutationObserver(sync).observe(host, {
+      attributes: true,
+      attributeFilter: ['aria-expanded'],
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && host.getAttribute('aria-expanded') === 'true') {
+        trigger.click();
+      }
+    });
+  }
+</script>
