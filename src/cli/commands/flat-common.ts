@@ -1,10 +1,10 @@
-import type { LoadedConfig } from "../../config.ts";
+import { loadConfig, type BundantConfig, type LoadedConfig } from "../../config.ts";
 import { resolveConnections } from "../../hosts.ts";
 import { openOps, type OpsVia, type RuntimeOps } from "../../ops/index.ts";
 import { resolve, type ResolvedUnit, type UnitSource } from "../../select/resolve.ts";
 import { unitPath } from "../../select/selector.ts";
 import { ServiceIdentity } from "../../domain/identity.ts";
-import type { GlobalConfig } from "./common.ts";
+import { value, type GlobalConfig } from "./common.ts";
 
 export interface FlatUnits {
   units: ResolvedUnit[];
@@ -39,6 +39,51 @@ export async function withFlatUnits<T>(
       }
     }
   }
+}
+
+function syntheticConfig(hosts: string[]): BundantConfig {
+  return {
+    version: 1,
+    service: "*",
+    image: "",
+    role: "web",
+    replicas: 1,
+    kind: "service",
+    hosts,
+    runtime: "docker",
+    env: { vars: {} },
+    healthcheck: { path: "/", port: 80, timeout: 30 },
+    proxy: { enabled: false, port: 80, tls: false, image: "" },
+  };
+}
+
+/** Flat verbs: -f wins; otherwise --hosts or BUNDANT_HOSTS; no silent deploy.yml. */
+export function flatLoadedFor(g: Pick<GlobalConfig, "file" | "hosts">): LoadedConfig {
+  const file = value(g.file);
+  if (file !== undefined) return loadConfig(file);
+  const hosts = (value(g.hosts) ?? process.env.BUNDANT_HOSTS ?? "")
+    .split(",")
+    .map((host) => host.trim())
+    .filter((host) => host !== "");
+  if (hosts.length === 0) {
+    throw new Error(
+      "no hosts: pass -f <config>, --hosts <a,b> or set BUNDANT_HOSTS",
+    );
+  }
+  return { config: syntheticConfig(hosts), envContent: null, envCount: 0, path: "", version: 1 };
+}
+
+/** One option mapping shared by every flat verb. */
+export function resolutionOptions(
+  g: Pick<GlobalConfig, "replica" | "revision" | "all-revisions">,
+): { replica?: number; revision?: string; allRevisions?: boolean } {
+  const replica = value(g.replica);
+  const revision = value(g.revision);
+  return {
+    replica: replica === undefined ? undefined : Number(replica),
+    revision,
+    allRevisions: g["all-revisions"],
+  };
 }
 
 /** Path argument, else the -f unit as a filter, else everything. */

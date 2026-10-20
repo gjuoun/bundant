@@ -3,8 +3,8 @@ import { Argument, Command } from "effect/cli";
 import { Accessory } from "../../accessory.ts";
 import { NoMatchError } from "../../select/selector.ts";
 import { rootCommand } from "../root.ts";
-import { finish, loadedFor, opsVia, runPromise, value } from "./common.ts";
-import { opsFor, withFlatUnits } from "./flat-common.ts";
+import { finish, opsVia, runPromise } from "./common.ts";
+import { flatLoadedFor, opsFor, withFlatUnits } from "./flat-common.ts";
 
 export const start = Command.make(
   "start",
@@ -19,7 +19,7 @@ export const start = Command.make(
       }
       const via = opsVia(g.via);
       if (via === null) return yield* finish(2);
-      const loaded = yield* runPromise(async () => loadedFor(g));
+      const loaded = yield* runPromise(async () => flatLoadedFor(g));
       try {
         yield* runPromise(() =>
           withFlatUnits(loaded, via, pattern, {}, async (ctx) => {

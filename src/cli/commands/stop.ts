@@ -1,8 +1,8 @@
 import { Effect } from "effect";
 import { Argument, Command } from "effect/cli";
 import { rootCommand } from "../root.ts";
-import { finish, loadedFor, opsVia, runPromise, value } from "./common.ts";
-import { opsFor, withFlatUnits } from "./flat-common.ts";
+import { finish, opsVia, runPromise } from "./common.ts";
+import { flatLoadedFor, opsFor, resolutionOptions, withFlatUnits } from "./flat-common.ts";
 
 export const stop = Command.make(
   "stop",
@@ -17,13 +17,9 @@ export const stop = Command.make(
         console.error("bundant: stop needs a unit path");
         return yield* finish(2);
       }
-      const loaded = yield* runPromise(async () => loadedFor(g));
+      const loaded = yield* runPromise(async () => flatLoadedFor(g));
       yield* runPromise(() =>
-        withFlatUnits(loaded, via, pattern, {
-          replica: g.replica === undefined ? undefined : Number(g.replica),
-          revision: value(g["to-revision"]),
-          allRevisions: g["all-revisions"],
-        }, async (ctx) => {
+        withFlatUnits(loaded, via, pattern, resolutionOptions(g), async (ctx) => {
           for (const unit of ctx.units) {
             for (const container of unit.containers) {
               await opsFor(ctx, container.host).stopContainers([container.name]);

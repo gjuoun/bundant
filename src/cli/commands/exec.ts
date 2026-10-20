@@ -2,8 +2,8 @@ import { Effect } from "effect";
 import { Argument, Command } from "effect/cli";
 import { monitorFor } from "../../monitor.ts";
 import { rootCommand } from "../root.ts";
-import { finish, loadedFor, opsVia, runPromise } from "./common.ts";
-import { selectorFor, withFlatUnits } from "./flat-common.ts";
+import { finish, opsVia, runPromise } from "./common.ts";
+import { flatLoadedFor, resolutionOptions, selectorFor, withFlatUnits } from "./flat-common.ts";
 
 export const exec = Command.make(
   "exec",
@@ -16,12 +16,10 @@ export const exec = Command.make(
       const g = yield* rootCommand;
       const via = opsVia(g.via);
       if (via === null) return yield* finish(2);
-      const loaded = yield* runPromise(async () => loadedFor(g));
+      const loaded = yield* runPromise(async () => flatLoadedFor(g));
       const pattern = selectorFor(g, loaded, path._tag === "Some" ? path.value : undefined);
       const containers = yield* runPromise(() =>
-        withFlatUnits(loaded, via, pattern, {
-          replica: g.replica._tag === "Some" ? Number(g.replica.value) : undefined,
-        }, async (ctx) => {
+        withFlatUnits(loaded, via, pattern, resolutionOptions(g), async (ctx) => {
           const all = ctx.units.flatMap((unit) => unit.containers);
           const running = all.filter((c) => c.state === "running");
           const pool = running.length > 0 ? running : all;

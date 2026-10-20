@@ -3,8 +3,8 @@ import { Argument, Command } from "effect/cli";
 import { monitorFor } from "../../monitor.ts";
 import { renderInspect } from "../../monitor-render.ts";
 import { rootCommand } from "../root.ts";
-import { finish, loadedFor, opsVia, runPromise } from "./common.ts";
-import { selectorFor, withFlatUnits } from "./flat-common.ts";
+import { finish, opsVia, runPromise } from "./common.ts";
+import { flatLoadedFor, resolutionOptions, selectorFor, withFlatUnits } from "./flat-common.ts";
 
 export const inspect = Command.make(
   "inspect",
@@ -14,12 +14,10 @@ export const inspect = Command.make(
       const g = yield* rootCommand;
       const via = opsVia(g.via);
       if (via === null) return yield* finish(2);
-      const loaded = yield* runPromise(async () => loadedFor(g));
+      const loaded = yield* runPromise(async () => flatLoadedFor(g));
       const pattern = selectorFor(g, loaded, path._tag === "Some" ? path.value : undefined);
       const first = yield* runPromise(() =>
-        withFlatUnits(loaded, via, pattern, {
-          replica: g.replica._tag === "Some" ? Number(g.replica.value) : undefined,
-        }, async (ctx) => {
+        withFlatUnits(loaded, via, pattern, resolutionOptions(g), async (ctx) => {
           const unit = ctx.units[0];
           return unit?.containers.find((c) => c.state === "running") ?? unit?.containers[0];
         }),

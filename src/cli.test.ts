@@ -12,7 +12,7 @@ import { runMain } from "./effect/runtime.ts";
 import { findCaseCollision } from "./deploy.ts";
 import { ACCESSORY_ALIASES, ACCESSORY_DEFAULT_ACTION } from "./cli/commands/accessory.ts";
 import { GROUP_DEFAULT_ACTION, GROUP_STATUS_ALIAS } from "./cli/commands/group.ts";
-import { selectorFor } from "./cli/commands/flat-common.ts";
+import { flatLoadedFor, resolutionOptions, selectorFor } from "./cli/commands/flat-common.ts";
 import { loadConfig } from "./config.ts";
 
 const TestLayer = Layer.mergeAll(
@@ -211,6 +211,42 @@ describe("effect/cli parsing", () => {
     ]) {
       expect(names).toContain(name);
     }
+  });
+
+  test("flat verbs take hosts from --hosts or BUNDANT_HOSTS, never deploy.yml", () => {
+    delete process.env.BUNDANT_HOSTS;
+    expect(
+      flatLoadedFor({ file: Option.none(), hosts: Option.some("root@a,root@b") }).config.hosts,
+    ).toEqual(["root@a", "root@b"]);
+    process.env.BUNDANT_HOSTS = "root@c";
+    try {
+      expect(flatLoadedFor({ file: Option.none(), hosts: Option.none() }).config.hosts).toEqual([
+        "root@c",
+      ]);
+    } finally {
+      delete process.env.BUNDANT_HOSTS;
+    }
+    expect(() => flatLoadedFor({ file: Option.none(), hosts: Option.none() })).toThrow(
+      /no hosts: pass -f <config>, --hosts <a,b> or set BUNDANT_HOSTS/,
+    );
+  });
+
+  test("every flat verb shares one resolution option mapping", () => {
+    const g = {
+      replica: Option.none<string>(),
+      revision: Option.none<string>(),
+      "all-revisions": false,
+    };
+    const verbs = ["status", "stop", "restart", "rm"].map(() => resolutionOptions(g));
+    expect(new Set(verbs.map((o) => JSON.stringify(o))).size).toBe(1);
+    expect(verbs[0]).toEqual({ replica: undefined, revision: undefined, allRevisions: false });
+    expect(
+      resolutionOptions({
+        replica: Option.some("2"),
+        revision: Option.some("r1"),
+        "all-revisions": true,
+      }),
+    ).toEqual({ replica: 2, revision: "r1", allRevisions: true });
   });
 
   test("status with no path means every unit; -f filters to its unit", () => {

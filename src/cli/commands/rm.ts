@@ -1,8 +1,8 @@
 import { Effect } from "effect";
 import { Argument, Command } from "effect/cli";
 import { rootCommand } from "../root.ts";
-import { finish, loadedFor, opsVia, runPromise, value } from "./common.ts";
-import { opsFor, withFlatUnits } from "./flat-common.ts";
+import { finish, opsVia, runPromise } from "./common.ts";
+import { flatLoadedFor, opsFor, resolutionOptions, withFlatUnits } from "./flat-common.ts";
 import type { RuntimeOps } from "../../ops/index.ts";
 
 function envPath(path: string, kind: "service" | "accessory"): string {
@@ -35,13 +35,9 @@ export const rm = Command.make(
       }
       const via = opsVia(g.via);
       if (via === null) return yield* finish(2);
-      const loaded = yield* runPromise(async () => loadedFor(g));
+      const loaded = yield* runPromise(async () => flatLoadedFor(g));
       yield* runPromise(() =>
-        withFlatUnits(loaded, via, pattern, {
-          replica: value(g.replica) === undefined ? undefined : Number(value(g.replica)),
-          revision: value(g.revision) ?? value(g["to-revision"]),
-          allRevisions: g["all-revisions"],
-        }, async (ctx) => {
+        withFlatUnits(loaded, via, pattern, resolutionOptions(g), async (ctx) => {
           console.log("resolved " + ctx.units.length + " unit(s):");
           for (const unit of ctx.units) {
             console.log(

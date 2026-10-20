@@ -2,8 +2,8 @@ import { Effect } from "effect";
 import { Argument, Command } from "effect/cli";
 import { Accessory } from "../../accessory.ts";
 import { rootCommand } from "../root.ts";
-import { finish, loadedFor, opsVia, runPromise, value } from "./common.ts";
-import { opsFor, withFlatUnits } from "./flat-common.ts";
+import { finish, opsVia, runPromise } from "./common.ts";
+import { flatLoadedFor, opsFor, resolutionOptions, withFlatUnits } from "./flat-common.ts";
 
 export const restart = Command.make(
   "restart",
@@ -18,7 +18,7 @@ export const restart = Command.make(
         console.error("bundant: restart needs a unit path");
         return yield* finish(2);
       }
-      const loaded = yield* runPromise(async () => loadedFor(g));
+      const loaded = yield* runPromise(async () => flatLoadedFor(g));
       if (loaded.config.kind === "accessory") {
         const code = yield* runPromise(() =>
           new Accessory(loaded).run("reboot", {
@@ -32,11 +32,7 @@ export const restart = Command.make(
         return yield* finish(code);
       }
       yield* runPromise(() =>
-        withFlatUnits(loaded, via, pattern, {
-          replica: g.replica === undefined ? undefined : Number(g.replica),
-          revision: value(g["to-revision"]),
-          allRevisions: g["all-revisions"],
-        }, async (ctx) => {
+        withFlatUnits(loaded, via, pattern, resolutionOptions(g), async (ctx) => {
           for (const unit of ctx.units) {
             for (const container of unit.containers) {
               const ops = opsFor(ctx, container.host);

@@ -3,8 +3,8 @@ import { Argument, Command } from "effect/cli";
 import { ServiceIdentity } from "../../domain/identity.ts";
 import { unitPath } from "../../select/selector.ts";
 import { rootCommand } from "../root.ts";
-import { finish, loadedFor, opsVia, runPromise, value } from "./common.ts";
-import { selectorFor, withFlatUnits } from "./flat-common.ts";
+import { finish, opsVia, runPromise } from "./common.ts";
+import { flatLoadedFor, resolutionOptions, selectorFor, withFlatUnits } from "./flat-common.ts";
 
 export const status = Command.make(
   "status",
@@ -14,17 +14,14 @@ export const status = Command.make(
       const g = yield* rootCommand;
       const via = opsVia(g.via);
       if (via === null) return yield* finish(2);
-      const loaded = yield* runPromise(async () => loadedFor(g));
+      const loaded = yield* runPromise(async () => flatLoadedFor(g));
       const pattern = selectorFor(
         g,
         loaded,
         path._tag === "Some" ? path.value : undefined,
       );
       const units = yield* runPromise(() =>
-        withFlatUnits(loaded, via, pattern, {
-          revision: value(g.revision) ?? value(g["to-revision"]),
-          allRevisions: g["all-revisions"],
-        }, async (ctx) =>
+        withFlatUnits(loaded, via, pattern, resolutionOptions(g), async (ctx) =>
           ctx.units.map((unit) => {
             const live = unit.containers.filter((c) => c.state === "running").length;
             const identity = ServiceIdentity.from(loaded.config);

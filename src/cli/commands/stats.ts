@@ -4,7 +4,7 @@ import { monitorFor } from "../../monitor.ts";
 import { renderStats } from "../../monitor-render.ts";
 import { rootCommand } from "../root.ts";
 import { finish, loadedFor, runPromise } from "./common.ts";
-import { selectorFor, withFlatUnits } from "./flat-common.ts";
+import { flatLoadedFor, resolutionOptions, selectorFor, withFlatUnits } from "./flat-common.ts";
 import { opsVia } from "./common.ts";
 
 export const stats = Command.make(
@@ -15,10 +15,10 @@ export const stats = Command.make(
       const g = yield* rootCommand;
       const via = opsVia(g.via);
       if (via === null) return yield* finish(2);
-      const loaded = yield* runPromise(async () => loadedFor(g));
+      const loaded = yield* runPromise(async () => flatLoadedFor(g));
       const pattern = selectorFor(g, loaded, path._tag === "Some" ? path.value : undefined);
       const names = yield* runPromise(() =>
-        withFlatUnits(loaded, via, pattern, {}, async (ctx) =>
+        withFlatUnits(loaded, via, pattern, resolutionOptions(g), async (ctx) =>
           ctx.units.flatMap((unit) => unit.containers.map((c) => c.name)),
         ),
       );
