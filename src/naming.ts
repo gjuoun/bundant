@@ -25,20 +25,12 @@ export function containerPrefix(
   return identity.containerName().slice(0, -2);
 }
 
-/** Pre-grouping name prefix, still found on hosts upgraded in place. */
-export function legacyPrefix(config: Pick<BundantConfig, "service" | "role">): string {
-  return config.service + "-" + config.role + "-";
-}
-
-/** True when the name is this service-role in either the new or legacy shape. */
+/** True when the name is this service-role under the config's grammar. */
 export function belongsToService(
   name: string,
   config: Pick<BundantConfig, "group" | "service" | "role"> & { version?: number },
 ): boolean {
-  // Labels already scope the group; the legacy hyphen prefix is always safe to
-  // recognise as well (v1 names survive a v1 -> v2 migration).
-  if (name.startsWith(containerPrefix(config))) return true;
-  return name.startsWith(legacyPrefix(config));
+  return name.startsWith(containerPrefix(config));
 }
 
 /** Stable accessory container name: grouped accessories carry the group prefix. */

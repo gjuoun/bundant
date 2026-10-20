@@ -4,6 +4,7 @@ import { buildDeployPlan, renderPlan } from "./planner.ts";
 
 function cfg(over: Partial<BundantConfig> = {}): BundantConfig {
   return {
+    version: 2,
     service: "hello",
     image: "traefik/whoami:v1.10",
     role: "web",
@@ -35,25 +36,25 @@ describe("buildDeployPlan", () => {
   test("hello fixture: exact pull/run/proxy-swap/stop-old commands", () => {
     const plan = buildDeployPlan(cfg(), REV);
     expect(step(plan, "pull").cmds[0]).toBe("docker pull traefik/whoami:v1.10");
-    expect(step(plan, "run").cmds[0]).toBe("docker rm -f hello-web-abc1234 2>/dev/null || true");
+    expect(step(plan, "run").cmds[0]).toBe("docker rm -f default.hello.web.abc1234 2>/dev/null || true");
     expect(step(plan, "run").cmds[1]).toBe(
-      "docker run -d --name hello-web-abc1234 --network bundant --restart unless-stopped" +
+      "docker run -d --name default.hello.web.abc1234 --network bundant --restart unless-stopped" +
         " --label bundant.service=hello --label bundant.group=default --label bundant.kind=service" +
         " --label bundant.revision=abc1234 --label bundant.replica=1" +
         " traefik/whoami:v1.10",
     );
     expect(step(plan, "run").cmds).toHaveLength(2);
-    expect(plan.meta.containerNames).toEqual(["hello-web-abc1234"]);
+    expect(plan.meta.containerNames).toEqual(["default.hello.web.abc1234"]);
     expect(plan.meta.replicas).toBe(1);
     expect(step(plan, "health").cmds[0]).toBe(
-      "docker run --rm --network bundant curlimages/curl:8.11.1 -sS -o /dev/null -w '%{http_code}' --max-time 3 http://hello-web-abc1234:80/",
+      "docker run --rm --network bundant curlimages/curl:8.11.1 -sS -o /dev/null -w '%{http_code}' --max-time 3 http://default.hello.web.abc1234:80/",
     );
     expect(step(plan, "proxy-swap").cmds[0]).toBe(
-      "docker exec kamal-proxy kamal-proxy deploy hello-web --target hello-web-abc1234:80 --host hello.bundant.test --health-check-path /",
+      "docker exec kamal-proxy kamal-proxy deploy default.hello.web --target default.hello.web.abc1234:80 --host hello.bundant.test --health-check-path /",
     );
-    expect(step(plan, "stop-old").cmds[0]).toContain('grep -v "^hello-web-abc1234$"');
-    expect(plan.meta.containerName).toBe("hello-web-abc1234");
-    expect(plan.meta.serviceId).toBe("hello-web");
+    expect(step(plan, "stop-old").cmds[0]).toContain('grep -v "^default.hello.web.abc1234$"');
+    expect(plan.meta.containerName).toBe("default.hello.web.abc1234");
+    expect(plan.meta.serviceId).toBe("default.hello.web");
   });
 
   test("replicas: 3 runs three named containers with per-replica labels", () => {
@@ -61,39 +62,39 @@ describe("buildDeployPlan", () => {
     const run = step(plan, "run");
     expect(run.cmds).toHaveLength(6);
     expect(plan.meta.containerNames).toEqual([
-      "hello-web-abc1234-1",
-      "hello-web-abc1234-2",
-      "hello-web-abc1234-3",
+      "default.hello.web.abc1234.1",
+      "default.hello.web.abc1234.2",
+      "default.hello.web.abc1234.3",
     ]);
-    expect(run.cmds[1]).toContain("--name hello-web-abc1234-1");
+    expect(run.cmds[1]).toContain("--name default.hello.web.abc1234.1");
     expect(run.cmds[1]).toContain("--label bundant.replica=1");
-    expect(run.cmds[3]).toContain("--name hello-web-abc1234-2");
+    expect(run.cmds[3]).toContain("--name default.hello.web.abc1234.2");
     expect(run.cmds[3]).toContain("--label bundant.replica=2");
-    expect(run.cmds[5]).toContain("--name hello-web-abc1234-3");
+    expect(run.cmds[5]).toContain("--name default.hello.web.abc1234.3");
     expect(run.cmds[5]).toContain("--label bundant.replica=3");
     for (const cmd of run.cmds.filter((c) => c.includes("docker run"))) {
       expect(cmd).toContain("--label bundant.revision=abc1234");
     }
     // one health probe per replica
     expect(step(plan, "health").cmds).toHaveLength(3);
-    expect(step(plan, "health").cmds[1]).toContain("http://hello-web-abc1234-2:80/");
+    expect(step(plan, "health").cmds[1]).toContain("http://default.hello.web.abc1234.2:80/");
     // one atomic proxy deploy carrying all three targets
     const swap = step(plan, "proxy-swap").cmds[0]!;
-    expect(swap).toContain("--target hello-web-abc1234-1:80");
-    expect(swap).toContain("--target hello-web-abc1234-2:80");
-    expect(swap).toContain("--target hello-web-abc1234-3:80");
+    expect(swap).toContain("--target default.hello.web.abc1234.1:80");
+    expect(swap).toContain("--target default.hello.web.abc1234.2:80");
+    expect(swap).toContain("--target default.hello.web.abc1234.3:80");
     expect(swap.split("--target ").length - 1).toBe(3);
     // stop-old keeps every replica of this revision
     const stop = step(plan, "stop-old").cmds[0]!;
-    expect(stop).toContain("grep -v -E '^(hello-web-abc1234-1|hello-web-abc1234-2|hello-web-abc1234-3)$'");
+    expect(stop).toContain("grep -v -E '^(default.hello.web.abc1234.1|default.hello.web.abc1234.2|default.hello.web.abc1234.3)$'");
     expect(plan.meta.replicas).toBe(3);
   });
 
   test("replicas: 1 keeps the single container name and a single --target", () => {
     const plan = buildDeployPlan(cfg({ replicas: 1 }), REV);
-    expect(plan.meta.containerNames).toEqual(["hello-web-abc1234"]);
+    expect(plan.meta.containerNames).toEqual(["default.hello.web.abc1234"]);
     expect(step(plan, "proxy-swap").cmds[0]!.split("--target ").length - 1).toBe(1);
-    expect(step(plan, "run").cmds[0]).toBe("docker rm -f hello-web-abc1234 2>/dev/null || true");
+    expect(step(plan, "run").cmds[0]).toBe("docker rm -f default.hello.web.abc1234 2>/dev/null || true");
   });
 
   test("accessories stay single: no revision/replica labels", () => {
@@ -104,9 +105,9 @@ describe("buildDeployPlan", () => {
       }),
       REV,
     );
-    expect(plan.meta.containerNames).toEqual(["hello"]);
+    expect(plan.meta.containerNames).toEqual(["default.hello"]);
     const run = step(plan, "run").cmds[1]!;
-    expect(run).toContain("--name hello ");
+    expect(run).toContain("--name default.hello ");
     expect(run).not.toContain("bundant.revision");
     expect(run).not.toContain("bundant.replica");
   });
@@ -128,7 +129,7 @@ describe("buildDeployPlan", () => {
       REV,
     );
     expect(plan.hostSteps.filter((s) => s.phase.startsWith("proxy"))).toHaveLength(0);
-    expect(step(plan, "health").cmds[0]).toContain("http://hello-web-abc1234:80/definitely-not-here");
+    expect(step(plan, "health").cmds[0]).toContain("http://default.hello.web.abc1234:80/definitely-not-here");
     expect(step(plan, "health").desc).toContain("timeout 5s");
   });
 
@@ -161,7 +162,7 @@ describe("buildDeployPlan", () => {
     expect(text).toContain("host a.ts.net");
     expect(text).toContain("host b.ts.net");
     expect(text).toContain("docker pull traefik/whoami:v1.10");
-    expect(text).toContain("kamal-proxy deploy hello-web --target hello-web-abc1234:80");
+    expect(text).toContain("kamal-proxy deploy default.hello.web --target default.hello.web.abc1234:80");
     expect(text.split("docker pull traefik/whoami:v1.10").length - 1).toBe(2);
   });
 
@@ -216,11 +217,11 @@ describe("buildDeployPlan", () => {
     expect(step(plan, "port-guard").cmds[0]).toContain("net.ipv4.ip_unprivileged_port_start");
     expect(step(plan, "pull").cmds[0]).toBe("podman pull traefik/whoami:v1.10");
     expect(step(plan, "network").cmds[0]).toContain("podman network create bundant");
-    expect(step(plan, "run").cmds[0]).toBe("podman rm -f hello-web-abc1234 2>/dev/null || true");
-    expect(step(plan, "run").cmds[1]).toContain("podman run -d --name hello-web-abc1234");
+    expect(step(plan, "run").cmds[0]).toBe("podman rm -f default.hello.web.abc1234 2>/dev/null || true");
+    expect(step(plan, "run").cmds[1]).toContain("podman run -d --name default.hello.web.abc1234");
     expect(step(plan, "health").cmds[0]).toContain("podman run --rm --network bundant curlimages/curl");
     expect(step(plan, "proxy-ensure").cmds[0]).toContain("podman inspect");
-    expect(step(plan, "proxy-swap").cmds[0]).toContain("podman exec kamal-proxy kamal-proxy deploy hello-web");
+    expect(step(plan, "proxy-swap").cmds[0]).toContain("podman exec kamal-proxy kamal-proxy deploy default.hello.web");
     expect(step(plan, "stop-old").cmds[0]).toContain("podman ps -a --filter");
     expect(renderPlan(plan)).toContain("runtime=podman");
   });
@@ -276,7 +277,7 @@ describe("buildDeployPlan", () => {
   });
 
   test("per-host and top-level ssh users reach the plan and the transfer pipeline", () => {
-    const plan = buildDeployPlan(cfg({ user: "root", hosts: ["admin@a.ts.net", "b.ts.net"] }), REV, {
+    const plan = buildDeployPlan(cfg({ ssh: { user: "root" }, hosts: ["admin@a.ts.net", "b.ts.net"] }), REV, {
       localImage: "hello:local",
     });
     expect(plan.meta.hosts).toEqual(["admin@a.ts.net", "root@b.ts.net"]);

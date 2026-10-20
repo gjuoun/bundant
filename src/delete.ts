@@ -7,10 +7,10 @@ import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
 import { connectionForTarget, hostTargets } from "./hosts.ts";
 import { acquireLock, lockKey, releaseLock } from "./lock.ts";
 import { envRemotePath, LABEL_KIND, KIND_ACCESSORY } from "./planner.ts";
-import { belongsToService, containerPrefix, isGrouped, legacyPrefix, serviceLabels } from "./naming.ts";
+import { belongsToService, containerPrefix, serviceLabels } from "./naming.ts";
 import { runtimeFor } from "./runtime.ts";
 import type { CmdStep } from "./types.ts";
-import { openOps, type OpsVia } from "./ops/index.ts";
+import { openOps } from "./ops/index.ts";
 import { preflightGate } from "./validation.ts";
 
 export interface DeleteOptions {
@@ -20,8 +20,6 @@ export interface DeleteOptions {
   images: boolean;
   /** Print exactly what would be removed and never open ssh. */
   dryRun: boolean;
-  /** Mutations through the engine API (default) or the legacy CLI strings. */
-  via?: OpsVia;
 }
 
 /** Pure: the containers that belong to this service-role (running or stopped). */
@@ -102,7 +100,7 @@ export function buildDeleteSteps(config: BundantConfig, opts: DeleteOptions): Cm
 
   const skipAccessory =
     'k=$(' + docker.inspectLabel(rt, '"$c"', LABEL_KIND) + '); ' +
-    'if [ "$k" = "' + KIND_ACCESSORY + '" ]; then echo "skip accessory $c (stateful: use bundant accessory remove)" >&2; continue; fi; ';
+    'if [ "$k" = "' + KIND_ACCESSORY + '" ]; then echo "skip accessory $c (stateful: use bundant rm <path> --yes)" >&2; continue; fi; ';
   const sweep = (namePrefix: string, guard: string, collect: boolean): string => {
     const names =
       "for c in $(" + rt.bin + ' ps -a --filter "name=' + namePrefix + '" --format "{{.Names}}"' +
@@ -111,19 +109,8 @@ export function buildDeleteSteps(config: BundantConfig, opts: DeleteOptions): Cm
       ? rt.bin + ' inspect -f "{{.Config.Image}}" "$c" 2>/dev/null; done'
       : rt.bin + ' stop -t 10 "$c" 2>/dev/null; ' + rt.bin + ' rm -f "$c"; done');
   };
-  // New shape first; a real group also sweeps pre-grouping names, but only
-  // containers carrying this group label (another group may use the service name).
-  const grouped = isGrouped(config);
-  const guard =
-    'g=$(' + docker.inspectLabel(rt, '"$c"', 'bundant.group') + '); ' +
-    '[ "$g" = "' + (config.group ?? "") + '" ] || continue; ';
-  const prefixes = grouped
-    ? [{ prefix: p, guard: "" }, { prefix: legacyPrefix(config), guard }]
-    : [{ prefix: p, guard: "" }];
-  const stopAndRemove = prefixes.map((t) => sweep(t.prefix, t.guard, false)).join("; ");
-  const collectImages = grouped
-    ? "(" + prefixes.map((t) => sweep(t.prefix, t.guard, true)).join("; ") + ") | sort -u"
-    : sweep(p, "", true) + " | sort -u";
+  const stopAndRemove = sweep(p, "", false);
+  const collectImages = sweep(p, "", true) + " | sort -u";
 
   if (opts.images) {
     steps.push({
@@ -224,7 +211,6 @@ async function executeDelete(
     return 0;
   }
 
-  const via: OpsVia = opts.via ?? "api";
   const primary = preflightGate(loaded, () =>
     new SshExecutor(connectOptionsFor(connectionForTarget(config, targets[0]!))),
   );
@@ -235,13 +221,10 @@ async function executeDelete(
 
     for (const host of targets) {
       console.log("== " + host + " ==");
-      const ops = await openOps(via, connectionForTarget(config, host), config);
+      const ops = await openOps(connectionForTarget(config, host), config);
       try {
         if (config.proxy.enabled) {
-          const newId = ServiceIdentity.from(config).proxyId();
-          await ops.proxyRemove(newId);
-          const legacyId = proxy.serviceId(config.service, config.role, config.group);
-          if (legacyId !== newId) await ops.proxyRemove(legacyId);
+          await ops.proxyRemove(ServiceIdentity.from(config).proxyId());
           console.log("  proxy-remove ok");
         }
         const rows = await ops.listContainers({

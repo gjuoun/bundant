@@ -12,15 +12,6 @@ export const PROXY_CONTAINER = "kamal-proxy";
 export const PROXY_IMAGE = "docker.io/basecamp/kamal-proxy:latest";
 
 /**
- * Stable proxy service id: `<service>-<role>` for the default group,
- * `<group>-<service>-<role>` otherwise (the default group never prefixes).
- */
-export function serviceId(service: string, role: string, group?: string): string {
-  const prefix = group !== undefined && group !== "" && group !== "default" ? group + "-" : "";
-  return prefix + service + "-" + role;
-}
-
-/**
  * Idempotent three-branch ensure:
  *   running  -> inspect prints true, the || chain short-circuits (no-op)
  *   stopped  -> inspect fails, start succeeds (no recreation, no traffic loss)

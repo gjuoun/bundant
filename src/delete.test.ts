@@ -14,6 +14,7 @@ import { LocalExecutor } from "./exec/local.ts";
 
 function cfg(over: Partial<BundantConfig> = {}): BundantConfig {
   return {
+    version: 2,
     service: "hello",
     image: "traefik/whoami:v1.10",
     role: "web",
@@ -54,13 +55,13 @@ describe("selectDeleteVictims", () => {
   });
 
   test("never selects an accessory, even with the service prefix", () => {
-    const rows = [row("hello-web-r1", "service"), row("hello-web-db", "accessory"), row("other-web-r1", "service")];
-    expect(selectDeleteVictims(rows, cfg(), true).map((r) => r.name)).toEqual(["hello-web-r1"]);
+    const rows = [row("default.hello.web.r1", "service"), row("default.hello.web.db", "accessory"), row("default.other.web.r1", "service")];
+    expect(selectDeleteVictims(rows, cfg(), true).map((r) => r.name)).toEqual(["default.hello.web.r1"]);
   });
 
   test("group sweep selects by label but still skips accessories", () => {
-    const rows = [row("hello-web-r1", "service"), row("hello-db", "accessory")];
-    expect(selectDeleteVictims(rows, cfg(), false).map((r) => r.name)).toEqual(["hello-web-r1"]);
+    const rows = [row("default.hello.web.r1", "service"), row("default.hello.db", "accessory")];
+    expect(selectDeleteVictims(rows, cfg(), false).map((r) => r.name)).toEqual(["default.hello.web.r1"]);
   });
 });
 
@@ -71,7 +72,7 @@ describe("buildDeleteSteps", () => {
     const cmd = steps[0].cmds[0];
     expect(cmd).toContain("docker inspect -f \"{{.State.Running}}\" kamal-proxy");
     expect(cmd).toContain("grep -q true");
-    expect(cmd).toContain("kamal-proxy remove hello-web");
+    expect(cmd).toContain("kamal-proxy remove default.hello.web");
     expect(cmd).toContain("|| true");
   });
 
@@ -92,8 +93,8 @@ describe("buildDeleteSteps", () => {
 
   test("containers step stops and removes the service-role prefix", () => {
     const cmd = step(cfg(), opts).cmds[0];
-    expect(cmd).toContain('docker ps -a --filter "name=hello-web-"');
-    expect(cmd).toContain('grep "^hello-web-"');
+    expect(cmd).toContain('docker ps -a --filter "name=default.hello.web."');
+    expect(cmd).toContain('grep "^default.hello.web."');
     expect(cmd).toContain('docker stop -t 10 "$c"');
     expect(cmd).toContain('docker rm -f "$c"');
   });
