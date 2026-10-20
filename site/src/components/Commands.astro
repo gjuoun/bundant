@@ -1,8 +1,12 @@
 ---
-import { ArrowUpRight } from 'lucide-react';
-import { CommandTabs } from '@/components/CommandTabs';
-import { commandGroups, commandCount } from '@/lib/commands';
+import { ArrowUpRight, Search } from 'lucide-react';
+import { CommandExplorer } from '@/components/CommandExplorer';
+import commands from '@/data/commands.json';
+import '@/components/CommandExplorer.css';
 import { withBase } from '@/lib/utils';
+
+const commandCount = commands.length;
+const flagCount = commands.reduce((total, command) => total + command.flags.length, 0);
 ---
 
 <section id="commands" class="border-b border-border py-16 md:py-24">
@@ -11,12 +15,12 @@ import { withBase } from '@/lib/utils';
       <div class="max-w-2xl">
         <p class="mono-label">Commands</p>
         <h2 class="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-          The whole CLI, in four groups.
+          Every command.<br class="hidden sm:block" />
+          Every flag.
         </h2>
         <p class="mt-4 text-muted-foreground">
-          {commandCount} commands, one binary. Every flag below is in the
-          <span class="font-mono text-foreground"> bundant --help </span>
-          tree today.
+          {commandCount} commands, {flagCount} flags, one binary. Search the list, open a
+          command and read its full usage, every flag and a runnable example.
         </p>
       </div>
       <a href={withBase('docs/cli/')} class="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-primary hover:underline">
@@ -25,6 +29,16 @@ import { withBase } from '@/lib/utils';
       </a>
     </div>
 
-    <CommandTabs groups={commandGroups} client:load />
+    <CommandExplorer commands={commands} client:load />
+
+    <p class="mt-6 flex items-start gap-2 font-mono text-[11px] leading-relaxed text-muted-foreground">
+      <Search className="mt-px size-3.5 shrink-0" />
+      <span>
+        Captured from <span class="text-foreground">bundant --help</span> and
+        <span class="text-foreground"> bundant &lt;command&gt; --help</span> by
+        <span class="text-foreground"> scripts/capture-commands.mjs</span>. Nothing on this page is
+        written by hand.
+      </span>
+    </p>
   </div>
 </section>
