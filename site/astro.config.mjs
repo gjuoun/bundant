@@ -5,6 +5,7 @@ import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import starlight from '@astrojs/starlight';
 import tailwindcss from '@tailwindcss/vite';
+import rehypeMermaid from 'rehype-mermaid';
 
 const BASE = '/bundant';
 
@@ -82,6 +83,7 @@ export default defineConfig({
         Footer: './src/components/starlight/Footer.astro',
         ThemeSelect: './src/components/starlight/ThemeSelect.astro',
         MobileMenuFooter: './src/components/starlight/MobileMenuFooter.astro',
+        Head: './src/components/starlight/Head.astro',
       },
       expressiveCode: {
         themes: [bigfaceTheme],
@@ -96,7 +98,9 @@ export default defineConfig({
     }),
   ],
   markdown: {
-    rehypePlugins: [rehypeDocLinks],
+    // Leave the diagram source in the HTML as <pre class="mermaid">; the client
+    // renderer (docs pages only) turns it into an SVG. No headless browser at build.
+    rehypePlugins: [rehypeDocLinks, [rehypeMermaid, { strategy: 'pre-mermaid' }]],
     shikiConfig: { theme: bigfaceTheme },
   },
   vite: {

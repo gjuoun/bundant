@@ -303,3 +303,125 @@ starlight-menu-button[aria-expanded='true'] button {
     display: block;
   }
 }
+
+
+/* ---------------------------------------------------------------------------
+ * Mermaid diagrams.
+ *
+ * The source stays a <pre class="mermaid"> in the HTML (build strategy:
+ * pre-mermaid). With JavaScript disabled it reads as an indented code block;
+ * when JS runs, the renderer replaces it with the figure below. The inline
+ * head script adds .mermaid-js before first paint so the raw source never
+ * flashes; if the renderer fails, .mermaid-failed brings the source back.
+ * ------------------------------------------------------------------------- */
+pre.mermaid {
+  margin: 1.5rem 0;
+  padding: 1rem;
+  overflow-x: auto;
+  border: 1px solid #494848;
+  border-radius: 0.75rem;
+  background: #252925;
+  color: #d9d9d4;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+html.mermaid-js pre.mermaid {
+  visibility: hidden;
+}
+
+html.mermaid-failed pre.mermaid {
+  visibility: visible;
+}
+
+pre.mermaid.mermaid-error {
+  visibility: visible;
+  border-color: #fc5d23;
+}
+
+.mermaid-figure {
+  margin: 1.5rem 0 1.75rem;
+  padding: 1rem 0.75rem 0.5rem;
+  border: 1px solid #494848;
+  border-radius: 0.75rem;
+  background: #252925;
+}
+
+.mermaid-diagram {
+  margin: 0 auto;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.mermaid-diagram svg {
+  display: block;
+  height: auto;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+/* Mindmap root: Mermaid defaults the root circle to black; pin it to the surface. */
+.mermaid-diagram g.mindmap-node circle.basic.label-container {
+  fill: #2e332e !important;
+}
+
+/* Mermaid's own edge/label styling, pinned to the palette. */
+.mermaid-diagram .node rect,
+.mermaid-diagram .node circle,
+.mermaid-diagram .node polygon,
+.mermaid-diagram .node path {
+  stroke: #494848 !important;
+}
+
+.mermaid-diagram .edgePath path,
+.mermaid-diagram .flowchart-link {
+  stroke: #40c4ff !important;
+}
+
+.mermaid-diagram .edgeLabel,
+.mermaid-diagram .edgeLabel p {
+  background: #252925 !important;
+  color: #d9d9d4 !important;
+}
+
+.mermaid-source {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #333333;
+  color: #9c9a8f;
+  font-size: 0.75rem;
+}
+
+.mermaid-source summary {
+  cursor: pointer;
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  width: fit-content;
+}
+
+.mermaid-source summary:hover {
+  color: #d9d9d4;
+}
+
+.mermaid-source pre {
+  margin: 0.5rem 0 0.5rem;
+  padding: 0.75rem;
+  overflow-x: auto;
+  border: 1px solid #494848;
+  border-radius: 0.5rem;
+  background: #1f231f;
+  color: #d9d9d4;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+
+@media (min-width: 50rem) {
+  .mermaid-figure {
+    padding: 1.5rem 1.5rem 0.75rem;
+  }
+}
+
