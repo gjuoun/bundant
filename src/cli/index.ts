@@ -10,9 +10,21 @@ import { deploy } from "./commands/deploy.ts";
 import { rollback } from "./commands/rollback.ts";
 import { history } from "./commands/history.ts";
 import { status } from "./commands/status.ts";
+import { scale } from "./commands/scale.ts";
+import { prune } from "./commands/prune.ts";
+import { del } from "./commands/delete.ts";
 
 export const command = rootCommand.pipe(
-  Command.withSubcommands([validate, deploy, rollback, history, status]),
+  Command.withSubcommands([
+    validate,
+    deploy,
+    scale,
+    rollback,
+    history,
+    status,
+    del,
+    prune,
+  ]),
 );
 
 const program = Command.run(command, {

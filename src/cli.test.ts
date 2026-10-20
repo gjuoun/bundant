@@ -97,6 +97,33 @@ describe("effect/cli parsing", () => {
     expect(lines[0]).toContain("is an accessory — use `bundant accessory boot`");
   });
 
+  test("scale on an accessory refuses", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "bundant-cli-"));
+    const file = join(dir, "accessory.yml");
+    writeFileSync(
+      file,
+      [
+        "kind: accessory",
+        "service: db2",
+        "image: postgres:16",
+        "hosts: [box.test]",
+        "proxy: { enabled: false }",
+      ].join("\n"),
+    );
+    const lines: string[] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => {
+      lines.push(args.map(String).join(" "));
+    };
+    try {
+      await run(["scale", "-f", file, "--replicas", "2"]);
+    } finally {
+      console.error = original;
+    }
+    expect(process.exitCode).toBe(2);
+    expect(lines[0]).toContain("is an accessory — a stateful member is one of one");
+  });
+
   test("lock contention maps to exit 2", async () => {
     const original = console.error;
     console.error = () => {};
