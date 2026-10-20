@@ -1,5 +1,5 @@
 ---
-import { Github, Menu, Moon, Sun } from 'lucide-react';
+import { Github, Menu } from 'lucide-react';
 import { withBase } from '@/lib/utils';
 
 const links = [
@@ -41,15 +41,6 @@ const links = [
         <span>GitHub</span>
       </a>
       <button
-        id="theme-toggle"
-        type="button"
-        aria-label="Toggle color theme"
-        class="grid size-11 place-items-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      >
-        <Moon className="size-4 dark:hidden" />
-        <Sun className="hidden size-4 dark:block" />
-      </button>
-      <button
         type="button"
         aria-label="Open menu"
         aria-expanded="false"
@@ -76,17 +67,6 @@ const links = [
 </header>
 
 <script>
-  const toggle = document.getElementById('theme-toggle');
-  const root = document.documentElement;
-  toggle?.addEventListener('click', () => {
-    const dark = !root.classList.contains('dark');
-    root.classList.toggle('dark', dark);
-    root.style.colorScheme = dark ? 'dark' : 'light';
-    try {
-      localStorage.setItem('theme', dark ? 'dark' : 'light');
-    } catch {}
-  });
-
   const menuButton = document.querySelector('[data-mobile-menu]');
   const menu = document.getElementById('mobile-menu');
   menuButton?.addEventListener('click', () => {
