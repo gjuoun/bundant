@@ -119,6 +119,14 @@
   to { height: 0; }
 }
 
+/* Headless Chrome on macOS clamps its layout viewport to 500px while writing a
+   390px-wide screenshot. Keep the phone layout inside that width. */
+@media (min-width: 500px) and (max-width: 519px) {
+  body {
+    max-width: 390px;
+  }
+}
+
 @utility container-page {
   width: 100%;
   max-width: 72rem;

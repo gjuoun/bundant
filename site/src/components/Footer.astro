@@ -1,6 +1,6 @@
 ---
 import { Github } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import { withBase } from '@/lib/utils';
 
 const year = new Date().getFullYear();
@@ -16,14 +16,10 @@ const year = new Date().getFullYear();
         </h2>
       </div>
       <div class="grid gap-2.5 sm:flex sm:flex-wrap md:justify-end">
-        <Button asChild>
-          <a href={withBase('docs/deploy-yml/')}>Read the docs</a>
-        </Button>
-        <Button asChild variant="outline">
-          <a href="https://github.com/gjuoun/bundant" target="_blank" rel="noreferrer">
-            <Github class="size-4" /> GitHub
-          </a>
-        </Button>
+        <a href={withBase('docs/deploy-yml/')} class={buttonVariants({ className: 'w-full sm:w-auto' })}>Read the docs</a>
+        <a href="https://github.com/gjuoun/bundant" target="_blank" rel="noreferrer" class={buttonVariants({ variant: 'outline', className: 'w-full sm:w-auto' })}>
+          <Github className="size-4" /> GitHub
+        </a>
       </div>
     </div>
 

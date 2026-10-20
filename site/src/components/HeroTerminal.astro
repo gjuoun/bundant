@@ -5,7 +5,7 @@ import { ArrowRight, Check, FileCode, GitBranch } from 'lucide-react';
 <div class="overflow-hidden rounded-xl border border-border bg-card">
   <div class="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
     <div class="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
-      <FileCode class="size-3.5" />
+      <FileCode className="size-3.5" />
       deploy.yml
     </div>
     <span class="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -28,19 +28,19 @@ import { ArrowRight, Check, FileCode, GitBranch } from 'lucide-react';
     </div>
     <ul class="space-y-2.5 font-mono text-[11px]">
       <li class="flex items-start gap-2 text-muted-foreground">
-        <Check class="mt-px size-3.5 shrink-0 text-primary" />
+        <Check className="mt-px size-3.5 shrink-0 text-primary" />
         <span>revision <span class="text-foreground">hello-web-59ceb8d</span> started unpublished</span>
       </li>
       <li class="flex items-start gap-2 text-muted-foreground">
-        <Check class="mt-px size-3.5 shrink-0 text-primary" />
+        <Check className="mt-px size-3.5 shrink-0 text-primary" />
         <span>health gate passed</span>
       </li>
       <li class="flex items-start gap-2 text-muted-foreground">
-        <ArrowRight class="mt-px size-3.5 shrink-0 text-primary" />
+        <ArrowRight className="mt-px size-3.5 shrink-0 text-primary" />
         <span>proxy target set swapped in one call</span>
       </li>
       <li class="flex items-start gap-2 text-muted-foreground">
-        <GitBranch class="mt-px size-3.5 shrink-0 text-primary" />
+        <GitBranch className="mt-px size-3.5 shrink-0 text-primary" />
         <span>old revision kept for rollback</span>
       </li>
     </ul>
