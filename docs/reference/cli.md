@@ -9,7 +9,8 @@ sidebar:
 # CLI reference
 
 Read this after [chapter 3](/bundant/docs/tutorial/03-operate/) and
-[chapter 5](/bundant/docs/tutorial/05-observe/).
+[chapter 5](/bundant/docs/tutorial/05-observe/). When a command fails, the message, the cause and
+the fix are in [Troubleshooting](/bundant/docs/troubleshooting/).
 
 bundant's command tree is declared with `effect/cli`. The root command owns the
 shared flags; every subcommand handler returns an Effect and surfaces the typed

@@ -211,6 +211,8 @@ async function main() {
     'A five-chapter tutorial, then the reference behind it. Every command in the tutorial was run',
     'against a real host; the pages show the output it produced.',
     '',
+    'If a command fails, [Troubleshooting](troubleshooting/) has the message, the cause and the fix.',
+    '',
     '## Tutorial',
     '',
     ...tutorial.map((doc) => '- [' + doc.title + '](' + doc.slug + '/)'),
