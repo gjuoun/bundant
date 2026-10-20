@@ -126,6 +126,8 @@ describe("emulated deploys", () => {
     const localCalls: string[] = [];
     const sshCalls: string[] = [];
     let transfers = 0;
+    let openedOps = 0;
+    let mutations = 0;
     const ssh = {
       kind: "local" as const,
       async run(cmd: string) {
@@ -153,9 +155,45 @@ describe("emulated deploys", () => {
             missingLayers: 0,
           };
         },
+        openOps: async () => {
+          openedOps += 1;
+          return {
+            steps: [],
+            async listContainers() {
+              return [];
+            },
+            async putEnv() {},
+            async hostPrereqs() {},
+            async imagePresent() {
+              return true;
+            },
+            async imageId() {
+              return "sha256:abc";
+            },
+            async imagePlatform() {
+              return { os: "linux", arch: "arm64" };
+            },
+            async hostPlatform() {
+              return { os: "linux", arch: "amd64" };
+            },
+            async binfmtPresent() {
+              return false;
+            },
+            async close() {},
+            async removeContainer() {
+              mutations += 1;
+            },
+            async createContainer() {
+              mutations += 1;
+              return "id";
+            },
+          } as unknown as RuntimeOps;
+        },
       }),
     ).rejects.toBeInstanceOf(ArchMismatchError);
     expect(transfers).toBe(0);
+    expect(openedOps).toBe(0);
+    expect(mutations).toBe(0);
     expect(sshCalls).toEqual(["uname -s -m"]);
     expect(localCalls.some((cmd) => cmd.includes("Architecture"))).toBe(true);
   });

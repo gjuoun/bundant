@@ -42,6 +42,11 @@ export interface DeployOptions {
   outcome?: DeployOutcome;
   /** Test seam: the local engine shell used for the image preflight. */
   localExec?: Executor;
+  /** Test seam: the per-host ops factory that owns every mutation. */
+  openOps?: (
+    connection: ReturnType<typeof connectionForTarget>,
+    config: LoadedConfig["config"],
+  ) => Promise<RuntimeOps>;
   /** Test seam: the transfer the deploy would run (counts calls in tests). */
   localImageTransfer?: (ops: RuntimeOps, ref: string) => Promise<TransferReport>;
 }
@@ -391,7 +396,10 @@ export async function deploy(
     for (const host of m.hosts) {
       console.log("[" + host + "] deploying " + m.containerNames.join(", "));
       const connectStart = performance.now();
-      const ops = await openOps(connectionForTarget(loaded.config, host), loaded.config);
+      const ops = await (opts.openOps ?? openOps)(
+        connectionForTarget(loaded.config, host),
+        loaded.config,
+      );
       timed(opts.phases, "connect", connectStart);
       try {
         await deployOnHost(ops, plan, loaded, {
