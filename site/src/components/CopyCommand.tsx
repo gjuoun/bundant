@@ -51,7 +51,7 @@ export function CopyCommand({ commands }: { commands: Command[] }) {
         </button>
       </div>
       <div className="flex items-center gap-2.5 px-4 py-3">
-        <span className="select-none font-mono text-sm text-primary">$</span>
+        <span className="select-none font-mono text-sm text-accent-foreground">$</span>
         <code className="overflow-x-auto whitespace-nowrap font-mono text-[0.8125rem] text-foreground">
           {current.command}
         </code>

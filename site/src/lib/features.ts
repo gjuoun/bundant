@@ -123,16 +123,17 @@ export const howSteps: HowStep[] = [
 ];
 
 /** Real output of `bundant deploy --dry-run -f examples/hello/deploy.yml`, trimmed for the page. */
-export const dryRunExcerpt = `bundant deploy plan (via api) - hello/web rev=59ceb8d runtime=podman image=traefik/whoami:v1.10
+export const dryRunExcerpt = `bundant deploy plan (via api)
+  hello/web rev=59ceb8d runtime=podman
 hosts: replace-me.example.ts.net
 
-  1) [ssh] host prerequisites (systemd units, sysctl floor)
-  2) [pull] POST /images/create?fromImage=traefik%2Fwhoami&tag=v1.10
-  3) [network] POST /networks/create {"Name":"bundant","CheckDuplicate":true}
-  4) [run] POST /containers/create?name=hello-web-59ceb8d
-  5) [health] probe container -> GET /containers/<probe>/logs
+  1) [ssh] host prerequisites
+  2) [pull] POST /images/create?fromImage=traefik
+  3) [network] POST /networks/create
+  4) [run] POST /containers/create?name=hello-web
+  5) [health] probe -> GET /containers/<probe>/logs
   6) [proxy-ensure] GET /containers/kamal-proxy/json
-  7) [proxy-swap] kamal-proxy deploy hello-web --target hello-web-59ceb8d:80
+  7) [proxy-swap] kamal-proxy deploy hello-web
   8) [stop-old] POST /containers/<old>/stop?t=10`;
 
 export const installCommands = [
