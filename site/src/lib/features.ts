@@ -128,13 +128,13 @@ export const dryRunExcerpt = `bundant deploy plan (via api)
 hosts: replace-me.example.ts.net
 
   1) [ssh] host prerequisites
-  2) [pull] POST /images/create?fromImage=traefik
+  2) [pull] POST /images/create
   3) [network] POST /networks/create
-  4) [run] POST /containers/create?name=hello-web
-  5) [health] probe -> GET /containers/<probe>/logs
-  6) [proxy-ensure] GET /containers/kamal-proxy/json
-  7) [proxy-swap] kamal-proxy deploy hello-web
-  8) [stop-old] POST /containers/<old>/stop?t=10`;
+  4) [run] POST /containers/create
+  5) [health] probe -> GET /logs
+  6) [proxy-ensure] GET /kamal-proxy
+  7) [proxy-swap] kamal-proxy deploy
+  8) [stop-old] POST /stop?t=10`;
 
 export const installCommands = [
   { label: 'npm', command: 'npm i -g bundant' },
