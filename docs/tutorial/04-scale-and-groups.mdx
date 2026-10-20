@@ -14,10 +14,6 @@ import { CardGrid, FileTree, LinkCard, Steps } from '@astrojs/starlight/componen
 **What you get:** several copies of one service behind the proxy, and a group whose web service
 waits for a stateful database before it starts.
 
-**Why it matters:** most "high availability" stories need a load balancer, a shared database and a
-scheduler. Here the proxy already distributes requests, a **replica** is just a numbered copy of
-the same revision, and an **accessory** is a stateful member that keeps its name and its data.
-
 Three terms carry this chapter. A **replica** is one of N copies of the same revision on a host:
 `replicas: 3` names them `.1`, `.2`, `.3` and the proxy balances across all of them. An
 **accessory** is a stateful group member (a database, a queue) with a stable name, named volumes

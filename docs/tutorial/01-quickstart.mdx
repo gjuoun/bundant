@@ -14,14 +14,11 @@ import { CardGrid, FileTree, LinkCard, Steps, Tabs, TabItem } from '@astrojs/sta
 **What you get:** the `bundant` command installed, one host checked over ssh, and one service
 running behind a proxy.
 
-**Why it matters:** a deploy that replaces a container without dropping requests is usually a
-platform project. Here it is one file and one command, and you can see every step it takes.
+Three terms, used everywhere after this page:
 
-Three terms come up on this page and everywhere after it. The **revision** is the git short sha of
-the directory that holds `deploy.yml`; every deploy builds a container named after it, and rollback
-targets it. The **health gate** is a probe that must answer before traffic moves: a new container
-that fails it is removed and the old one keeps serving. The **proxy swap** is the single step that
-points the host's proxy at the new container — until it happens, nothing user-visible changes.
+- **revision** — the git short sha of the directory holding `deploy.yml`. Containers are named after it, and rollback targets it.
+- **health gate** — a probe the new container must answer before traffic moves.
+- **proxy swap** — the one step that points the proxy at the new container; before it, nothing user-visible changes.
 
 <Steps>
 
