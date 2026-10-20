@@ -5,6 +5,10 @@ import { normalize, preflight, RawConfigSchema } from "./v1/deploy.ts";
 import { GroupFileSchema } from "./v1/group.ts";
 import { AccessorySchema } from "./v1/accessory.ts";
 import { v1Grammar, type NameGrammar } from "./v1/grammar.ts";
+import { v2Grammar } from "./v2/grammar.ts";
+import { RawConfigSchema as RawConfigSchemaV2, normalize as normalizeV2, preflight as preflightV2 } from "./v2/deploy.ts";
+import { GroupFileSchema as GroupFileSchemaV2 } from "./v2/group.ts";
+import { AccessorySchema as AccessorySchemaV2 } from "./v2/accessory.ts";
 
 /**
  * A version is a closed bundle: schema, grammar, defaults and preflight rules.
@@ -106,7 +110,17 @@ export class ConfigRegistry {
   }
 }
 
-export const defaultRegistry = new ConfigRegistry();
+export const v2Module: VersionModule = {
+  version: 2,
+  grammar: v2Grammar,
+  deploySchema: RawConfigSchemaV2,
+  accessorySchema: AccessorySchemaV2,
+  groupSchema: GroupFileSchemaV2,
+  normalize: (raw, hosts) => normalizeV2(raw, hosts),
+  preflight: (loaded) => preflightV2(loaded, v2Grammar),
+};
+
+export const defaultRegistry = new ConfigRegistry([v1Module, v2Module]);
 
 /**
  * Version module for an already-loaded file (defaults to implicit v1).

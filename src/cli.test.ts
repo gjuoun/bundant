@@ -9,6 +9,7 @@ import { rootCommand } from "./cli/root.ts";
 import { command } from "./cli/index.ts";
 import { LockError } from "./effect/errors.ts";
 import { runMain } from "./effect/runtime.ts";
+import { findCaseCollision } from "./deploy.ts";
 import { ACCESSORY_DEFAULT_ACTION } from "./cli/commands/accessory.ts";
 import { GROUP_DEFAULT_ACTION } from "./cli/commands/group.ts";
 
@@ -135,6 +136,21 @@ describe("effect/cli parsing", () => {
     } finally {
       console.error = original;
     }
+  });
+
+  test("case-only duplicates fail with the case-collision message", () => {
+    const collision = findCaseCollision(
+      [
+        {
+          name: "default.ShopApi.web.r1",
+          labels: { "bundant.group": "default", "bundant.service": "ShopApi" },
+        },
+      ],
+      { group: "default", service: "shopapi" },
+    );
+    expect(collision).toBe(
+      "default/ShopApi and default/shopapi both resolve to default/shopapi",
+    );
   });
 
   test("group defaults to install and accessory defaults to status", () => {

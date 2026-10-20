@@ -4,6 +4,7 @@ import type { BundantConfig } from "./config.ts";
 import { groupLabels, indexedContainerName } from "./planner.ts";
 import { replicaOf, revisionOf } from "./revisions.ts";
 import { runtimeFor } from "./runtime.ts";
+import { ServiceIdentity } from "./domain/identity.ts";
 import type { CmdStep } from "./types.ts";
 
 /**
@@ -91,7 +92,7 @@ export function buildScaleSteps(
   opts: ScaleStepOptions,
 ): CmdStep[] {
   const rt = runtimeFor(config.runtime);
-  const svcId = proxy.serviceId(config.service, config.role, config.group);
+  const svcId = ServiceIdentity.from(config, undefined, revision).proxyId();
   const steps: CmdStep[] = [];
   const nameOf = (i: number): string =>
     opts.nameOf ? opts.nameOf(i) : indexedContainerName(config, revision, i);

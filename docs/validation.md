@@ -14,15 +14,18 @@ Exit code is `0` when valid and `1` with the full error list otherwise.
 
 ## Versions
 
-Every config file may declare `version: 1` (an integer) at the top level.
+Every config file may declare `version: 1` or `version: 2` (an integer) at the top level.
+
+- **v1** keeps the historical hyphen names (`<service>-<role>-<rev>`).
+- **v2** uses dotted names and a wider identifier charset — see [naming.md](naming.md).
 
 - **Explicit** — `version: 1` pins the file to v1.
 - **Implicit** — no `version` means v1, and the report says
   `version: 1 (implicit — add "version: 1" to pin it)`.
 - **Strict** — `--strict` turns the implicit case into an error so CI can demand
   pinned files.
-- **Unknown** — any unregistered value (`2`, `"v2"`, `1.5`) is rejected with the
-  supported list: `unsupported config version 2 (supported: 1)`.
+- **Unknown** — any unregistered value (`3`, `"v3"`, `1.5`) is rejected with the
+  supported list: `unsupported config version 3 (supported: 1, 2)`.
 
 A version pins all four things together:
 
@@ -33,9 +36,9 @@ A version pins all four things together:
 
 ### How to add v2
 
-1. Add `src/config/v2/{deploy,group,accessory}.ts` plus its grammar module.
+1. Add `src/config/vN/{deploy,group,accessory}.ts` plus its grammar module.
 2. Add one entry to the production registry (`src/config/registry.ts`).
-3. Run `bun run schema:gen` to write `schema/v2/*`.
+3. Run `bun run schema:gen` to write `schema/vN/*`.
 4. The drift test iterates every registered version, so a missing schema fails.
 
 **No file inside `src/config/v1/` changes.** The registry test registers a dummy

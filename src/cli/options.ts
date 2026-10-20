@@ -24,4 +24,5 @@ export const globalFlags = {
   hosts: Flag.String("hosts").pipe(Flag.optional),
   via: Flag.String("via").pipe(Flag.withDefault("api")),
   strict: Flag.Boolean("strict").pipe(Flag.withDefault(false)),
+  "allow-case-collision": Flag.Boolean("allow-case-collision").pipe(Flag.withDefault(false)),
 };

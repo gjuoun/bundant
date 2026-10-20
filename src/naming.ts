@@ -13,14 +13,16 @@ export function isGrouped(config: Pick<BundantConfig, "group">): boolean {
 
 /** Container/proxy-id prefix including the trailing dash. */
 export function containerPrefix(
-  config: Pick<BundantConfig, "group" | "service" | "role">,
+  config: Pick<BundantConfig, "group" | "service" | "role"> & { version?: number },
 ): string {
   const identity = ServiceIdentity.from({
     group: config.group,
     service: config.service,
     role: config.role,
+    version: config.version,
   } as BundantConfig);
-  return identity.servicePrefix() + "-";
+  // containerName() ends in the sentinel revision "r0"; keep the separator.
+  return identity.containerName().slice(0, -2);
 }
 
 /** Pre-grouping name prefix, still found on hosts upgraded in place. */
@@ -31,19 +33,24 @@ export function legacyPrefix(config: Pick<BundantConfig, "service" | "role">): s
 /** True when the name is this service-role in either the new or legacy shape. */
 export function belongsToService(
   name: string,
-  config: Pick<BundantConfig, "group" | "service" | "role">,
+  config: Pick<BundantConfig, "group" | "service" | "role"> & { version?: number },
 ): boolean {
+  // Labels already scope the group; the legacy hyphen prefix is always safe to
+  // recognise as well (v1 names survive a v1 -> v2 migration).
   if (name.startsWith(containerPrefix(config))) return true;
-  return isGrouped(config) && name.startsWith(legacyPrefix(config));
+  return name.startsWith(legacyPrefix(config));
 }
 
 /** Stable accessory container name: grouped accessories carry the group prefix. */
-export function accessoryContainerName(config: Pick<BundantConfig, "group" | "service">): string {
+export function accessoryContainerName(
+  config: Pick<BundantConfig, "group" | "service"> & { version?: number },
+): string {
   const identity = ServiceIdentity.from({
     group: config.group,
     service: config.service,
     role: "web",
     kind: "accessory",
+    version: config.version,
   } as BundantConfig);
   return identity.containerName();
 }

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { BundantConfig } from "../config.ts";
 import { v1Grammar, type NameGrammar, type NameIdentity } from "../config/v1/grammar.ts";
+import { v2Grammar } from "../config/v2/grammar.ts";
 import { ServiceIdentity } from "./identity.ts";
 
 function cfg(over: Partial<BundantConfig> = {}): BundantConfig {
@@ -32,6 +33,40 @@ describe("ServiceIdentity names", () => {
     expect(
       ServiceIdentity.from(cfg({ group: "default", kind: "accessory" }), v1Grammar, "r1").containerName(),
     ).toBe("api");
+  });
+
+  test("v2 produces dotted service and accessory names", () => {
+    const service = ServiceIdentity.from(
+      cfg({ version: 2, group: "Shop", service: "api", role: "Web" }),
+      v2Grammar,
+      "r2026a",
+    );
+    expect(service.containerName()).toBe("Shop.api.Web.r2026a");
+    expect(service.containerName(2)).toBe("Shop.api.Web.r2026a.2");
+    expect(service.proxyId()).toBe("Shop.api.Web");
+
+    const accessory = ServiceIdentity.from(
+      cfg({ version: 2, group: "Shop", service: "db", kind: "accessory" }),
+      v2Grammar,
+      "r2026a",
+    );
+    expect(accessory.containerName()).toBe("Shop.db");
+
+    const parsed = ServiceIdentity.parse("Shop.api.Web.r2026a.2", v2Grammar);
+    expect(parsed?.containerName()).toBe("Shop.api.Web.r2026a.2");
+    const accessoryParsed = ServiceIdentity.parse("Shop.db", v2Grammar);
+    expect(accessoryParsed?.kind).toBe("accessory");
+    expect(accessoryParsed?.containerName()).toBe("Shop.db");
+  });
+
+  test("v1 stays hyphen-shaped for the same identity", () => {
+    const service = ServiceIdentity.from(
+      cfg({ group: "Shop", service: "api", role: "Web" }),
+      v1Grammar,
+      "r2026a",
+    );
+    expect(service.containerName()).toBe("Shop-api-Web-r2026a");
+    expect(service.proxyId()).toBe("Shop-api-Web");
   });
 
   test("replica suffixes appear only when requested", () => {

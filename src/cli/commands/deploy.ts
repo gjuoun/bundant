@@ -37,7 +37,9 @@ export const deploy = Command.make("deploy", {}, () =>
       );
       return yield* finish(0);
     }
-    const code = yield* runPromise(() => runDeploy(plan, loaded, { via }));
+    const code = yield* runPromise(() =>
+      runDeploy(plan, loaded, { via, allowCaseCollision: g["allow-case-collision"] }),
+    );
     yield* finish(code);
   }),
 ).pipe(Command.withDescription("deploy the current revision to every host"));

@@ -40,6 +40,8 @@ export class ServiceIdentity {
   readonly kind: "service" | "accessory";
   readonly replicas: number;
   readonly volumes: string[];
+  /** Replica index carried by parse(); from() leaves it undefined. */
+  readonly replica?: number;
   private readonly grammar: NameGrammar;
 
   constructor(grammar: NameGrammar, fields: ServiceIdentityFields) {
@@ -51,6 +53,7 @@ export class ServiceIdentity {
     this.kind = fields.kind;
     this.replicas = fields.replicas;
     this.volumes = fields.volumes;
+    this.replica = (fields as ServiceIdentityFields & { replica?: number }).replica;
   }
 
   static from(
@@ -81,15 +84,17 @@ export class ServiceIdentity {
     for (const candidate of groups) {
       try {
         const parsed = grammar.parse(composed, candidate === "" ? undefined : candidate);
+        const kind = (parsed as { kind?: "service" | "accessory" }).kind ?? "service";
         return new ServiceIdentity(grammar, {
-          group: candidate,
+          group: candidate === "" ? (parsed.group ?? "") : candidate,
           service: parsed.service,
           role: parsed.role,
           revision: parsed.revision,
-          kind: "service",
+          kind,
           replicas: parsed.replica !== undefined ? 2 : 1,
           volumes: [],
-        });
+          ...(parsed.replica !== undefined ? { replica: parsed.replica } : {}),
+        } as ServiceIdentityFields);
       } catch {
         // try the next interpretation
       }
@@ -101,13 +106,22 @@ export class ServiceIdentity {
     return this.group !== "" && this.group !== this.grammar.defaultGroup;
   }
 
-  /** <group>-<service>-<role> (or the ungrouped service-role). */
+  /** <group>.service.role / <group>-service-role, without the revision. */
   servicePrefix(): string {
-    return (this.isGrouped() ? this.group + "-" : "") + this.service + "-" + this.role;
+    return this.proxyId();
   }
 
   containerName(replica?: number): string {
     if (this.kind === "accessory") {
+      const fields = {
+        group: this.group,
+        service: this.service,
+        role: this.role,
+        revision: this.revision,
+      };
+      if (this.grammar.accessoryCompose !== undefined) {
+        return this.grammar.accessoryCompose(fields);
+      }
       return this.isGrouped() ? this.group + "-" + this.service : this.service;
     }
     return this.grammar.compose({
@@ -115,12 +129,20 @@ export class ServiceIdentity {
       service: this.service,
       role: this.role,
       revision: this.revision,
-      replica,
+      replica: replica ?? this.replica,
     });
   }
 
   proxyId(): string {
-    return this.servicePrefix();
+    if (this.kind === "accessory") return this.containerName();
+    const composed = this.grammar.compose({
+      group: this.group,
+      service: this.service,
+      role: this.role,
+      revision: this.revision,
+    });
+    const suffix = this.revision.length + 1;
+    return composed.slice(0, Math.max(0, composed.length - suffix));
   }
 
   envPath(): string {
@@ -168,7 +190,8 @@ export class ServiceIdentity {
       kind: this.kind,
       replicas: this.replicas,
       volumes: this.volumes,
-    };
+      ...(this.replica !== undefined ? { replica: this.replica } : {}),
+    } as ServiceIdentityFields;
   }
 }
 

@@ -291,6 +291,17 @@ export class ApiOps implements RuntimeOps {
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
   }
 
+  async proxyList(): Promise<string[]> {
+    const r = await this.adapter.exec(PROXY_CONTAINER, ["kamal-proxy", "list"]);
+    if (r.code !== 0) return [];
+    return r.stdout
+      .split("\n")
+      .map((line) => line.replace(/\u001b\[[0-9;]*m/g, "").trim())
+      .filter((line) => line !== "")
+      .map((line) => line.split(/\s+/)[0] ?? "")
+      .filter((id) => id !== "" && id !== "Service");
+  }
+
   async proxyRemove(serviceId: string): Promise<void> {
     this.steps.push("proxy-remove:" + serviceId);
     const r = await this.adapter.exec(PROXY_CONTAINER, ["kamal-proxy", "remove", serviceId]);

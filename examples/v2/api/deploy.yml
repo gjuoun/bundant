@@ -1,0 +1,7 @@
+version: 2
+service: Shop-Api
+image: traefik/whoami:v1.10
+role: Web
+hosts: [replace-me.example.ts.net]
+healthcheck: { path: /, timeout: 30 }
+proxy: { enabled: true, host: shop-api.bundant.test, port: 80 }

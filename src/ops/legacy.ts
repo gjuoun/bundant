@@ -206,6 +206,12 @@ export class LegacyOps implements RuntimeOps {
     return parseHistory(r.stdout).filter((e) => belongsToService(e.name, config));
   }
 
+  async proxyList(): Promise<string[]> {
+    const r = await this.exec.run(proxy.list(this.rt));
+    if (r.code !== 0) return [];
+    return parseProxyList(r.stdout);
+  }
+
   async proxyRemove(serviceId: string): Promise<void> {
     this.steps.push("proxy-remove:" + serviceId);
     await this.run(
@@ -271,6 +277,16 @@ export class LegacyOps implements RuntimeOps {
 }
 
 /** Parse the legacy ps format into ContainerSummary rows. */
+/** First column of `kamal-proxy list`, ANSI stripped. */
+export function parseProxyList(stdout: string): string[] {
+  return stdout
+    .split("\n")
+    .map((line) => line.replace(/\u001b\[[0-9;]*m/g, "").trim())
+    .filter((line) => line !== "")
+    .map((line) => line.split(/\s+/)[0] ?? "")
+    .filter((id) => id !== "" && id !== "Service");
+}
+
 export function parseList(stdout: string): ContainerSummary[] {
   return stdout
     .split("\n")

@@ -1,0 +1,8 @@
+version: 2
+kind: accessory
+service: Shop-DB
+image: docker.io/library/postgres:16-alpine
+hosts: [replace-me.example.ts.net]
+volumes: ["Shop-data:/var/lib/postgresql/data"]
+healthcheck: { tcp: 5432, timeout: 60 }
+proxy: { enabled: false }

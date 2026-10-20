@@ -44,6 +44,10 @@ export interface NameGrammar {
   compose(identity: NameIdentity): string;
   parse(name: string, group?: string): NameIdentity;
   roundTrips(identity: NameIdentity): boolean;
+  /** Optional v2-style accessory naming; v1 leaves this undefined. */
+  accessoryCompose?(identity: NameIdentity): string;
+  /** Separator before the replica index (default "-"). */
+  replicaSeparator?: string;
 }
 
 function isGrouped(group: string | undefined, defaultGroup: string): boolean {

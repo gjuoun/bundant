@@ -1,0 +1,179 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://bundant.dev/schema/v2/deploy.schema.json",
+  "title": "bundant deploy.yml (v2)",
+  "description": "One file per service. Version 2 pins this schema, its grammar and its defaults.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "number",
+      "const": 2
+    },
+    "service": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9]|[-_](?=[A-Za-z0-9]))*$",
+      "description": "service name (v2 identifier)"
+    },
+    "image": {
+      "type": "string",
+      "minLength": 1
+    },
+    "role": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9]|[-_](?=[A-Za-z0-9]))*$",
+      "description": "role name (v2 identifier)"
+    },
+    "replicas": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "service",
+        "accessory"
+      ]
+    },
+    "volumes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "hosts": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "ssh": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "user": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]+$",
+              "description": "default login user; a per-host user@ wins"
+            },
+            "port": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535,
+              "description": "default port; a per-host :port wins"
+            },
+            "identity": {
+              "type": "string",
+              "minLength": 1,
+              "description": "private key path; ~ is expanded"
+            },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "extra ssh flags, e.g. [\"-o\",\"StrictHostKeyChecking=accept-new\"]"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "string",
+          "minLength": 1
+        }
+      ]
+    },
+    "user": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+$"
+    },
+    "runtime": {
+      "type": "string",
+      "enum": [
+        "docker",
+        "podman"
+      ]
+    },
+    "env": {
+      "type": "object",
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "local KEY=VAL file (gitignored); uploaded to the host as mode 0600"
+        },
+        "vars": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "inline values; merged over file keys. Never printed by bundant"
+        }
+      },
+      "additionalProperties": false
+    },
+    "healthcheck": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^\\/\\S*$",
+          "description": "HTTP path the gate probes (default /)"
+        },
+        "port": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "container port to probe (default proxy.port)"
+        },
+        "timeout": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "seconds before the gate gives up (default 30)"
+        },
+        "tcp": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "accessory readiness: a bare TCP connect to this port must succeed"
+        }
+      },
+      "additionalProperties": false
+    },
+    "proxy": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "swap traffic at deploy (default true)"
+        },
+        "host": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Host header this service answers on (required when enabled)"
+        },
+        "port": {
+          "type": "integer",
+          "exclusiveMinimum": 0,
+          "description": "container port kamal-proxy targets (default 80)"
+        },
+        "tls": {
+          "type": "boolean",
+          "description": "pass --tls to kamal-proxy (ACME certificates)"
+        },
+        "image": {
+          "type": "string",
+          "minLength": 1,
+          "description": "proxy image override for air-gapped hosts"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "version",
+    "service",
+    "image"
+  ],
+  "additionalProperties": false
+}

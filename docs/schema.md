@@ -9,7 +9,11 @@ can autocomplete field names and flag typos before you run the CLI.
 schema/
 ├── README.md
 ├── v1/
-│   ├── deploy.schema.json       # deploy.yml
+│   ├── deploy.schema.json       # deploy.yml (hyphen names)
+│   ├── accessory.schema.json    # accessory.yml
+│   └── group.schema.json        # group.yml
+├── v2/
+│   ├── deploy.schema.json       # deploy.yml (dotted names, wider charset)
 │   ├── accessory.schema.json    # accessory.yml
 │   └── group.schema.json        # group.yml
 ├── deploy.schema.json           # stable v1 alias (existing examples)
@@ -22,14 +26,14 @@ Add one comment line at the top of a config file (VS Code's YAML extension, and
 anything else built on `yaml-language-server`, understands it):
 
 ```yaml
-# yaml-language-server: $schema=./schema/v1/deploy.schema.json
-version: 1
-service: api
+# yaml-language-server: $schema=./schema/v2/deploy.schema.json
+version: 2
+service: Shop-Api
 image: traefik/whoami:v1.10
 ```
 
 Relative paths resolve against the YAML file, so an example two directories down
-writes `../../schema/v1/deploy.schema.json` (see `examples/`). You get:
+writes `../../schema/v2/deploy.schema.json` (see `examples/v2/`). You get:
 
 - field name completion with the description from the zod schema
 - inline errors for unknown keys, bad `service`/`role`/`group` names, out-of-range
@@ -72,4 +76,5 @@ they depend on more than one file or on the host:
 - a group member's `name` must equal its file's `service:`
 - `needs:` cycles, and dependencies that are not members of the group
 
-See [validation.md](validation.md#versions) for the version/support policy.
+See [validation.md](validation.md#versions) for the version/support policy and
+[naming.md](naming.md) for the v1/v2 grammar.

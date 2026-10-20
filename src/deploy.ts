@@ -5,6 +5,7 @@ import type { DeployPlan } from "./planner.ts";
 import type { ContainerSpec } from "./adapters/types.ts";
 import { groupLabels } from "./planner.ts";
 import { NETWORK } from "./commands/docker.ts";
+import { serviceId as legacyServiceId } from "./commands/proxy.ts";
 import { LocalExecutor } from "./exec/local.ts";
 import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
 import { connectionForTarget } from "./hosts.ts";
@@ -17,6 +18,8 @@ export interface DeployOptions {
   via?: OpsVia;
   /** Test seam: the factory runs only after preflight passes. */
   openPrimary?: () => SshExecutor;
+  /** v2: allow two units that differ only by case. */
+  allowCaseCollision?: boolean;
 }
 
 export interface DeployOnHostOptions {
@@ -25,6 +28,36 @@ export interface DeployOnHostOptions {
   envLocalFile?: string | null;
   /** Legacy --local-image pipeline, when the CLI path is forced. */
   localPushPipeline?: string;
+  allowCaseCollision?: boolean;
+}
+
+export interface ExistingUnit {
+  name: string;
+  labels: Record<string, string>;
+}
+
+/**
+ * Case-only duplicates are unsafe on case-insensitive DNS/hosts. Compare the
+ * host's labelled units by (group, service), not by full container name: a
+ * redeploy changes the revision, which would hide the collision.
+ */
+export function findCaseCollision(
+  rows: ExistingUnit[],
+  planned: { group?: string; service: string },
+): string | undefined {
+  const group = planned.group !== undefined && planned.group !== "" ? planned.group : "default";
+  const unit = group + "/" + planned.service;
+  for (const row of rows) {
+    const rowGroup = row.labels["bundant.group"];
+    const rowService = row.labels["bundant.service"];
+    if (rowGroup === undefined || rowService === undefined) continue;
+    if (rowGroup.toLowerCase() !== group.toLowerCase()) continue;
+    if (rowService.toLowerCase() !== planned.service.toLowerCase()) continue;
+    if (rowGroup === group && rowService === planned.service) continue;
+    const existing = rowGroup + "/" + rowService;
+    return existing + " and " + unit + " both resolve to " + unit.toLowerCase();
+  }
+  return undefined;
 }
 
 /** Turn a merged KEY=VAL file into the engine's Env array (values stay redacted in logs). */
@@ -56,6 +89,15 @@ export async function deployOnHost(
   const m = plan.meta;
   const host = opts.host;
   const env = envArray(loaded.envContent);
+
+  if (opts.allowCaseCollision !== true) {
+    const rows = await ops.listContainers({ all: true });
+    const collision = findCaseCollision(rows, {
+      group: loaded.config.group,
+      service: loaded.config.service,
+    });
+    if (collision !== undefined) throw new Error("case-collision: " + collision);
+  }
 
   await ops.putEnv(opts.envLocalFile ?? null, m.envRemotePath, loaded.envCount);
   if (
@@ -111,20 +153,35 @@ export async function deployOnHost(
     if (loaded.config.proxy.enabled) {
       await ops.proxyEnsure(loaded.config.proxy.image);
       console.log("[" + host + "] proxy-ensure ok");
-      await ops.proxyDeploy(
-        m.serviceId,
-        m.containerNames.map((n) => n + ":" + loaded.config.proxy.port),
-        {
-          host: loaded.config.proxy.host,
-          tls: loaded.config.proxy.tls,
-          healthCheckPath: loaded.config.healthcheck.path,
-          healthCheckPort:
-            loaded.config.healthcheck.port === loaded.config.proxy.port
-              ? undefined
-              : loaded.config.healthcheck.port,
-        },
+      const targets = m.containerNames.map(
+        (n) => n + ":" + loaded.config.proxy.port,
       );
-      console.log("[" + host + "] proxy-swap ok");
+      const proxyOpts = {
+        host: loaded.config.proxy.host,
+        tls: loaded.config.proxy.tls,
+        healthCheckPath: loaded.config.healthcheck.path,
+        healthCheckPort:
+          loaded.config.healthcheck.port === loaded.config.proxy.port
+            ? undefined
+            : loaded.config.healthcheck.port,
+      };
+      const legacyId = legacyServiceId(
+        loaded.config.service,
+        loaded.config.role,
+        loaded.config.group,
+      );
+      const routes = legacyId !== m.serviceId ? await ops.proxyList() : [];
+      if (routes.includes(legacyId)) {
+        // v1 -> v2 route id change. The proxy refuses two services on one host,
+        // so serve the new id as a wildcard first, then drop the old id.
+        await ops.proxyDeploy(m.serviceId, targets, { ...proxyOpts, host: undefined });
+        await ops.proxyRemove(legacyId);
+        await ops.proxyDeploy(m.serviceId, targets, proxyOpts);
+        console.log("[" + host + "] proxy-swap ok (migrated " + legacyId + " -> " + m.serviceId + ")");
+      } else {
+        await ops.proxyDeploy(m.serviceId, targets, proxyOpts);
+        console.log("[" + host + "] proxy-swap ok");
+      }
     }
 
     await ops.stopOld(loaded.config, m.containerNames);
@@ -207,6 +264,7 @@ export async function deploy(
           host,
           envLocalFile,
           localPushPipeline: pushStep?.cmds[0],
+          allowCaseCollision: opts.allowCaseCollision,
         });
       } finally {
         await ops.close();

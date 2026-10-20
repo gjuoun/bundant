@@ -72,6 +72,8 @@ export interface RuntimeOps {
     config: Pick<BundantConfig, "service" | "role" | "group">,
   ): Promise<RevisionEntry[]>;
 
+  /** Service ids currently registered with kamal-proxy (empty when absent). */
+  proxyList(): Promise<string[]>;
   /** kamal-proxy remove, tolerated when the proxy or the route is absent. */
   proxyRemove(serviceId: string): Promise<void>;
   /** Delete a legacy rendered env file (API path never writes one). */

@@ -12,6 +12,7 @@ import { replicaOf, revisionOf } from "./revisions.ts";
 import { openOps, type OpsVia } from "./ops/index.ts";
 import { envArray } from "./deploy.ts";
 import { preflightGate } from "./validation.ts";
+import { ServiceIdentity } from "./domain/identity.ts";
 
 /**
  * Manual capacity change for the revision that is already running.
@@ -172,7 +173,7 @@ export async function scale(loaded: LoadedConfig, opts: ScaleOptions): Promise<n
         // The down direction must drain traffic BEFORE removing containers.
         if (config.proxy.enabled) {
           await ops.proxyDeploy(
-            proxy.serviceId(config.service, config.role, config.group),
+            ServiceIdentity.from(config).proxyId(),
             plan.keep.map((i) => nameOf(i) + ":" + config.proxy.port),
             {
               host: config.proxy.host,
