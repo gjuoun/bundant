@@ -1,5 +1,6 @@
 #!/usr/bin/env bun
 import { parseArgs } from "node:util";
+import { Effect } from "effect";
 import { dirname } from "node:path";
 import { loadConfig } from "./config.ts";
 import { buildDeployPlan, renderPlan } from "./planner.ts";
@@ -7,6 +8,8 @@ import { renderApiPlan } from "./plan-render.ts";
 import type { OpsVia } from "./ops/index.ts";
 import { resolveRevision, sanitizeRevision } from "./revision.ts";
 import { cliVersion } from "./version.ts";
+import { runMain } from "./effect/runtime.ts";
+import { toAppError } from "./effect/errors.ts";
 
 const USAGE = [
   "usage: bundant <command> [options]",
@@ -108,15 +111,14 @@ async function main(): Promise<number> {
   if (!sub) usage();
 
   if (sub === "validate") {
-    const file = args.values.file ?? "deploy.yml";
-    const { renderValidationReport, validatePath } = await import("./validation.ts");
-    const report = await validatePath(file, process.env, { strict: args.values.strict === true });
-    if (args.values.json === true) {
-      console.log(JSON.stringify(report, null, 2));
-    } else {
-      console.log(renderValidationReport(report));
-    }
-    return report.ok ? 0 : 1;
+    const { validateCommand } = await import("./effect/commands.ts");
+    return await runMain(
+      validateCommand({
+        file: args.values.file ?? "deploy.yml",
+        json: args.values.json === true,
+        strict: args.values.strict === true,
+      }),
+    );
   }
 
   if (sub === "deploy") {
@@ -241,80 +243,50 @@ async function main(): Promise<number> {
       args.values.hosts === undefined
         ? undefined
         : args.values.hosts.split(",").map((s) => s.trim()).filter((s) => s !== "");
-    const { runtimeExitCode, runtimeReport, renderRuntimeReport } = await import("./runtime-report.ts");
-    const reports = await runtimeReport(loaded, { hosts });
-    if (args.values.json === true) {
-      console.log(JSON.stringify(reports, null, 2));
-    } else {
-      console.log(renderRuntimeReport(reports));
-    }
-    return runtimeExitCode(reports);
+    const { runtimeCommand } = await import("./effect/commands.ts");
+    return await runMain(runtimeCommand({ loaded, json: args.values.json === true, hosts }));
   }
 
   if (sub === "ps" || sub === "stats" || sub === "inspect" || sub === "logs" || sub === "events") {
     const loaded = loadConfig(args.values.file ?? "deploy.yml");
-    const { monitorFor } = await import("./monitor.ts");
-    const monitor = await monitorFor(loaded);
     const host = args.values.host;
     const container = args.values.container;
-    // A followed stream is interrupted with Ctrl-C; close the engine forwards
-    // before exiting so no ssh -N child is left behind.
-    const onSignal = (): void => {
-      void monitor.close().finally(() => process.exit(130));
-    };
-    process.once("SIGINT", onSignal);
-    process.once("SIGTERM", onSignal);
-
-    try {
-      if (sub === "ps") {
-        const { renderContainers } = await import("./monitor-render.ts");
-        console.log(renderContainers(await monitor.containers()));
-        return 0;
-      }
-      if (sub === "stats") {
-        const { renderStats } = await import("./monitor-render.ts");
-        console.log(renderStats(await monitor.stats()));
-        return 0;
-      }
-      if (sub === "inspect") {
-        const selector = args.positionals[1] ?? container;
-        if (selector === undefined) {
-          console.error("bundant: inspect needs a container name (or --container)");
-          return 2;
-        }
-        const { renderInspect } = await import("./monitor-render.ts");
-        console.log(renderInspect(await monitor.inspect(selector)));
-        return 0;
-      }
-      if (sub === "logs") {
-        const tail = Number(args.values.tail ?? "200");
-        if (!Number.isInteger(tail) || tail <= 0) {
-          console.error("bundant: --tail must be a positive integer");
-          return 2;
-        }
-        if (args.values.follow === true) {
-          return await monitor.followLogs({ host, container, tail });
-        }
-        const hosts = host === undefined ? monitor.hosts : [host];
-        for (const h of hosts) {
-          process.stdout.write("== " + h + " ==\n");
-          process.stdout.write(await monitor.logs(h, container ?? "", tail));
-        }
-        return 0;
-      }
-      const since = args.values.since ?? "2h";
-      const hosts = host === undefined ? monitor.hosts : [host];
-      for (const h of hosts) {
-        const lines = await monitor.events(h, since, { windowSeconds: 3 });
-        console.log("== " + h + " ==");
-        for (const line of lines.slice(-80)) console.log("  " + line);
-      }
-      return 0;
-    } finally {
-      process.off("SIGINT", onSignal);
-      process.off("SIGTERM", onSignal);
-      await monitor.close();
+    const tail = Number(args.values.tail ?? "200");
+    if (sub === "logs" && (!Number.isInteger(tail) || tail <= 0)) {
+      console.error("bundant: --tail must be a positive integer");
+      return 2;
     }
+
+    // A followed stream is the one read path still driven by its own signals.
+    if (sub === "logs" && args.values.follow === true) {
+      const { monitorFor } = await import("./monitor.ts");
+      const monitor = await monitorFor(loaded);
+      const onSignal = (): void => {
+        void monitor.close().finally(() => process.exit(130));
+      };
+      process.once("SIGINT", onSignal);
+      process.once("SIGTERM", onSignal);
+      try {
+        return await monitor.followLogs({ host, container, tail });
+      } finally {
+        process.off("SIGINT", onSignal);
+        process.off("SIGTERM", onSignal);
+        await monitor.close();
+      }
+    }
+
+    const { readCommand } = await import("./effect/commands.ts");
+    return await runMain(
+      readCommand({
+        loaded,
+        command: sub,
+        host,
+        container,
+        selector: args.positionals[1] ?? container,
+        tail,
+        since: args.values.since ?? "2h",
+      }),
+    );
   }
 
   if (sub === "exec") {
@@ -400,9 +372,11 @@ async function main(): Promise<number> {
   usage();
 }
 
-try {
-  process.exit(await main());
-} catch (e) {
-  console.error("bundant: " + (e as Error).message);
-  process.exit(1);
-}
+process.exit(
+  await runMain(
+    Effect.tryPromise({
+      try: () => main(),
+      catch: (error) => toAppError(error),
+    }),
+  ),
+);
