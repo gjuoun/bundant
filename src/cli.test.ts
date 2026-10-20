@@ -161,6 +161,19 @@ describe("effect/cli parsing", () => {
     expect(captured).toEqual(["sh", "--version"]);
   });
 
+  test("the command inventory is complete", () => {
+    const names = command.subcommands.flatMap((group) =>
+      group.commands.map((entry) => String(entry.name)),
+    );
+    for (const name of [
+      "validate", "deploy", "scale", "rollback", "history", "status", "delete", "prune",
+      "bootstrap", "runtime", "ps", "stats", "inspect", "logs", "events", "exec", "ui",
+      "group", "accessory",
+    ]) {
+      expect(names).toContain(name);
+    }
+  });
+
   test("validate accepts the example file", async () => {
     await run(["validate", "-f", "examples/hello/deploy.yml"]);
     expect(process.exitCode).toBe(0);

@@ -92,6 +92,7 @@ threshold.
 ## More
 
 - [`docs/deploy-yml.md`](docs/deploy-yml.md) — every field, env handling, revisions
+- [`docs/cli.md`](docs/cli.md) — the effect/cli command tree, shared flags and completions
 - [`docs/validation.md`](docs/validation.md) — preflight, what is checked, and the `--json` shape
 - [`docs/group.md`](docs/group.md) — group namespaces, `needs:` ordering, accessories and their lifecycle
 - [`docs/schema.md`](docs/schema.md) — `schema/*.json` for editor autocomplete + inline errors
