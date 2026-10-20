@@ -83,7 +83,7 @@ Aliases print one `deprecated: …` line on stderr and forward to the same polic
     --revision <rev>    flat verbs: select a revision
     --replica <n>       flat verbs: select one replica
     --all-revisions     flat verbs: include stopped revisions
-    --local-image <n:t> stream a local image
+    --local-image <n:t> stream a local image (--via api sends only missing layers; --via cli sends the full archive)
     --keep <k>          prune: revisions to keep (default 3)
     --replicas <n>      scale target
     --yes / --images / --volumes
