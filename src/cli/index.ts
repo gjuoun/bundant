@@ -19,6 +19,11 @@ import { bootstrap } from "./commands/bootstrap.ts";
 import { runtime } from "./commands/runtime.ts";
 import { ui } from "./commands/ui.ts";
 import { exec } from "./commands/exec.ts";
+import { ps } from "./commands/ps.ts";
+import { stats } from "./commands/stats.ts";
+import { events } from "./commands/events.ts";
+import { inspect } from "./commands/inspect.ts";
+import { logs } from "./commands/logs.ts";
 
 export const command = rootCommand.pipe(
   Command.withSubcommands([
@@ -36,6 +41,11 @@ export const command = rootCommand.pipe(
     runtime,
     ui,
     exec,
+    ps,
+    stats,
+    inspect,
+    logs,
+    events,
   ]),
 );
 
