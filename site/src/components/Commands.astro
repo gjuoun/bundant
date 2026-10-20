@@ -3,10 +3,10 @@ import { ArrowUpRight, Search } from 'lucide-react';
 import { CommandExplorer } from '@/components/CommandExplorer';
 import commands from '@/data/commands.json';
 import '@/components/CommandExplorer.css';
+import { commandStats } from '@/lib/command-stats';
 import { withBase } from '@/lib/utils';
 
-const commandCount = commands.length;
-const flagCount = commands.reduce((total, command) => total + command.flags.length, 0);
+const { commands: commandCount, flags: flagCount } = commandStats(commands);
 ---
 
 <section id="commands" class="border-b border-border py-16 md:py-24">
