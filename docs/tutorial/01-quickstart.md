@@ -109,6 +109,10 @@ bundant validate: OK
   round-trip: ok
 ```
 
+The one thing that will not match is the revision: it is the short git sha of *your* commit, so
+yours differs from the `11a45b2` above. Paths are shortened to `~` here; the CLI prints them
+absolute.
+
 Now deploy:
 
 ```sh
@@ -174,6 +178,9 @@ default.hello.web rev=11a45b2 live=1/1 [default.hello.web.11a45b2]
 
 `live=1/1` means one container is running and the file asks for one. The value before the slash
 is what is running now; the value after it is what `deploy.yml` expects.
+
+Output here is trimmed to what matters. Container ids, timestamps, `Up 2 seconds` and column widths
+differ on every run and on every machine; the lines that carry meaning do not.
 
 You should see `deployed default.hello.web.11a45b2 on 1 host(s)` followed by `live=1/1` — one
 running container, serving through the proxy.

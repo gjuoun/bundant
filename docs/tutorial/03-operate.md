@@ -79,7 +79,8 @@ default.hello.web.8de4a23 | 2026/10/20 21:31:47 Starting up on port 80
 
 Each line is prefixed with the container it came from, which matters once a service has more than
 one copy (a **replica**, covered in chapter 4). `bundant history` lists every retained revision,
-newest first:
+newest first — the timestamps and the `Up`/`Exited` ages are from the run that produced this page,
+so yours will show different ones:
 
 ```sh
 bundant history -f deploy.yml

@@ -5,7 +5,9 @@
  * untouched.
  */
 const { head, id } = Astro.locals.starlightRoute;
-const isDoc = typeof id === 'string' && id.startsWith('docs/');
+// Starlight's entry id is the content path (tutorial/01-quickstart, reference/cli),
+// not the public URL, so match the URL instead - otherwise the renderer never loads.
+const isDoc = Astro.url.pathname.replace(/\/$/, '').includes('/docs/');
 ---
 
 {head.map(({ tag: Tag, attrs, content }) => <Tag {...attrs} set:html={content} />)}

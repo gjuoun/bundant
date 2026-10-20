@@ -35,6 +35,9 @@ flowchart LR
   Q --> U["all of it, locally<br/>bundant ui"]
 ```
 
+The columns are name, image, status and ports. Widths depend on your terminal, so the spacing below
+will not match exactly:
+
 ```sh
 bundant ps -f deploy.yml | grep -E 'hello|shop|kamal'
 ```
