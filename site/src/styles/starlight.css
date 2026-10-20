@@ -147,16 +147,21 @@ body {
 
 /* Code blocks: bgPanel surface, border outline, Bigface syntax colours. */
 .expressive-code .frame {
-  border-radius: 0.75rem;
+  /* One radius for the whole block: the frame, its title/terminal bar and the
+     code surface share the same corner, so the bar cannot sit inside a larger
+     rounded frame and leave a notch at the top corners. */
+  --bf-code-radius: 0.5rem;
+  border-radius: var(--bf-code-radius);
   box-shadow: none;
 }
 
 .expressive-code .frame pre {
   border: 1px solid #494848;
-  border-radius: 0.75rem;
+  border-radius: var(--bf-code-radius);
 }
 
-.expressive-code .frame.has-title pre {
+.expressive-code .frame.has-title pre,
+.expressive-code .frame.is-terminal pre {
   border-start-start-radius: 0;
   border-start-end-radius: 0;
 }
@@ -164,7 +169,10 @@ body {
 .expressive-code .frame .header {
   border: 1px solid #494848;
   border-bottom: 0;
-  border-radius: 0.75rem 0.75rem 0 0;
+  border-start-start-radius: var(--bf-code-radius);
+  border-start-end-radius: var(--bf-code-radius);
+  border-end-start-radius: 0;
+  border-end-end-radius: 0;
   background: #252925;
 }
 
