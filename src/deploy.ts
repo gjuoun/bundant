@@ -5,6 +5,7 @@ import type { DeployPlan } from "./planner.ts";
 import type { ContainerSpec } from "./adapters/types.ts";
 import { groupLabels } from "./planner.ts";
 import { NETWORK } from "./commands/docker.ts";
+import { serviceId as legacyServiceId } from "./commands/proxy.ts";
 import { LocalExecutor } from "./exec/local.ts";
 import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
 import { connectionForTarget } from "./hosts.ts";
@@ -135,20 +136,35 @@ export async function deployOnHost(
     if (loaded.config.proxy.enabled) {
       await ops.proxyEnsure(loaded.config.proxy.image);
       console.log("[" + host + "] proxy-ensure ok");
-      await ops.proxyDeploy(
-        m.serviceId,
-        m.containerNames.map((n) => n + ":" + loaded.config.proxy.port),
-        {
-          host: loaded.config.proxy.host,
-          tls: loaded.config.proxy.tls,
-          healthCheckPath: loaded.config.healthcheck.path,
-          healthCheckPort:
-            loaded.config.healthcheck.port === loaded.config.proxy.port
-              ? undefined
-              : loaded.config.healthcheck.port,
-        },
+      const targets = m.containerNames.map(
+        (n) => n + ":" + loaded.config.proxy.port,
       );
-      console.log("[" + host + "] proxy-swap ok");
+      const proxyOpts = {
+        host: loaded.config.proxy.host,
+        tls: loaded.config.proxy.tls,
+        healthCheckPath: loaded.config.healthcheck.path,
+        healthCheckPort:
+          loaded.config.healthcheck.port === loaded.config.proxy.port
+            ? undefined
+            : loaded.config.healthcheck.port,
+      };
+      const legacyId = legacyServiceId(
+        loaded.config.service,
+        loaded.config.role,
+        loaded.config.group,
+      );
+      const routes = legacyId !== m.serviceId ? await ops.proxyList() : [];
+      if (routes.includes(legacyId)) {
+        // v1 -> v2 route id change. The proxy refuses two services on one host,
+        // so serve the new id as a wildcard first, then drop the old id.
+        await ops.proxyDeploy(m.serviceId, targets, { ...proxyOpts, host: undefined });
+        await ops.proxyRemove(legacyId);
+        await ops.proxyDeploy(m.serviceId, targets, proxyOpts);
+        console.log("[" + host + "] proxy-swap ok (migrated " + legacyId + " -> " + m.serviceId + ")");
+      } else {
+        await ops.proxyDeploy(m.serviceId, targets, proxyOpts);
+        console.log("[" + host + "] proxy-swap ok");
+      }
     }
 
     await ops.stopOld(loaded.config, m.containerNames);

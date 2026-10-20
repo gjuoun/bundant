@@ -119,6 +119,9 @@ class FakeAdapter implements RuntimeAdapter {
     return await this.inspect(id);
   }
   async removeImage(): Promise<void> {}
+  async proxyList(): Promise<string[]> {
+    return [];
+  }
   async proxyRemove(): Promise<void> {}
   async removeEnv(): Promise<void> {}
   async tcpGate(): Promise<void> {}

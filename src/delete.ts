@@ -238,7 +238,10 @@ async function executeDelete(
       const ops = await openOps(via, connectionForTarget(config, host), config);
       try {
         if (config.proxy.enabled) {
-          await ops.proxyRemove(ServiceIdentity.from(config).proxyId());
+          const newId = ServiceIdentity.from(config).proxyId();
+          await ops.proxyRemove(newId);
+          const legacyId = proxy.serviceId(config.service, config.role, config.group);
+          if (legacyId !== newId) await ops.proxyRemove(legacyId);
           console.log("  proxy-remove ok");
         }
         const rows = await ops.listContainers({
