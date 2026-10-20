@@ -25,7 +25,7 @@ Three terms, used everywhere after this page:
 <ol>
 <li>
 
-## 1. Install the CLI 📦
+## Install the CLI 📦
 
 `bundant` is not on npm yet, so install it from a checkout. This builds the Node bundle and
 links the command into Bun's global bin directory.
@@ -63,7 +63,7 @@ You should see `bundant v0.1.0`.
 </li>
 <li>
 
-## 2. Write a deploy.yml 📝
+## Write a deploy.yml 📝
 
 `deploy.yml` is the one file that describes a service: which image to run, which hosts run it,
 and how HTTP traffic reaches it. It starts with `version: 2`. Create a directory, write the
@@ -104,7 +104,7 @@ The short sha is the **revision** — the commit-derived identity of this deploy
 </li>
 <li>
 
-## 3. Check the host 🖥️
+## Check the host 🖥️
 
 `bundant runtime` asks the host which container engine it has, over the same ssh connection a
 deploy uses. It changes nothing:
@@ -121,7 +121,7 @@ root@box.example.com engine=docker version=29.1.3 api=1.52 socket=/var/run/docke
 </li>
 <li>
 
-## 4. Validate, then deploy 🚀
+## Validate, then deploy 🚀
 
 `bundant validate` parses the file and prints the identity a deploy would use. It never opens
 an ssh connection:
@@ -214,7 +214,7 @@ IP: ::1
 </li>
 <li>
 
-## 5. Read the state back 📊
+## Read the state back 📊
 
 ```sh
 bundant status '*' -f deploy.yml
