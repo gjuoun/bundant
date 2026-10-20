@@ -441,7 +441,7 @@ function rawBodyRequest(
       framing +
       "Connection: close\r\n\r\n";
     let settled = false;
-    let headerBuffer = Buffer.alloc(0);
+    let headerBuffer: Buffer = Buffer.alloc(0);
     let out: PassThrough | null = null;
     let decoder: ChunkDecoder | null = null;
     let contentLeft: number | undefined;
@@ -461,9 +461,20 @@ function rawBodyRequest(
         headerBuffer = Buffer.concat([headerBuffer, chunk]);
         let parsed: { head: ResponseHead; rest: Buffer };
         try {
-          const headOnly = parseResponseHead(headerBuffer);
-          if (headOnly === null) return;
-          parsed = headOnly;
+          // Docker may emit "100 Continue" before the real response when the
+          // body is large (or an intermediary does). Skip every interim head;
+          // otherwise the second response's headers are read as body bytes and
+          // the chunked body never terminates.
+          for (;;) {
+            const headOnly = parseResponseHead(headerBuffer);
+            if (headOnly === null) return;
+            if (headOnly.head.status >= 100 && headOnly.head.status < 200) {
+              headerBuffer = headOnly.rest;
+              continue;
+            }
+            parsed = headOnly;
+            break;
+          }
         } catch (err) {
           fail(err instanceof Error ? err : new Error(String(err)));
           return;
