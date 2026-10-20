@@ -3,7 +3,7 @@ import { ApiClient } from "./api.ts";
 import { DockerAdapter } from "./docker.ts";
 import { PodmanAdapter } from "./podman.ts";
 import { FakeDockerSocket, json } from "./fake-socket.ts";
-import { NotImplementedInStage1 } from "./types.ts";
+import { Readable } from "node:stream";
 
 function frame(stream: 1 | 2, text: string): Buffer {
   const data = Buffer.from(text, "utf8");
@@ -181,10 +181,44 @@ describe("DockerAdapter read-only surface", () => {
     }
   });
 
-  test("image streaming stays stage 4 and still throws NotImplementedInStage1", async () => {
-    const { adapter, close } = await adapterOn((_req, res) => json(res, 200, {}));
+  test("image load streams the tar chunked into POST /images/load", async () => {
+    const seen: { value: { method: string; url: string; body: string; encoding: string } | null } = {
+      value: null,
+    };
+    const { adapter, close } = await adapterOn((req, res) => {
+      seen.value = {
+        method: req.method,
+        url: req.url,
+        body: req.body,
+        encoding: req.headers["transfer-encoding"] ?? "",
+      };
+      json(res, 200, { stream: "Loaded image: app:t1\n" });
+    });
     try {
-      await expect(adapter.loadImage(null as never)).rejects.toBeInstanceOf(NotImplementedInStage1);
+      await adapter.loadImage(Readable.from([Buffer.from("TAR-"), Buffer.from("BYTES")]));
+      expect(seen.value).toEqual({
+        method: "POST",
+        url: "/images/load",
+        body: "TAR-BYTES",
+        encoding: "chunked",
+      });
+    } finally {
+      await close();
+    }
+  });
+
+  test("an error record on a 200 load response rejects the load", async () => {
+    const { adapter, close } = await adapterOn((_req, res) => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(
+        JSON.stringify({ stream: "Loaded image: app:t1\n" }) + "\n" +
+          JSON.stringify({ errorDetail: { message: "NotFound: blob missing" }, error: "NotFound: blob missing" }),
+      );
+    });
+    try {
+      await expect(
+        adapter.loadImage(Readable.from([Buffer.from("x")])),
+      ).rejects.toThrow(/engine image load failed: NotFound: blob missing/);
     } finally {
       await close();
     }

@@ -145,9 +145,16 @@ export class FakeDockerSocket {
         if (colon === -1) continue;
         headers[line.slice(0, colon).trim().toLowerCase()] = line.slice(colon + 1).trim();
       }
-      const length = Number(headers["content-length"] ?? "0");
-      if (buffer.length < end + 4 + length) return;
-      const body = buffer.subarray(end + 4, end + 4 + length).toString("utf8");
+      let body: string;
+      if ((headers["transfer-encoding"] ?? "").toLowerCase().includes("chunked")) {
+        const decoded = decodeChunked(buffer.subarray(end + 4));
+        if (decoded === null) return;
+        body = decoded.toString("utf8");
+      } else {
+        const length = Number(headers["content-length"] ?? "0");
+        if (buffer.length < end + 4 + length) return;
+        body = buffer.subarray(end + 4, end + 4 + length).toString("utf8");
+      }
       socket.off("data", onData);
       const res = new FakeResponse(socket);
       void Promise.resolve(this.handler({ method, url, headers, body }, res)).catch(() => {
@@ -156,6 +163,25 @@ export class FakeDockerSocket {
     };
     socket.on("data", onData);
     socket.on("error", () => undefined);
+  }
+}
+
+/** Decode an HTTP/1.1 chunked body; null while it is still incomplete. */
+function decodeChunked(data: Buffer): Buffer | null {
+  const parts: Buffer[] = [];
+  let offset = 0;
+  for (;;) {
+    const lineEnd = data.indexOf("\r\n", offset);
+    if (lineEnd === -1) return null;
+    const size = Number.parseInt(data.subarray(offset, lineEnd).toString("utf8"), 16);
+    if (!Number.isFinite(size) || size < 0) return null;
+    offset = lineEnd + 2;
+    if (size === 0) {
+      return data.length >= offset + 2 ? Buffer.concat(parts) : null;
+    }
+    if (data.length < offset + size + 2) return null;
+    parts.push(data.subarray(offset, offset + size));
+    offset += size + 2;
   }
 }
 

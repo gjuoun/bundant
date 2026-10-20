@@ -28,6 +28,18 @@ export interface TransferReport {
 export interface TransferOps {
   imageLayers(): Promise<ReadonlySet<string> | readonly string[]>;
   loadImage(stream: NodeJS.ReadableStream): Promise<void>;
+  /** Optional readiness probe: some engines acknowledge load before the tag is visible. */
+  imagePresent?(ref: string): Promise<boolean>;
+}
+
+async function waitForImage(ops: TransferOps, ref: string): Promise<void> {
+  if (ops.imagePresent === undefined) return;
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    if (await ops.imagePresent(ref)) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error("image load completed but the engine never exposed " + ref);
 }
 
 export interface SaveStream {
@@ -151,6 +163,7 @@ export async function transferLocalImage(
     await ops.loadImage(built.stream);
     const stats = await built.result;
     await first.done;
+    await waitForImage(ops, ref);
     return {
       mode: "delta",
       bytesSent: stats.bytesSent,
@@ -171,6 +184,7 @@ export async function transferLocalImage(
     const counted = countStream(full.stream);
     await ops.loadImage(counted.stream);
     await full.done;
+    await waitForImage(ops, ref);
     return {
       mode: "full",
       bytesSent: counted.bytes(),
