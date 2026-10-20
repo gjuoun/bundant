@@ -138,10 +138,14 @@ flowchart TD
   r1["11a45b2 · first revision<br/>stopped, kept"] -- "deploy" --> r2["0f2c8cc · second revision<br/>healthy, live"]
   r2 -- "deploy" --> r3["8de4a23 · third revision<br/>live"]
   r3 -- "rollback, no target" --> r4["0f2c8cc · live again"]
-  r1 -. "prune keeps newest 3" .-> kept["older revisions stay stopped<br/>until prune"]
-  r3 -. "kept for rollback" .-> kept
-  r4 -. "start, then health gate" .-> n1["rollback starts the old container;<br/>nothing is rebuilt"]
-  r3 -. "swap is the only traffic move" .-> n2["old container stays live<br/>until the swap succeeds"]
+  subgraph notes["notes"]
+    direction LR
+    kept["older revisions<br/>stay stopped"]
+    n1["starts the old one;<br/>old stays live<br/>until the swap"]
+    kept ~~~ n1
+  end
+  r1 -. "prune keeps newest 3" .-> kept
+  r4 -. "rollback starts it again" .-> n1
   classDef ok fill:#0f2a17,color:#00c853,stroke:#494848;
   classDef risk fill:#2e1a12,color:#fc5d23,stroke:#494848;
   classDef storage fill:#211a33,color:#ae81ff,stroke:#494848;
@@ -149,7 +153,7 @@ flowchart TD
   class r2,r3 ok;
   class r4 risk;
   class kept storage;
-  class r1,n1,n2 neutral;
+  class r1,n1 neutral;
 ```
 
 To pick an exact revision, use `bundant rollback --to-revision <sha> -f deploy.yml`. A revision

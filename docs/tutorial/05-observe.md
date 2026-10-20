@@ -26,20 +26,29 @@ All monitoring is read-only and pull-on-demand: one ssh round trip per host, not
 there. The diagram maps the question to the surface that answers it.
 
 ```mermaid
-flowchart LR
+flowchart TD
   Q{"Which surface?"}
-  Q -- "state" --> PS["what exists<br/>bundant ps · status"]
-  Q -- "output" --> L["what it said<br/>bundant logs"]
-  Q -- "cost" --> S["what it costs<br/>bundant stats"]
-  Q -- "history" --> E["what the engine did<br/>bundant events"]
-  Q -- "all of it" --> U["all of it, locally<br/>bundant ui"]
-  PS -. "one ssh round trip" .-> N1["read-only, pull-on-demand"]
-  L -. "nothing installed" .-> N2["nothing runs on the host"]
-  U -. "never a new port" .-> N3["binds 127.0.0.1;<br/>ssh -L to open it"]
+  subgraph surfaces["ask one of these"]
+    direction TB
+    PS["what exists<br/>bundant ps · status"]
+    L["what it said<br/>bundant logs"]
+    S["what it costs<br/>bundant stats"]
+    E["what the engine did<br/>bundant events"]
+    U["all of it, locally<br/>bundant ui"]
+    PS ~~~ L ~~~ S ~~~ E ~~~ U
+  end
+  Q -- "one ssh round trip" --> surfaces
+  subgraph notes["every answer is"]
+    direction LR
+    N1["read-only,<br/>pull-on-demand"]
+    N2["nothing runs on the host;<br/>ui binds 127.0.0.1"]
+    N1 ~~~ N2
+  end
+  surfaces -. "no side effects" .-> notes
   classDef local fill:#143038,color:#40c4ff,stroke:#494848;
   classDef neutral fill:#2e332e,color:#d9d9d4,stroke:#494848;
   class Q,PS,L,S,E,U local;
-  class N1,N2,N3 neutral;
+  class N1,N2 neutral;
 ```
 
 The columns are name, image, status and ports. Widths depend on your terminal, so the spacing below

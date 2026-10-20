@@ -135,9 +135,16 @@ flowchart TD
     D -- "named volume" --> V[("pgdata")]
   end
   H1 -- "same host" --> BRIDGE["two routes, one host"] -- "same host" --> P2
-  H1 -. "three containers, one route" .-> N1["replicas share one proxy route"]
-  D -. "stable name, keeps data" .-> N2["deploy never recreates<br/>the accessory"]
-  W -. "waits for tcp 5432" .-> N3["needs: db is an install order,<br/>not a proxy rule"]
+  subgraph notes["notes"]
+    direction LR
+    N2["accessory keeps<br/>its name and data"]
+    N1["replicas share<br/>one proxy route"]
+    N3["needs: db<br/>is an install order"]
+    N2 ~~~ N1 ~~~ N3
+  end
+  V -. "deploy never recreates it" .-> N2
+  H1 -. "three containers" .-> N1
+  W -. "tcp 5432" .-> N3
   classDef local fill:#143038,color:#40c4ff,stroke:#494848;
   classDef ok fill:#0f2a17,color:#00c853,stroke:#494848;
   classDef storage fill:#211a33,color:#ae81ff,stroke:#494848;

@@ -144,12 +144,11 @@ flowchart TD
   subgraph host["Target host"]
     D["pull the image, or load it<br/>through the forwarded socket"] --> E["start the new container<br/>no published host port"]
     E --> F{"health gate:<br/>does it answer?"}
-    F -- "no" --> G["remove the new container<br/>traffic untouched"]
+    F -- "no" --> NF["new container removed<br/>traffic untouched"]
     F -- "yes" --> H["proxy swap:<br/>the only traffic move"]
-    H --> I["stop the old container<br/>kept, not removed"]
-    N1["nothing restarts on the host"] -.-> D
-    N2["old container keeps serving<br/>until the swap succeeds"] -.-> G
-    N3["this is where a rollback lands"] -.-> I
+    H --> I["stop the old container<br/>kept for rollback"]
+    I -. "this is where a rollback lands" .-> N3["start it again,<br/>no rebuild"]
+    N3 -. "nothing restarts here" .-> N1["no agent installed"]
   end
   B -- "one ssh connection" --> D
   classDef local fill:#143038,color:#40c4ff,stroke:#494848;
@@ -159,7 +158,7 @@ flowchart TD
   class A,B,D,E local;
   class F ok;
   class H risk;
-  class G,I,N1,N2,N3 neutral;
+  class I,NF,N1,N3 neutral;
 ```
 
 The container publishes no host port. **The proxy** is the shared `kamal-proxy` container on the
