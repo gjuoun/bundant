@@ -69,7 +69,7 @@ export const rm = Command.make(
                 const found = await ops.inspectVolume(name);
                 const got = found.labels["bundant.owner"] ?? "";
                 if (got !== "" && got !== owner) {
-                  console.log("  volume " + name + " belongs to " + got + " — left alone");
+                  console.log("  volume " + name + " belongs to " + got + " - left alone");
                   continue;
                 }
                 await ops.removeVolume(name);

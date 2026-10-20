@@ -63,7 +63,7 @@ describe("config versions", () => {
     expect(report.ok).toBe(true);
     expect(report.version).toBe(1);
     expect(report.versionExplicit).toBe(false);
-    expect(report.notes[0]).toContain('version: 1 (implicit — add "version: 1" to pin it)');
+    expect(report.notes[0]).toContain('version: 1 (implicit - add "version: 1" to pin it)');
   });
 
   test("explicit version: 1 is accepted without a note", async () => {

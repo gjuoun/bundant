@@ -75,7 +75,7 @@ export const RawConfigSchema = z.object({
     .optional(),
   volumes: z
     .array(z.string().min(1))
-    .describe('accessory named volumes, "name:/path/in/container" — survive container recreation')
+    .describe('accessory named volumes, "name:/path/in/container" - survive container recreation')
     .optional(),
   hosts: z
     .array(z.string().min(1))
@@ -137,7 +137,7 @@ export function normalize(raw: RawConfig, hosts?: string[]): BundantConfig {
   }
   if (replicas > 1 && !proxy.enabled) {
     throw new ConfigError(
-      "invalid deploy.yml: replicas > 1 requires proxy.enabled: true — without a proxy nothing distributes traffic between the copies",
+      "invalid deploy.yml: replicas > 1 requires proxy.enabled: true - without a proxy nothing distributes traffic between the copies",
     );
   }
   return {

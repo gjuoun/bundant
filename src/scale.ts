@@ -55,7 +55,7 @@ function assertTarget(config: LoadedConfig["config"], target: number): string | 
     return "scale does not apply to an accessory (stateful members are one of one)";
   }
   if (target > 1 && !config.proxy.enabled) {
-    return "replicas > 1 requires proxy.enabled: true — without a proxy nothing distributes traffic";
+    return "replicas > 1 requires proxy.enabled: true - without a proxy nothing distributes traffic";
   }
   return null;
 }
@@ -78,7 +78,7 @@ export async function scale(loaded: LoadedConfig, opts: ScaleOptions): Promise<n
 
   if (opts.dryRun) {
     console.log(
-      "bundant scale (dry-run) — " + config.service + "/" + config.role + " -> " +
+      "bundant scale (dry-run) - " + config.service + "/" + config.role + " -> " +
         opts.replicas + " replicas on " + targets.join(", "),
     );
     console.log(
@@ -124,7 +124,7 @@ export async function scale(loaded: LoadedConfig, opts: ScaleOptions): Promise<n
         const revision = currentRevision(lines);
         if (revision === undefined) {
           console.error(
-            "  nothing running for " + config.service + "/" + config.role + " — deploy first",
+            "  nothing running for " + config.service + "/" + config.role + " - deploy first",
           );
           return 1;
         }
@@ -139,7 +139,7 @@ export async function scale(loaded: LoadedConfig, opts: ScaleOptions): Promise<n
         );
 
         if (plan.action === "noop") {
-          console.log("  already at " + opts.replicas + " replica(s) — no-op");
+          console.log("  already at " + opts.replicas + " replica(s) - no-op");
           continue;
         }
 
@@ -206,7 +206,7 @@ export async function scale(loaded: LoadedConfig, opts: ScaleOptions): Promise<n
     }
 
     console.log(
-      "bundant: scale is temporary — deploy.yml replicas: stays authoritative; " +
+      "bundant: scale is temporary - deploy.yml replicas: stays authoritative; " +
         "the next \`bundant deploy\` re-applies it.",
     );
     return 0;

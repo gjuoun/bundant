@@ -76,7 +76,7 @@ export async function status(loaded: LoadedConfig): Promise<number> {
 
     const ps = await exec.run(docker.listHistoryByLabels(rt, serviceLabels(config)));
     if (ps.code !== 0) {
-      console.log("  containers: query failed — " + ps.stderr.trim());
+      console.log("  containers: query failed - " + ps.stderr.trim());
       exit = 1;
     } else {
       const lines: StatusLine[] = parseHistory(ps.stdout)

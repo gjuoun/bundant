@@ -299,7 +299,7 @@ export async function deploy(
       const check = await local.run(rt + " image inspect " + m.localImage + " >/dev/null 2>&1");
       if (check.code !== 0) {
         throw new Error(
-          "local image not found: " + m.localImage + " — build or pull it first (" + rt + " images)",
+          "local image not found: " + m.localImage + " - build or pull it first (" + rt + " images)",
         );
       }
     }

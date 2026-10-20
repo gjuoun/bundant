@@ -4,7 +4,7 @@ import { monitorFor, type Monitor } from "./monitor.ts";
 import { UI_PAGE } from "./ui-page.ts";
 
 /**
- * `bundant ui` — a local, read-only monitoring page. The process you start is
+ * `bundant ui` - a local, read-only monitoring page. The process you start is
  * the only thing that talks to the hosts (over the same ssh connection as
  * everything else); nothing is installed on them and nothing is persisted.
  * History shown in the page is what this session observed, and it dies with it.
@@ -115,7 +115,7 @@ export async function ui(loaded: LoadedConfig, opts: UiOptions): Promise<number>
     server.listen(opts.port, bind, resolve);
   });
 
-  console.log("bundant ui — http://" + bind + ":" + opts.port);
+  console.log("bundant ui - http://" + bind + ":" + opts.port);
   console.log("  hosts: " + monitor.hosts.join(", "));
   console.log("  read-only, pull-on-demand: every query is one ssh round trip per host; nothing runs on them");
   console.log("  remote access: ssh -L " + opts.port + ":127.0.0.1:" + opts.port + " <host> (or tailscale)");

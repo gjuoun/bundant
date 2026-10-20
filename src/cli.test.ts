@@ -112,7 +112,7 @@ describe("effect/cli parsing", () => {
       console.error = original;
     }
     expect(process.exitCode).toBe(2);
-    expect(lines[0]).toContain("is an accessory — use `bundant accessory boot`");
+    expect(lines[0]).toContain("is an accessory - use `bundant accessory boot`");
   });
 
   test("scale on an accessory refuses", async () => {
@@ -139,7 +139,7 @@ describe("effect/cli parsing", () => {
       console.error = original;
     }
     expect(process.exitCode).toBe(2);
-    expect(lines[0]).toContain("is an accessory — a stateful member is one of one");
+    expect(lines[0]).toContain("is an accessory - a stateful member is one of one");
   });
 
   test("lock contention maps to exit 2", async () => {

@@ -4,7 +4,7 @@ import type { VersionPayload } from "./schemas/payloads.ts";
 /**
  * Runtime detection: probe the known unix sockets, ask GET /version, and let
  * the response's components say which engine answers. deploy.yml's runtime:
- * stays authoritative — a disagreement is an error, never a silent override.
+ * stays authoritative - a disagreement is an error, never a silent override.
  *
  * VersionPayload is the generated Podman SystemComponentVersion (also the
  * shape Docker answers); the schema that validates it lives in schemas/.
@@ -46,7 +46,7 @@ export interface SocketProbe {
 
 export interface DetectOptions {
   probes: SocketProbe[];
-  /** deploy.yml runtime: — when set, detection must agree. */
+  /** deploy.yml runtime: - when set, detection must agree. */
   expect?: RuntimeKind;
 }
 

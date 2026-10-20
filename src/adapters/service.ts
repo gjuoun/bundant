@@ -4,7 +4,7 @@ import type { RuntimeKind } from "../runtime.ts";
 
 /**
  * systemd state of the engine socket service. This is the one runtime fact the
- * API cannot answer — it stays on ssh, and both bootstrap and the runtime
+ * API cannot answer - it stays on ssh, and both bootstrap and the runtime
  * report use it.
  */
 export type SocketServiceState = "enabled" | "active" | "inactive" | "absent";

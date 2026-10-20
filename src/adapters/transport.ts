@@ -9,7 +9,7 @@ import type { HostConnection } from "../hosts.ts";
 /**
  * Transport for the engine API: OpenSSH streamlocal forwarding carries the
  * remote docker/podman unix socket to a local socket that node:http can dial.
- * No new ssh dependency — bundant already spawns the ssh binary.
+ * No new ssh dependency - bundant already spawns the ssh binary.
  */
 
 /** Profile cache dir; the forward sockets live in a subdirectory of it. */

@@ -205,7 +205,7 @@ async function executeDelete(
   const { config } = loaded;
   const targets = hostTargets(config);
 
-  console.log("bundant delete — " + header + " on " + targets.join(", "));
+  console.log("bundant delete - " + header + " on " + targets.join(", "));
   console.log(
     "runtime=" + config.runtime + " | images=" + (opts.images ? "remove" : "leave alone"),
   );

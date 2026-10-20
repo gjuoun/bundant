@@ -24,7 +24,7 @@ export function renderContainers(hosts: HostResult<ContainerRow>[]): string {
   const out: string[] = [];
   for (const h of hosts) {
     if (!h.ok) {
-      out.push(...hostBlock(h.host, ["unreachable — " + (h.error ?? "unknown error")]));
+      out.push(...hostBlock(h.host, ["unreachable - " + (h.error ?? "unknown error")]));
       continue;
     }
     if (h.rows.length === 0) {
@@ -42,7 +42,7 @@ export function renderStats(hosts: HostResult<StatRow>[]): string {
   const out: string[] = [];
   for (const h of hosts) {
     if (!h.ok) {
-      out.push(...hostBlock(h.host, ["unreachable — " + (h.error ?? "unknown error")]));
+      out.push(...hostBlock(h.host, ["unreachable - " + (h.error ?? "unknown error")]));
       continue;
     }
     if (h.rows.length === 0) {
@@ -60,7 +60,7 @@ export function renderInspect(hosts: HostResult<InspectRow>[]): string {
   const out: string[] = [];
   for (const h of hosts) {
     if (!h.ok || h.rows.length === 0) {
-      out.push(...hostBlock(h.host, [h.ok ? "no container" : "unreachable — " + (h.error ?? "")]));
+      out.push(...hostBlock(h.host, [h.ok ? "no container" : "unreachable - " + (h.error ?? "")]));
       continue;
     }
     const r = h.rows[0]!;

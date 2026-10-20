@@ -254,7 +254,7 @@ async function revisionFor(dir: string): Promise<{ revision: string; source: str
 }
 
 function versionNote(version: number, explicit: boolean): string[] {
-  return explicit ? [] : ['version: ' + version + ' (implicit — add "version: ' + version + '" to pin it)'];
+  return explicit ? [] : ['version: ' + version + ' (implicit - add "version: ' + version + '" to pin it)'];
 }
 
 /** Validate one deploy.yml/accessory.yml/group.yml without touching a host. */
@@ -405,7 +405,7 @@ export function renderValidationReport(report: ValidationReport): string {
     if (report.version !== undefined) {
       lines.push(
         "  version: " + report.version +
-          (report.notes.length > 0 ? " (implicit — add \"version: " + report.version + "\" to pin it)" : ""),
+          (report.notes.length > 0 ? " (implicit - add \"version: " + report.version + "\" to pin it)" : ""),
       );
     }
     for (const e of report.errors) lines.push("  - " + e.field + ": " + e.message);
@@ -415,7 +415,7 @@ export function renderValidationReport(report: ValidationReport): string {
   if (report.version !== undefined) {
     lines.push(
       "  version: " + report.version +
-        (report.notes.length > 0 ? " (implicit — add \"version: " + report.version + "\" to pin it)" : ""),
+        (report.notes.length > 0 ? " (implicit - add \"version: " + report.version + "\" to pin it)" : ""),
     );
   }
   const id = report.identity;

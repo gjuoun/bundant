@@ -18,7 +18,7 @@ import { assertGroupPreflight } from "./validation.ts";
 /**
  * Group orchestration: a group is a namespace with one lifecycle. Install walks
  * the manifest in topological order, verifies accessories (never creates them),
- * then deploys each service. Uninstall is a labelled sweep over services only —
+ * then deploys each service. Uninstall is a labelled sweep over services only -
  * accessories hold data and are left strictly alone.
  */
 
@@ -106,7 +106,7 @@ export class GroupRunner {
       ? sanitizeRevision(opts.rev)
       : await resolveRevision(this.loaded.dir);
     console.log(
-      "bundant group install — " + this.loaded.group + " rev=" + revision + " order=" +
+      "bundant group install - " + this.loaded.group + " rev=" + revision + " order=" +
         order.map((m) => m.name).join(" -> "),
     );
 
@@ -136,7 +136,7 @@ export class GroupRunner {
         if (isAccessory(m)) {
           if (!(await this.accessoryReady(m, via))) {
             console.error(
-              "bundant: accessory '" + m.name + "' is not ready — start it first:\n" +
+              "bundant: accessory '" + m.name + "' is not ready - start it first:\n" +
                 "  bundant accessory boot -f " + m.file,
             );
             failed = m.name;
@@ -172,7 +172,7 @@ export class GroupRunner {
     const via: OpsVia = opts.via ?? "api";
     const members = this.loaded.members.filter((m) => !isAccessory(m));
     console.log(
-      "bundant group uninstall — " + this.loaded.group + " (accessories untouched: " +
+      "bundant group uninstall - " + this.loaded.group + " (accessories untouched: " +
         this.loaded.members.filter(isAccessory).map((m) => m.name).join(", ").replace(/^$/, "none") +
         ")",
     );

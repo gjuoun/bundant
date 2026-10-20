@@ -39,7 +39,7 @@ export async function listRevisions(
 }
 
 /**
- * Stop new, start old — by revision, never by container. Every replica the
+ * Stop new, start old - by revision, never by container. Every replica the
  * target revision was deployed with is started and gated, the whole target set
  * swaps in one proxy deploy, and only then are the current replicas stopped.
  */

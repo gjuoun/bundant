@@ -60,7 +60,7 @@ export function envRemotePath(config: BundantConfig): string | undefined {
   return ServiceIdentity.from(config).envPath();
 }
 
-/** Label keys every bundant container carries — the object describes itself. */
+/** Label keys every bundant container carries - the object describes itself. */
 export {
   LABEL_SERVICE,
   LABEL_GROUP,
@@ -88,7 +88,7 @@ import {
 
 /**
  * Exact labels every container carries. kind=accessory is what makes a stateful
- * member recognisable on the host — sweeps and `delete` refuse to touch it, and a
+ * member recognisable on the host - sweeps and `delete` refuse to touch it, and a
  * human can enumerate them with `ps --filter label=bundant.kind=accessory`.
  */
 export function groupLabels(
@@ -154,7 +154,7 @@ export function buildDeployPlan(
       phase: "port-guard",
       desc:
         "low-port check (" + rt.kind + "): host " + PORT_FLOOR_KEY +
-        " is informational — the proxy container sets its own floor to 0",
+        " is informational - the proxy container sets its own floor to 0",
       cmds: [guard],
     });
   }
@@ -300,5 +300,5 @@ export function buildDeployPlan(
   };
 }
 
-/** Render a plan for humans (dry-run) — implemented in plan-render.ts. */
+/** Render a plan for humans (dry-run) - implemented in plan-render.ts. */
 export { renderPlan } from "./plan-render.ts";

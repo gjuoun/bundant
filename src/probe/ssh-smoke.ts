@@ -30,7 +30,7 @@ let failed = 0;
 
 const version = await exec.run(rt.bin + " version --format '{{.Server.Version}}'");
 if (version.code !== 0) {
-  console.error(host + ": " + rt.kind + " unreachable — " + version.stderr.trim());
+  console.error(host + ": " + rt.kind + " unreachable - " + version.stderr.trim());
   process.exit(1);
 }
 console.log(rt.kind + "-server " + version.stdout.trim());
@@ -62,7 +62,7 @@ console.log("proxy-help captured: " + lines + " lines -> " + HELP_PATH);
 console.log(
   hasHealthFlag
     ? "flag-check ok: --health-check-path present"
-    : "flag-check DRIFT: --health-check-path missing — update src/commands/proxy.ts",
+    : "flag-check DRIFT: --health-check-path missing - update src/commands/proxy.ts",
 );
 
 await exec.close();

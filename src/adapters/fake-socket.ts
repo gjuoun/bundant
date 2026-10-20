@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 /**
- * A tiny HTTP/1.1 server on a unix socket — test support for the adapter
+ * A tiny HTTP/1.1 server on a unix socket - test support for the adapter
  * layer, written on node:net so it behaves identically under bun and node.
  */
 

@@ -7,7 +7,7 @@ import type { Readable } from "node:stream";
 /**
  * One HTTP client for both engines. The ladder lives here and nowhere else:
  * dockerode when it can be resolved at runtime (absent by default), otherwise
- * node:http over the forwarded unix socket. The native path is the contract —
+ * node:http over the forwarded unix socket. The native path is the contract -
  * it works under bun and node with zero new dependencies.
  */
 
@@ -116,7 +116,7 @@ export class ApiClient {
   readonly driver: ApiDriver;
   /**
    * The dockerode handle when the ladder chose it. Stage 1's generic request()
-   * stays on node:http either way — dockerode exposes no generic HTTP request,
+   * stays on node:http either way - dockerode exposes no generic HTTP request,
    * so the typed client is surfaced for later stages that use its model API.
    */
   readonly dockerode: unknown;
@@ -153,7 +153,7 @@ export class ApiClient {
     return { status: res.statusCode, json, stream: null };
   }
 
-  /** Streaming request (logs, events, image load) — the caller owns the stream. */
+  /** Streaming request (logs, events, image load) - the caller owns the stream. */
   async requestStream(
     method: string,
     path: string,

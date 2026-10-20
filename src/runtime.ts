@@ -1,4 +1,4 @@
-/** Container runtime abstraction — the single place the binary name is decided. */
+/** Container runtime abstraction - the single place the binary name is decided. */
 
 export type RuntimeKind = "docker" | "podman";
 

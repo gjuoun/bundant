@@ -3,7 +3,7 @@ import type { RuntimeKind } from "../runtime.ts";
 
 export type { ExecResult, RuntimeKind };
 
-/** Everything needed to create one container. Env is an array — no remote env file. */
+/** Everything needed to create one container. Env is an array - no remote env file. */
 export interface ContainerSpec {
   image: string;
   name: string;
