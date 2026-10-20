@@ -6,8 +6,14 @@ import { toAppError, type AppError } from "../effect/errors.ts";
 import { rootCommand } from "./root.ts";
 import { CliLayer } from "./layer.ts";
 import { validate } from "./commands/validate.ts";
+import { deploy } from "./commands/deploy.ts";
+import { rollback } from "./commands/rollback.ts";
+import { history } from "./commands/history.ts";
+import { status } from "./commands/status.ts";
 
-export const command = rootCommand.pipe(Command.withSubcommands([validate]));
+export const command = rootCommand.pipe(
+  Command.withSubcommands([validate, deploy, rollback, history, status]),
+);
 
 const program = Command.run(command, {
   version: cliVersion(),

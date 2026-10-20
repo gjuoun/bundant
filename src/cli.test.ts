@@ -1,9 +1,14 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Effect, FileSystem, Layer, Path, Stdio, Terminal } from "effect";
 import { ChildProcessSpawner } from "effect/process";
 import { Command } from "effect/cli";
 import { rootCommand } from "./cli/root.ts";
 import { command } from "./cli/index.ts";
+import { LockError } from "./effect/errors.ts";
+import { runMain } from "./effect/runtime.ts";
 
 const TestLayer = Layer.mergeAll(
   Stdio.layerTest({}),
@@ -63,6 +68,44 @@ describe("effect/cli parsing", () => {
     await run(["probe", "-f", "one.yml"], app);
     await run(["probe", "--file", "two.yml"], app);
     expect(files).toEqual(["one.yml", "two.yml"]);
+  });
+
+  test("deploy on an accessory refuses with today's message", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "bundant-cli-"));
+    const file = join(dir, "accessory.yml");
+    writeFileSync(
+      file,
+      [
+        "kind: accessory",
+        "service: db",
+        "image: postgres:16",
+        "hosts: [box.test]",
+        "proxy: { enabled: false }",
+      ].join("\n"),
+    );
+    const lines: string[] = [];
+    const original = console.error;
+    console.error = (...args: unknown[]) => {
+      lines.push(args.map(String).join(" "));
+    };
+    try {
+      await run(["deploy", "-f", file]);
+    } finally {
+      console.error = original;
+    }
+    expect(process.exitCode).toBe(2);
+    expect(lines[0]).toContain("is an accessory — use `bundant accessory boot`");
+  });
+
+  test("lock contention maps to exit 2", async () => {
+    const original = console.error;
+    console.error = () => {};
+    try {
+      const code = await runMain(Effect.fail(new LockError({ message: "lock held" })));
+      expect(code).toBe(2);
+    } finally {
+      console.error = original;
+    }
   });
 
   test("validate accepts the example file", async () => {
