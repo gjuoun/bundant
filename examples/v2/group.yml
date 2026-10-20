@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=../../schema/v2/group.schema.json
+version: 2
+group: Shop
+services:
+  - name: Shop-DB
+    file: ./db/accessory.yml
+  - name: Shop-Api
+    file: ./api/deploy.yml
+    needs: [Shop-DB]

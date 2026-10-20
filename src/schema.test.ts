@@ -59,7 +59,15 @@ describe("published JSON Schemas", () => {
     }
   });
 
-  test("every example deploy.yml/accessory.yml validates against v1", () => {
+  function versionOf(doc: unknown): number {
+    if (typeof doc === "object" && doc !== null && "version" in doc) {
+      const version = (doc as { version?: unknown }).version;
+      if (typeof version === "number") return version;
+    }
+    return 1;
+  }
+
+  test("every example deploy.yml/accessory.yml validates against its version", () => {
     const files: string[] = [];
     walk(join(ROOT, "examples"), (p) => {
       if (/\.ya?ml$/.test(p) && !p.endsWith("group.yml")) files.push(p);
@@ -67,11 +75,12 @@ describe("published JSON Schemas", () => {
     expect(files.length).toBeGreaterThan(0);
     for (const file of files) {
       const doc = parseYaml(readFileSync(file, "utf8"));
-      expect(errorsFor("v1/deploy.schema.json", doc), file).toEqual([]);
+      const version = versionOf(doc);
+      expect(errorsFor("v" + version + "/deploy.schema.json", doc), file).toEqual([]);
     }
   });
 
-  test("every example group.yml validates against v1", () => {
+  test("every example group.yml validates against its version", () => {
     const files: string[] = [];
     walk(join(ROOT, "examples"), (p) => {
       if (p.endsWith("group.yml")) files.push(p);
@@ -79,7 +88,8 @@ describe("published JSON Schemas", () => {
     expect(files.length).toBeGreaterThan(0);
     for (const file of files) {
       const doc = parseYaml(readFileSync(file, "utf8"));
-      expect(errorsFor("v1/group.schema.json", doc), file).toEqual([]);
+      const version = versionOf(doc);
+      expect(errorsFor("v" + version + "/group.schema.json", doc), file).toEqual([]);
     }
   });
 
