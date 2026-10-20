@@ -1,0 +1,146 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+:root {
+  --radius: 0.75rem;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+
+  --background: oklch(0.985 0.004 110);
+  --foreground: oklch(0.18 0.012 250);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.012 250);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.18 0.012 250);
+  --primary: oklch(0.52 0.155 132);
+  --primary-foreground: oklch(0.99 0.005 120);
+  --secondary: oklch(0.95 0.012 110);
+  --secondary-foreground: oklch(0.24 0.02 250);
+  --muted: oklch(0.955 0.008 110);
+  --muted-foreground: oklch(0.47 0.015 250);
+  --accent: oklch(0.94 0.06 122);
+  --accent-foreground: oklch(0.26 0.06 132);
+  --destructive: oklch(0.58 0.2 25);
+  --border: oklch(0.89 0.01 110);
+  --input: oklch(0.89 0.01 110);
+  --ring: oklch(0.52 0.155 132);
+
+  --grid-line: color-mix(in oklab, var(--foreground) 7%, transparent);
+  --glow: color-mix(in oklab, var(--primary) 22%, transparent);
+  --code-bg: oklch(0.965 0.008 110);
+  color-scheme: light;
+}
+
+.dark {
+  --background: oklch(0.145 0.006 265);
+  --foreground: oklch(0.965 0.006 110);
+  --card: oklch(0.185 0.007 265);
+  --card-foreground: oklch(0.965 0.006 110);
+  --popover: oklch(0.18 0.007 265);
+  --popover-foreground: oklch(0.965 0.006 110);
+  --primary: oklch(0.91 0.18 124);
+  --primary-foreground: oklch(0.22 0.045 132);
+  --secondary: oklch(0.235 0.01 265);
+  --secondary-foreground: oklch(0.95 0.006 110);
+  --muted: oklch(0.225 0.009 265);
+  --muted-foreground: oklch(0.68 0.014 250);
+  --accent: oklch(0.27 0.04 130);
+  --accent-foreground: oklch(0.93 0.12 124);
+  --destructive: oklch(0.66 0.19 25);
+  --border: oklch(0.28 0.012 265);
+  --input: oklch(0.3 0.012 265);
+  --ring: oklch(0.91 0.18 124);
+
+  --grid-line: color-mix(in oklab, var(--foreground) 9%, transparent);
+  --glow: color-mix(in oklab, var(--primary) 16%, transparent);
+  --code-bg: oklch(0.125 0.008 265);
+  color-scheme: dark;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  html {
+    scroll-behavior: smooth;
+    background-color: var(--background);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    overflow-x: hidden;
+  }
+  ::selection {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+  h1, h2, h3 {
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+}
+
+@utility container-page {
+  width: 100%;
+  max-width: 76rem;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+  @media (min-width: 768px) {
+    padding-inline: 2rem;
+  }
+}
+
+@utility bg-grid {
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+@utility hero-glow {
+  background:
+    radial-gradient(60rem 32rem at 18% -8%, var(--glow), transparent 65%),
+    radial-gradient(38rem 26rem at 92% 4%, color-mix(in oklab, var(--foreground) 6%, transparent), transparent 70%);
+}
+
+@utility mono-label {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
