@@ -21,6 +21,10 @@ existing human output is unchanged, byte for byte.
   or the read/action result documented below.
 - `error.details` carries the tagged error's extra fields (host, service, target, …).
 - Progress, streaming logs and deprecation notices are on stderr and never parsed.
+- A bad command line is rejected by a parse preflight before any command runs: unknown flag,
+  unknown subcommand, missing value/argument, or a bad choice value is `USAGE` + exit 4.
+  Human mode prints one line on stderr and nothing on stdout; JSON mode prints only the
+  envelope. Help text is never dumped for a usage failure. `--help` still prints help.
 
 ## Error catalog
 
