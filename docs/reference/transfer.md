@@ -1,4 +1,14 @@
-# Local image transfer
+---
+title: "Image transfer"
+description: "How a local image reaches the host over the deploy ssh connection."
+slug: "transfer"
+sidebar:
+  order: 5
+---
+
+# Image transfer
+
+Read this after [chapter 1](/bundant/docs/tutorial/01-quickstart/).
 
 `bundant deploy --local-image <name:tag>` sends a locally built image to each host over the
 existing ssh connection. There is no registry and no daemon on the host beyond the engine

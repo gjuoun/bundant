@@ -1,4 +1,15 @@
+---
+title: "Architecture (internals)"
+description: "Internals: the deploy sequence, proxy integration and design rules."
+slug: "architecture"
+sidebar:
+  order: 9
+---
+
 # Architecture
+
+> **Internals.** Read the tutorial first. This page is for people changing bundant, not for
+> people deploying with it.
 
 ```
 deploy.yml (git) + image = truth; hosts are cattle
@@ -49,7 +60,7 @@ why stopping the old container immediately after is safe.
 
 `deploy`, `rollback`, `prune`, `delete`, `scale` and `group` program against a
 semantic `RuntimeOps` layer (`src/ops/`). Every mutating command runs the zod
-preflight gate first (see [validation.md](validation.md)). Pull, network, container
+preflight gate first (see [validation](/bundant/docs/validation/)). Pull, network, container
 create/start/stop/remove, exec and image prune are engine-API calls over the
 forwarded unix socket.
 
@@ -82,3 +93,40 @@ Each deploy keeps its revision container (stopped) so rollback is instant. `prun
 the newest `--keep` revisions per service-role, removes the rest **only if stopped** (a
 running or draining container is never removed), then runs `image prune -f` for dangling
 layers.
+
+## Typed engine API
+
+The engine client types under `src/adapters/generated/*.d.ts` are generated, never hand-written:
+
+```text
+specs/docker-moby.swagger.yaml      Swagger 2.0, Docker Engine API 1.57
+specs/podman-v5.7.0.swagger.yaml    Swagger 2.0, Podman 5.7.0
+        │ swagger2openapi
+        ▼
+   OpenAPI 3 + curated allowlist (scripts/api-gen.ts)
+        │ openapi-typescript
+        ▼
+src/adapters/generated/{docker,podman}-api.d.ts
+```
+
+```sh
+bun run api:gen      # rewrite the two .d.ts files
+bun run api:check    # fail when they drift from the specs + allowlist
+```
+
+The allowlists in `scripts/api-gen.ts` are the only operations generated, so the files stay
+reviewable (~55 KB each). Adding an endpoint means adding it there, regenerating, and committing
+the result. Podman compat paths spell the parameter `{name}` where Docker says `{id}`; the
+allowlists keep both spellings.
+
+Every inbound payload the adapters read is validated with zod in
+`src/adapters/schemas/payloads.ts`. Each schema is annotated with a type picked from the generated
+definitions, so a schema that drifts from the official spec does not compile. `parseOrDrift`
+throws `ApiSchemaDriftError` with the engine, method + path, the first failing JSON pointer, and a
+short excerpt (object shapes are reduced to key lists, so env values are never echoed).
+
+Fixtures under `src/adapters/schemas/fixtures/` are recorded real payloads from docker02
+(Docker 29.1.3) and docker01 (Podman 5.7.0). Mutated copies drive the drift tests. Podman 5.7
+declares the Docker-compatible stats body as `Record<string, never>` and omits the compat events
+body; those two are validated against Docker's official contract, which is what Podman's compat
+API actually returns on the hosts.

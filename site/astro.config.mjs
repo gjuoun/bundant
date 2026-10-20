@@ -62,10 +62,13 @@ export default defineConfig({
     react(),
     starlight({
       title: 'bundant',
-      description: 'bundant documentation: deploy.yml, the CLI, groups, replicas, validation and monitoring.',
+      description: 'bundant documentation: a five-chapter tutorial, then the deploy.yml, CLI and operational reference.',
       pagefind: true,
       social: [],
-      sidebar: [{ label: 'Documentation', autogenerate: { directory: 'docs' } }],
+      sidebar: [
+        { label: 'Tutorial', autogenerate: { directory: 'docs/tutorial' } },
+        { label: 'Reference', autogenerate: { directory: 'docs/reference' } },
+      ],
       tableOfContents: { minHeadingLevel: 2, maxHeadingLevel: 4 },
       disable404Route: false,
       customCss: ['./src/styles/starlight.css'],

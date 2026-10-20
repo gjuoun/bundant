@@ -1,4 +1,15 @@
+---
+title: "deploy.yml reference"
+description: "Every field, default and rule in deploy.yml, accessory.yml and group.yml."
+slug: "deploy-yml"
+sidebar:
+  order: 1
+---
+
 # deploy.yml reference
+
+Read this after [chapter 2](/bundant/docs/tutorial/02-first-service/) and
+[chapter 4](/bundant/docs/tutorial/04-scale-and-groups/).
 
 One file per service. It is the contract: bundant turns it into docker/podman commands
 and never stores state of its own on the host.
@@ -66,7 +77,7 @@ pipeline.
   `.<i>` for `i = 1 … N` and every container carries `bundant.revision` +
   `bundant.replica`. `N > 1` requires `proxy.enabled: true` (the proxy is what
   distributes requests) and is rejected on `kind: accessory` (a stateful member
-  is one of one). See [`replicas.md`](replicas.md) and `bundant scale`.
+  is one of one). See [Replicas](#replicas) above and `bundant scale`.
 - **env** — values are never printed; the merged result rides `ContainerSpec.Env` in
   the engine create request, so no env file is written to the host.
   Secrets belong in that local file (gitignored), not in git.
@@ -113,3 +124,122 @@ ssh: ./ssh/prod.yaml
 `ssh:` takes an inline block or a path (resolved relative to the deploy.yml
 that names it). Hosts declared in deploy.yml win over the file's pool; a
 per-host `user@host:port` wins over both.
+
+
+## Replicas
+
+`replicas: N` runs N copies of the service on **each** host (default 1). The proxy is what
+distributes requests, so `N > 1` requires `proxy.enabled: true`.
+
+| replicas | container name |
+|---|---|
+| 1 | `<group>.<service>.<role>.<rev>` — e.g. `default.echoes.web.r2026a` |
+| N > 1 | `<group>.<service>.<role>.<rev>.1` … `.<N>` |
+
+Every service container carries `bundant.revision=<rev>` and `bundant.replica=<i>`;
+`scale`, `status` and `rollback` read the truth from those labels, not from a local file.
+
+`deploy` runs all N containers, health-gates each one, and makes **one** proxy call carrying
+every target. A failed gate removes the containers this run started and leaves traffic where it
+was.
+
+```sh
+bundant scale --replicas 5 -f deploy.yml
+bundant scale 2 -f deploy.yml          # the same command
+```
+
+`scale` adjusts the revision that is already running: it never pulls an image, never changes the
+revision or the env, and takes the same per-service lock as `deploy`. It is idempotent.
+
+The ordering invariant is the whole design:
+
+| direction | order |
+|---|---|
+| up | start the missing replicas → health-gate each → **one** proxy deploy with the full set |
+| down | **proxy deploy with the survivors first** (drain) → then stop + remove the removed containers |
+
+Scaling down in the other order drops in-flight requests. `deploy.yml` stays authoritative:
+`scale` only prints a reminder and never writes the file, so the next `deploy` re-applies
+`replicas:`. `status` marks the drift:
+
+```text
+replicas: live 2 / expected 3  <- drift (deploy.yml says 3)
+```
+
+## group.yml
+
+A group is a namespace. The directory is the group; `group.yml` lists the members and their
+dependencies.
+
+```yaml
+version: 2
+group: shop
+services:                       # order breaks ties; needs decides the real order
+  - name: db
+    file: ./db/accessory.yml
+  - name: api
+    file: ./api/deploy.yml
+    needs: [db]                 # api starts only after db answers its TCP probe
+  - name: web
+    file: ./web/deploy.yml
+    needs: [api]
+```
+
+Each `file` is resolved relative to the group directory, and `name` must equal that file's
+`service:`. `needs` names other members; the install order is the topological sort, and a cycle
+is an error. `group install` acquires one group lock, then each service takes its own lock.
+
+```sh
+bundant group install   -f shop/group.yml
+bundant group status    -f shop/group.yml
+bundant group rollback  -f shop/group.yml --to-revision 4f3c1ab
+bundant group uninstall -f shop/group.yml --yes
+```
+
+A group run that fails stops and reports `applied / failed / skipped`, leaving the members that
+did deploy serving.
+
+## accessory.yml
+
+An accessory is a stateful group member: a stable container name (`<group>.<service>`), named
+volumes, no revision, no proxy. It is created once and never touched by deploy, rollback, prune or
+scale.
+
+```yaml
+version: 2
+kind: accessory
+service: db
+image: docker.io/library/postgres:16-alpine
+hosts: [root@docker01]
+env: { file: ./db.env }         # POSTGRES_PASSWORD etc. (gitignored, 0600 remote)
+volumes:
+  - "pgdata:/var/lib/postgresql/data"
+healthcheck: { tcp: 5432, timeout: 60 }
+proxy: { enabled: false }
+```
+
+Every object says what it is: the container carries `bundant.kind=accessory` (services carry
+`bundant.kind=service`) and `bundant.volumes=<name,name>`; each volume carries
+`bundant.kind=accessory`, `bundant.owner=<group>/<service>` and `bundant.managed=true`.
+Selection uses those labels, not a name guess.
+
+- `group install` never creates an accessory. If a required one is missing it stops and prints the
+  exact `bundant start -f` command.
+- `group uninstall` and `delete` select services only; accessories keep their data.
+- `rm --volumes` only deletes a volume whose `bundant.owner` is this accessory.
+
+Lifecycle is explicit:
+
+```sh
+bundant start   -f shop/db/accessory.yml          # create if absent
+bundant restart -f shop/db/accessory.yml          # recreate, keep volumes
+bundant stop    shop.db
+bundant logs    shop.db
+bundant status  shop.db
+bundant rm      shop.db --yes                     # keep volumes
+bundant rm      shop.db --yes --volumes           # delete data
+```
+
+Before a dependent service starts, a service dependency waits for its normal health gate; an
+accessory dependency is probed by `healthcheck.tcp` — a bare TCP connect from a throwaway
+busybox sidecar on the `bundant` network.

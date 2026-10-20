@@ -1,4 +1,15 @@
+---
+title: "podman"
+description: "Rootless podman, container-in-container hosts and bootstrap."
+slug: "podman"
+sidebar:
+  order: 6
+---
+
 # podman (rootless) and container-in-container hosts
+
+Read this after [chapter 1](/bundant/docs/tutorial/01-quickstart/) and
+[chapter 5](/bundant/docs/tutorial/05-observe/).
 
 Set `runtime: podman` and every emitted step switches binary — `podman pull`,
 `podman network create`, `podman run`, `podman exec`, `podman ps`, and `podman save
