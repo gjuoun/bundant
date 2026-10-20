@@ -166,27 +166,21 @@ async function loadArchive(
   save: SaveStream,
   have: ReadonlySet<string> | readonly string[],
 ): Promise<LoadResult> {
-  console.error("LD start");
   const built = buildOciDelta(save.stream, { have, ref });
   try {
-    console.error("LD length wait");
     const contentLength = await built.length;
-    console.error("LD length", contentLength);
     await ops.loadImage(built.stream, { contentLength });
     const stats = await built.result;
-    console.error("LD result", stats.bytesSent);
     await save.done;
     await waitForImage(ops, ref);
     return { stats };
   } catch (err) {
-    console.error("LD caught", err instanceof Error ? err.message : err);
     const settled = built.result.catch(() => undefined);
     built.length.catch(() => undefined);
     built.stream.destroy(new Error("transfer aborted"));
     save.stream.destroy();
     await save.done.catch(() => undefined);
     await settled;
-    console.error("LD settled");
     return { stats: EMPTY_STATS, failure: err };
   }
 }

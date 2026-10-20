@@ -249,15 +249,8 @@ describe("OCI delta builder", () => {
         .map(([name, data]) => ({ name, data })),
     );
     const built = buildOciDelta(Readable.from([withoutLayer]), { have: [], ref: "app:t2" });
-    built.length.catch(() => undefined);
-    const drained = (async () => {
-      for await (const _chunk of built.stream) {
-        // the stream is destroyed with the builder's error
-      }
-    })().catch(() => undefined);
-    await expect(built.result).rejects.toThrow(
-      "config references layer",
-    );
-    await drained;
+    built.stream.on("error", () => undefined);
+    await expect(built.length).rejects.toThrow("config references layer");
+    await expect(built.result).rejects.toThrow("config references layer");
   });
 });
