@@ -9,17 +9,32 @@ sidebar:
 
 # Operate
 
-**Goal:** by the end of this page you can answer "what is running?", read its logs, and put the
-previous revision back without editing a file.
+**What you get:** you can answer "what is running?", read its logs, and put the previous revision
+back without editing a file.
+
+**Why it matters:** deploys are the easy part. The cost shows up on day two, when a new revision
+looks healthy but behaves badly and you need the old one back in seconds.
 
 ## Ship a second revision
 
-Change one value in `deploy.yml`:
+Change one value in the complete `deploy.yml` from chapter 2:
 
 ```yaml
+version: 2
+service: hello
+role: web
+image: traefik/whoami:v1.10
+hosts: [root@box.example.com]
 env:
   vars:
     BUNDANT_DEMO: "2"
+healthcheck:
+  path: /
+  timeout: 30
+proxy:
+  enabled: true
+  host: hello.bundant.test
+  port: 80
 ```
 
 Every commit is a revision, because the revision is the git short sha of the directory holding
@@ -59,11 +74,13 @@ bundant logs '*' -f deploy.yml --tail 5
 ```
 
 ```text
-default.hello.web.8de4a23 | 2026/10/20 20:57:31 Starting up on port 80
+default.hello.web.8de4a23 | 2026/10/20 21:31:47 Starting up on port 80
 ```
 
 Each line is prefixed with the container it came from, which matters once a service has more than
-one replica. `bundant history` lists every retained revision, newest first:
+one copy (a **replica**, covered in chapter 4). `bundant history` lists every retained revision,
+newest first — the timestamps and the `Up`/`Exited` ages are from the run that produced this page,
+so yours will show different ones:
 
 ```sh
 bundant history -f deploy.yml
@@ -71,16 +88,17 @@ bundant history -f deploy.yml
 
 ```text
 == root@box.example.com (hello-web) ==
- * default.hello.web.8de4a23 1 replica    Up                       2026-10-20 20:57:31 +0000 UTC
-   default.hello.web.0f2c8cc 1 replica    Exited (2) 1 second ago  2026-10-20 20:57:28 +0000 UTC
-   default.hello.web.11a45b2 1 replica    Exited (2) 4 seconds ago 2026-10-20 20:57:25 +0000 UTC
+ * default.hello.web.8de4a23 1 replica    Up                       2026-10-20 21:31:47 +0000 UTC
+   default.hello.web.0f2c8cc 1 replica    Exited (2) 1 second ago  2026-10-20 21:31:44 +0000 UTC
+   default.hello.web.11a45b2 1 replica    Exited (2) 3 seconds ago 2026-10-20 21:31:42 +0000 UTC
   * = running revision
 ```
 
 ## Roll back
 
-`bundant rollback` with no target goes to the previous revision. It starts the old container,
-runs the same health gate, swaps the proxy, and stops the current one:
+**Rollback** means starting a retained revision and pointing the proxy back at it. `bundant
+rollback` with no target goes to the previous revision: it starts the old container, runs the same
+health gate, swaps the proxy, and stops the current one:
 
 ```sh
 bundant rollback -f deploy.yml
@@ -106,9 +124,27 @@ bundant history -f deploy.yml
 
 ```text
 == root@box.example.com (hello-web) ==
-   default.hello.web.8de4a23 1 replica    Exited (2) Less than a second ago 2026-10-20 20:57:31 +0000 UTC
- * default.hello.web.0f2c8cc 1 replica    Up                       2026-10-20 20:57:28 +0000 UTC
-   default.hello.web.11a45b2 1 replica    Exited (2) 6 seconds ago 2026-10-20 20:57:25 +0000 UTC
+   default.hello.web.8de4a23 1 replica    Exited (2) Less than a second ago 2026-10-20 21:31:47 +0000 UTC
+ * default.hello.web.0f2c8cc 1 replica    Up                       2026-10-20 21:31:44 +0000 UTC
+   default.hello.web.11a45b2 1 replica    Exited (2) 6 seconds ago 2026-10-20 21:31:42 +0000 UTC
+```
+
+The timeline is the point of the design: the old container is stopped, never removed, so rollback
+is a **start**, not a rebuild. The stopped revisions wait until `bundant prune` keeps the newest
+`--keep` (default 3) and removes the rest.
+
+```mermaid
+flowchart TD
+  r1["11a45b2 · first revision<br/>stopped, kept"]
+  r2["0f2c8cc · second revision<br/>healthy, live"]
+  r3["8de4a23 · third revision<br/>live"]
+  r4["0f2c8cc · live again"]
+  kept["older revisions stay stopped<br/>until prune"]
+  r1 -- "deploy" --> r2
+  r2 -- "deploy" --> r3
+  r3 -- "rollback, no target" --> r4
+  r1 -.-> kept
+  r3 -.-> kept
 ```
 
 To pick an exact revision, use `bundant rollback --to-revision <sha> -f deploy.yml`. A revision
@@ -117,7 +153,22 @@ is retained until `bundant prune` removes it or you delete the service.
 You should see `rolled back to default.hello.web.0f2c8cc` and, in `status`, the revision
 after `rev=` change from `8de4a23` back to `0f2c8cc`.
 
+## What actually happens
+
+`deploy` takes a per-service `mkdir` **lock** on the first host — `~/.bundant/locks/default/hello.lock`,
+holding an owner line and reclaimed after `BUNDANT_LOCK_TTL_S` — so two deploys cannot interleave.
+Each container carries `bundant.revision` and `bundant.replica` labels; `status`, `history`,
+`scale` and `rollback` read those labels rather than a local file. `rollback` selects the
+previous revision (or `--to-revision`), starts the stopped container, re-runs the health gate, does
+one proxy deploy, then stops the revision that was live. Commands and exit codes are in the
+[CLI reference](/bundant/docs/cli/); the sequence is in
+[Architecture](/bundant/docs/architecture/).
+
 ## Did it fail?
+
+A **unit** is one addressable thing bundant manages: a service or an accessory. A **selector** is
+the unit path you pass to a flat verb — `group.service.role` for a service, `group.service` for an
+accessory — matched as a glob, where `*` is one segment and `**` is any number.
 
 - **`no unit matches "shop.nope.**"`** — a selector that matches nothing is an error with
   exit status 3, not a silent success:

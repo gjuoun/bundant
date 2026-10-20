@@ -1,0 +1,30 @@
+---
+/**
+ * Starlight head override: keep the generated head entries, then load the
+ * Mermaid renderer only on documentation pages. Homepage and 404 stay
+ * untouched.
+ */
+const { head, id } = Astro.locals.starlightRoute;
+// Starlight's entry id is the content path (tutorial/01-quickstart, reference/cli),
+// not the public URL, so match the URL instead - otherwise the renderer never loads.
+const isDoc = Astro.url.pathname.replace(/\/$/, '').includes('/docs/');
+---
+
+{head.map(({ tag: Tag, attrs, content }) => <Tag {...attrs} set:html={content} />)}
+
+{isDoc && (
+  <>
+    <script is:inline>
+      // Runs before first paint so a diagram never flashes as raw text.
+      document.documentElement.classList.add('mermaid-js');
+      setTimeout(function () {
+        if (!document.documentElement.classList.contains('mermaid-done')) {
+          document.documentElement.classList.add('mermaid-failed');
+        }
+      }, 8000);
+    </script>
+    <script>
+      import '../../scripts/mermaid-client';
+    </script>
+  </>
+)}
