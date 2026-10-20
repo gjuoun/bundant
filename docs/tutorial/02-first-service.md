@@ -9,20 +9,23 @@ sidebar:
 
 # Your first service
 
-**Goal:** by the end of this page you can read every line of `deploy.yml`, know what the deploy
-phases do, and validate a change before it reaches a host.
+**What you get:** you can read every line of `deploy.yml`, say which fields change the container
+and which change routing, and validate a change before any host sees it.
+
+**Why it matters:** the file is the whole contract. Once you can read it, you can predict what a
+deploy will do — and validation catches most mistakes locally, for free.
 
 ## The file, field by field
 
-This is the file from the quick start, with a role, an environment variable and an explicit
-health check added:
+This is the complete file from the quick start, with a role, an environment variable and an
+explicit health check added:
 
 ```yaml
 version: 2
 service: hello                 # identifier: letters, digits, - or _
 role: web                      # defaults to web
 image: traefik/whoami:v1.10    # the host pulls this, or --local-image streams it
-hosts: [root@box.example.com]    # user@host:port forms are allowed
+hosts: [root@box.example.com]  # user@host:port forms are allowed
 env:
   vars:
     BUNDANT_DEMO: "1"          # merged into the container environment, never printed
@@ -35,14 +38,39 @@ proxy:
   port: 80                     # port the proxy targets
 ```
 
+The mind map groups the fields by what they change. **Container side** decides what process runs;
+**routing side** decides which HTTP requests reach it; identity and placement decide where it runs
+and what it is called.
+
+```mermaid
+mindmap
+  root((deploy.yml))
+    identity
+      service
+      role
+      rev
+    container
+      image
+      env
+      health
+      replicas
+    routing
+      host
+      port
+```
+
 | field | what it decides |
 |---|---|
-| `service` / `role` | the name: `<group>.<service>.<role>.<revision>` |
+| `service` / `role` | the name: `<group>.<service>.<role>.<revision>`; `role` is a segment for variants of one service, default `web` |
 | `image` | what to run; no registry is required when you use `--local-image` |
 | `hosts` | one or more ssh targets; `BUNDANT_HOSTS` overrides the list |
-| `env` | variables merged into the create request; values never appear in output |
-| `healthcheck` | the gate that must pass before the proxy is pointed at the new container |
+| `env` | environment variables (name/value pairs passed into the container); values never appear in output |
+| `healthcheck` | the gate that must pass before the proxy points at the new container |
 | `proxy` | `enabled: false` for workers; when enabled, `host` is required |
+
+The value of `proxy.host` is the **route host**: the `Host:` header a request must carry for the
+proxy to route it to this service. Two services on one host are told apart by that header, not by
+a port.
 
 Commit the edit. The new git short sha is the new revision:
 
@@ -72,7 +100,7 @@ bundant validate: OK
 ```
 
 Validation parses the file, checks every field and the composed name, and prints the identity a
-deploy would use. It does not open an ssh connection.
+deploy would use. It does not open an ssh connection and does not take the lock.
 
 ## Deploy
 
@@ -98,7 +126,7 @@ What the phases mean:
 - **pull** — the host already had the image, so this was a no-op. Without a registry,
   `--local-image` streams it over the same ssh connection.
 - **network** — the shared `bundant` network exists.
-- **run** — the new container starts with `--restart unless-stopped` and no published ports.
+- **run** — the new container starts with `--restart unless-stopped`; it publishes no host port.
 - **health gate** — a throwaway sidecar requests `healthcheck.path`; a failure aborts before
   traffic moves.
 - **proxy-ensure / proxy-swap** — the proxy container is running, then its target set is swapped
@@ -111,14 +139,25 @@ bundant history -f deploy.yml
 
 ```text
 == root@box.example.com (hello-web) ==
- * default.hello.web.0f2c8cc 1 replica    Up                       2026-10-20 20:57:28 +0000 UTC
-   default.hello.web.11a45b2 1 replica    Exited (2) Less than a second ago 2026-10-20 20:57:25 +0000 UTC
+ * default.hello.web.0f2c8cc 1 replica    Up                       2026-10-20 21:31:44 +0000 UTC
+   default.hello.web.11a45b2 1 replica    Exited (2) Less than a second ago 2026-10-20 21:31:42 +0000 UTC
   * = running revision
 ```
 
 You should see `health gate passed` followed by `proxy-swap ok` and
-`deployed ... on 1 host(s)`; the `history` output marks the new revision with `*` and keeps
-the old one stopped.
+`deployed ... on 1 host(s)`; `history` marks the new revision with `*` and keeps the old one
+stopped.
+
+## What actually happens
+
+Validate runs the same zod preflight that every mutating command runs — before it creates an ssh
+executor or takes the lock — so an invalid file causes zero host contact. Deploy then builds a
+typed `ContainerSpec` (image, merged env, labels `bundant.kind`/`bundant.revision`/
+`bundant.replica`) and posts it to `/containers/create`; `healthcheck.port` defaults to
+`proxy.port`. The proxy route id is stable across revisions: `<group>.<service>.<role>`. See
+[Validation](/bundant/docs/validation/), the
+[deploy.yml reference](/bundant/docs/deploy-yml/) and
+[Architecture](/bundant/docs/architecture/).
 
 ## Did it fail?
 

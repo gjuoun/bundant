@@ -4,7 +4,8 @@
  *
  * For every tutorial and reference source: the built /docs/<slug>/ page exists,
  * carries its title, and its sidebar label is on /docs/. Tutorial chapters must
- * also contain a fenced command block and a "You should see" proof block. The
+ * also contain a fenced command block, a "You should see" proof block and a
+ * fenced mermaid diagram. The
  * legacy /docs/cli/, /docs/naming/ and /docs/transfer/ URLs must still resolve,
  * and /docs/design/ must be gone.
  */
@@ -74,6 +75,7 @@ async function main() {
 
     if (doc.group === 'Tutorial') {
       if (!/\`\`\`sh\n/.test(source)) problems.push('no fenced sh command block');
+      if (!/\`\`\`mermaid\n/.test(source)) problems.push('no fenced mermaid diagram');
       if (!/You should see/.test(source)) problems.push('no "You should see" block');
       if (!/## Did it fail\?/.test(source)) problems.push('no "Did it fail?" block');
     } else {
