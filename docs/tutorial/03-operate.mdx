@@ -7,6 +7,8 @@ sidebar:
   label: "03 · Operate"
 ---
 
+import { Aside, Badge, CardGrid, LinkCard, Steps, Tabs, TabItem } from '@astrojs/starlight/components';
+
 # Operate
 
 **What you get:** you can answer "what is running?", read its logs, and put the previous revision
@@ -14,6 +16,11 @@ back without editing a file.
 
 **Why it matters:** deploys are the easy part. The cost shows up on day two, when a new revision
 looks healthy but behaves badly and you need the old one back in seconds.
+
+<Steps>
+
+<ol>
+<li>
 
 ## Ship a second revision 🚀
 
@@ -59,7 +66,15 @@ deploy hello/web rev=8de4a23 -> root@box.example.com
 deployed default.hello.web.8de4a23 on 1 host(s)
 ```
 
+</li>
+<li>
+
 ## Read it back 📊
+
+`bundant status '*' -f deploy.yml` prints one line per unit. The same command accepts `--json`:
+
+<Tabs>
+<TabItem label="Human output">
 
 ```sh
 bundant status '*' -f deploy.yml
@@ -68,6 +83,22 @@ bundant status '*' -f deploy.yml
 ```text
 default.hello.web rev=8de4a23 live=1/1 [default.hello.web.8de4a23]
 ```
+
+</TabItem>
+<TabItem label="JSON output">
+
+<Badge text="--json" variant="tip" /> prints one JSON object, with the same unit fields:
+
+```sh
+bundant status '*' -f deploy.yml --json
+```
+
+```json
+{"ok":true,"command":"status","data":[{"path":"default.hello.web","live":1}]}
+```
+
+</TabItem>
+</Tabs>
 
 ```sh
 bundant logs '*' -f deploy.yml --tail 5
@@ -94,6 +125,9 @@ bundant history -f deploy.yml
   * = running revision
 ```
 
+</li>
+<li>
+
 ## Roll back ⏪
 
 **Rollback** means starting a retained revision and pointing the proxy back at it. `bundant
@@ -109,6 +143,11 @@ bundant rollback -f deploy.yml
 [root@box.example.com] health gate passed on default.hello.web.0f2c8cc
 [root@box.example.com] rolled back to default.hello.web.0f2c8cc (1 replica(s))
 ```
+
+<Aside type="tip" title="Shortcut">
+  `bundant rollback` with no target always goes to the previous revision, so you do not need the
+  sha for the common case. Use `--to-revision <sha>` only when you want an older one.
+</Aside>
 
 ```sh
 bundant status '*' -f deploy.yml
@@ -161,8 +200,19 @@ flowchart TD
 To pick an exact revision, use `bundant rollback --to-revision <sha> -f deploy.yml`. A revision
 is retained until `bundant prune` removes it or you delete the service.
 
+<Aside type="danger" title="Rolling back to an exact revision">
+  `--to-revision` starts any retained revision, including one older than the current schema or
+  data migration. The container goes back; its volumes do not. Check what the old revision
+  expects before you point traffic at it.
+</Aside>
+
 You should see `rolled back to default.hello.web.0f2c8cc` and, in `status`, the revision
 after `rev=` change from `8de4a23` back to `0f2c8cc`.
+
+</li>
+</ol>
+
+</Steps>
 
 ## What actually happens ⚙️
 
@@ -181,6 +231,12 @@ A **unit** is one addressable thing bundant manages: a service or an accessory. 
 the unit path you pass to a flat verb — `group.service.role` for a service, `group.service` for an
 accessory — matched as a glob, where `*` is one segment and `**` is any number.
 
+<Aside type="note" title="selector">
+  The unit path you pass to a flat verb: `group.service.role` for a service, `group.service` for
+  an accessory, matched as a glob where `*` is one segment and `**` is any number.
+</Aside>
+
+<Aside type="caution" title="Recoverable failures">
 - **`no unit matches "shop.nope.**"`** — a selector that matches nothing is an error with
   exit status 3, not a silent success:
 
@@ -195,5 +251,9 @@ accessory — matched as a glob, where `*` is one segment and `**` is any number
   ```text
   bundant: deploy lock for default/hello is held by tutorial (age 0s; BUNDANT_LOCK_TTL_S reclaims stale locks)
   ```
+</Aside>
 
-Next: [Chapter 4 — Scale and groups](/bundant/docs/tutorial/04-scale-and-groups/).
+<CardGrid>
+<LinkCard title="Chapter 4 — Scale and groups" href="/bundant/docs/tutorial/04-scale-and-groups/" description="Run several replicas, then deploy a group with a stateful accessory." />
+<LinkCard title="CLI reference" href="/bundant/docs/cli/" description="Every command, flag, selector and exit code used on this page." />
+</CardGrid>
