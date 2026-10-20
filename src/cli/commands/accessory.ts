@@ -6,9 +6,19 @@ import { finish, loadedFor, opsVia, runPromise, value } from "./common.ts";
 
 type Action = "boot" | "reboot" | "stop" | "logs" | "status" | "remove";
 export const ACCESSORY_DEFAULT_ACTION: Action = "status";
+export const ACCESSORY_ALIASES: Record<Action, string> = {
+  boot: "start",
+  reboot: "restart",
+  stop: "stop",
+  logs: "logs",
+  status: "status",
+  remove: "rm",
+};
+const DEPRECATED = "deprecated: use bundant start/stop/restart/logs/status/rm";
 
 function runAction(action: Action) {
   return Effect.gen(function* () {
+    console.error(DEPRECATED);
     const g = yield* rootCommand;
     const loaded = yield* runPromise(async () => loadedFor(g, "accessory.yml"));
     const tail = Number(g.tail);

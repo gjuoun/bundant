@@ -7,6 +7,7 @@ import { finish, opsVia, runPromise, value } from "./common.ts";
 
 type Action = "install" | "uninstall" | "status" | "rollback";
 export const GROUP_DEFAULT_ACTION: Action = "install";
+export const GROUP_STATUS_ALIAS = "status '<group>.**'";
 
 function actionCommand(action: Action) {
   return Command.make(action, {}, () =>
@@ -17,6 +18,7 @@ function actionCommand(action: Action) {
       );
       const runner = new GroupRunner(loadedGroup);
       if (action === "status") {
+        console.error("deprecated: use bundant " + GROUP_STATUS_ALIAS);
         yield* finish(yield* runPromise(() => runner.status()));
         return;
       }

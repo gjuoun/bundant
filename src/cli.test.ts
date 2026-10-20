@@ -10,8 +10,8 @@ import { command } from "./cli/index.ts";
 import { LockError } from "./effect/errors.ts";
 import { runMain } from "./effect/runtime.ts";
 import { findCaseCollision } from "./deploy.ts";
-import { ACCESSORY_DEFAULT_ACTION } from "./cli/commands/accessory.ts";
-import { GROUP_DEFAULT_ACTION } from "./cli/commands/group.ts";
+import { ACCESSORY_ALIASES, ACCESSORY_DEFAULT_ACTION } from "./cli/commands/accessory.ts";
+import { GROUP_DEFAULT_ACTION, GROUP_STATUS_ALIAS } from "./cli/commands/group.ts";
 
 const TestLayer = Layer.mergeAll(
   Stdio.layerTest({}),
@@ -167,6 +167,15 @@ describe("effect/cli parsing", () => {
   test("group defaults to install and accessory defaults to status", () => {
     expect(GROUP_DEFAULT_ACTION).toBe("install");
     expect(ACCESSORY_DEFAULT_ACTION).toBe("status");
+    expect(GROUP_STATUS_ALIAS).toBe("status '<group>.**'");
+    expect(ACCESSORY_ALIASES).toEqual({
+      boot: "start",
+      reboot: "restart",
+      stop: "stop",
+      logs: "logs",
+      status: "status",
+      remove: "rm",
+    });
   });
 
   test("an invalid accessory action is a parse error", async () => {
