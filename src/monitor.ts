@@ -14,14 +14,14 @@ export { formatBytes, formatEvent, statRow, type StatRow } from "./monitor-forma
 /**
  * Pull-based monitoring: every query is one engine-API round trip per host,
  * executed in parallel, and nothing is installed or left running on the host.
- * History is whatever the current session collected — by design.
+ * History is whatever the current session collected - by design.
  *
  * The read surface (containers, stats, logs, inspect, events) goes through the
  * RuntimeAdapter; only the interactive shell and kamal-proxy (a CLI inside a
  * container, no HTTP API) still use ssh.
  */
 
-/** The read half of RuntimeAdapter — what monitoring actually needs. */
+/** The read half of RuntimeAdapter - what monitoring actually needs. */
 export type MonitorRuntime = Pick<
   RuntimeAdapter,
   "list" | "stats" | "logs" | "inspect" | "events"
@@ -255,7 +255,7 @@ export class Monitor {
           process.stderr.write(t.host + ": no container to follow\n");
           return 1;
         }
-        const tag = targets.length === 1 ? "" : t.host.padEnd(16) + " │ ";
+        const tag = targets.length === 1 ? "" : t.host.padEnd(16) + " | ";
         try {
           for await (const line of t.runtime.logs(picked, { tail: opts.tail, follow: true })) {
             process.stdout.write(tag + line + "\n");
@@ -270,7 +270,7 @@ export class Monitor {
     return codes.some((c) => c !== 0) ? 1 : 0;
   }
 
-  /** Interactive shell inside a container (PTY through ssh — stays on ssh). */
+  /** Interactive shell inside a container (PTY through ssh - stays on ssh). */
   async execShell(host: string, selector: string, argv: string[]): Promise<number> {
     const t = this.target(host);
     if (t.exec === undefined) throw new Error(host + ": executor unavailable");

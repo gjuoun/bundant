@@ -5,7 +5,7 @@
  * generated OpenAPI types mark almost every property optional, so a *renamed*
  * field still satisfies "assignable to Wire" (the field is simply missing, and
  * the target type allows that). The guard below rejects any key the schema
- * declares that the spec does not — the failure mode that actually happens when
+ * declares that the spec does not - the failure mode that actually happens when
  * an engine renames a field.
  *
  * It reads the keys off the schema's object shape, so it works even when the

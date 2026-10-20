@@ -41,7 +41,7 @@ export function formatPorts(
  * Docker over the engine API (read-only in stage 1). Podman reuses this class:
  * its Docker-compatible endpoints answer the same requests, and the places
  * where the compat API is lossy move to explicit /libpod paths in the adapter
- * subclasses later — never at the call sites.
+ * subclasses later - never at the call sites.
  */
 
 export class DockerAdapter implements RuntimeAdapter {

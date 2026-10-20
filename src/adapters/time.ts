@@ -1,6 +1,6 @@
 /**
  * Docker and Podman accept `since`/`until` as **epoch seconds** (they run
- * `strconv.ParseInt` on the value — a duration like "1h" is rejected). Operators
+ * `strconv.ParseInt` on the value - a duration like "1h" is rejected). Operators
  * think in durations, so the adapters take `number | string` and convert here.
  */
 

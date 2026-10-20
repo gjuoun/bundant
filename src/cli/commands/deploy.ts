@@ -15,7 +15,7 @@ export const deploy = Command.make("deploy", {}, () =>
     const loaded = yield* runPromise(async () => loadedFor(g));
     if (loaded.config.kind === "accessory") {
       console.error(
-        "bundant: " + loaded.config.service + " is an accessory — use \`bundant accessory boot\`",
+        "bundant: " + loaded.config.service + " is an accessory - use \`bundant accessory boot\`",
       );
       return yield* finish(2);
     }

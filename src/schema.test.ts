@@ -37,7 +37,7 @@ describe("published JSON Schemas", () => {
   test("checked-in schema files match every registered version", () => {
     for (const [file, expected] of Object.entries(buildSchemas())) {
       const actual = readFileSync(join(SCHEMA_DIR, file), "utf8");
-      expect(actual, file + " is stale — run: bun run schema:gen").toBe(expected);
+      expect(actual, file + " is stale - run: bun run schema:gen").toBe(expected);
     }
   });
 

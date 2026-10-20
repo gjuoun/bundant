@@ -5,7 +5,7 @@ import { summarizeRevisions } from "./revisions.ts";
 import { listRevisions } from "./rollback.ts";
 
 /**
- * `history` — the kubectl rollout history equivalent, grouped by revision:
+ * `history` - the kubectl rollout history equivalent, grouped by revision:
  * one row per revision (not per container) with its replica count, state and
  * the revision currently serving traffic.
  */

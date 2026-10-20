@@ -1,7 +1,7 @@
 import type { Runtime } from "../runtime.ts";
 import { KIND_ACCESSORY, LABEL_KIND } from "../labels.ts";
 
-/** Pure container-runtime command builders — every string runs verbatim on the target host. */
+/** Pure container-runtime command builders - every string runs verbatim on the target host. */
 
 export const NETWORK = "bundant";
 export const CURL_IMAGE = "curlimages/curl:8.11.1";
@@ -131,7 +131,7 @@ export function volumeLabel(rt: Runtime, volume: string, key: string): string {
  * Stop every container of this service-role except the freshly deployed set.
  * The default group keeps the historical single-prefix command byte-for-byte.
  * A real group also sweeps the pre-grouping names, but only containers whose
- * bundant.group label matches — another group may legitimately use the same
+ * bundant.group label matches - another group may legitimately use the same
  * service name.
  */
 export function stopOld(
@@ -172,7 +172,7 @@ export function listForSelection(rt: Runtime, service: string, role: string): st
   );
 }
 
-/** name|createdAt|state for exact labels — finds both name shapes by group label. */
+/** name|createdAt|state for exact labels - finds both name shapes by group label. */
 export function listHistoryByLabels(rt: Runtime, labels: Record<string, string>): string {
   return (
     rt.bin + " ps -a" + labelFilters(labels) +
@@ -180,7 +180,7 @@ export function listHistoryByLabels(rt: Runtime, labels: Record<string, string>)
   );
 }
 
-/** name|createdAt|state — the full picture `history` and `rollback` need. */
+/** name|createdAt|state - the full picture `history` and `rollback` need. */
 export function listHistory(rt: Runtime, service: string, role: string): string {
   return (
     rt.bin + ' ps -a --filter "name=' + service + "-" + role +
@@ -246,7 +246,7 @@ export function start(rt: Runtime, container: string): string {
 }
 
 /**
- * Monitoring surface — read-only queries, all pull-based over the same ssh
+ * Monitoring surface - read-only queries, all pull-based over the same ssh
  * connection. Field sets were verified live on podman 5.7 and docker 29.
  */
 
@@ -268,7 +268,7 @@ export function containerNames(rt: Runtime): string {
   return rt.bin + ' ps --format "{{.Names}}"';
 }
 
-/** Every container name, running or not — the fallback for selectors. */
+/** Every container name, running or not - the fallback for selectors. */
 export function allContainerNames(rt: Runtime): string {
   return rt.bin + ' ps -a --format "{{.Names}}"';
 }

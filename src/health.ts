@@ -33,7 +33,7 @@ export interface HealthResult {
 
 /**
  * Poll the curl-sidecar probe until it prints 200. The orchestrator aborts
- * (and removes the new container) when this throws — no traffic ever swaps
+ * (and removes the new container) when this throws - no traffic ever swaps
  * to an unhealthy target.
  */
 export async function waitUntilHealthy(

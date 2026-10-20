@@ -60,7 +60,7 @@ export const UI_PAGE = [
   "var opts=[];Object.keys(d.byHost).forEach(function(h){d.byHost[h].forEach(function(c){opts.push([h,c])})});",
   "var selHTML=opts.map(function(o){return '<option value=\"'+esc(o[0])+'|'+esc(o[1])+'\">'+esc(o[0])+' / '+esc(o[1])+'</option>'}).join('');",
   "el('main').innerHTML='<div class=row><span>target</span><select id=lh>'+selHTML+'</select>'+",
-  "'<span>tail</span><input id=lt size=5 value=200><label class=dim><input type=checkbox id=lauto checked> auto 2s</label></div>'+(first?'':'')+'<pre id=lout>loading…</pre>';",
+  "'<span>tail</span><input id=lt size=5 value=200><label class=dim><input type=checkbox id=lauto checked> auto 2s</label></div>'+(first?'':'')+'<pre id=lout>loading...</pre>';",
   "el('lh').onchange=loadLogs;el('lt').onchange=loadLogs;setInterval(function(){if(el('lauto')&&el('lauto').checked)loadLogs()},2000);loadLogs()}",
   "function loadLogs(){var sel=el('lh');if(!sel)return;var p=sel.value.split('|');var t=el('lt')?el('lt').value:200;",
   "get('/api/logs?host='+encodeURIComponent(p[0])+'&container='+encodeURIComponent(p[1])+'&tail='+t).then(function(r){",

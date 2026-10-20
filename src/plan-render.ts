@@ -6,7 +6,7 @@ export function renderPlan(plan: DeployPlan): string {
   const lines: string[] = [];
   const m = plan.meta;
   lines.push(
-    "bundant deploy plan — " + m.service + "/" + m.role + " rev=" + m.revision +
+    "bundant deploy plan - " + m.service + "/" + m.role + " rev=" + m.revision +
     " runtime=" + m.runtime + " image=" + m.image,
   );
   if (m.envRemotePath) {
@@ -68,7 +68,7 @@ export function renderApiPlan(plan: DeployPlan, opts: ApiPlanOptions): string {
   const m = plan.meta;
   const lines: string[] = [];
   lines.push(
-    "bundant deploy plan (via api) — " + m.service + "/" + m.role + " rev=" + m.revision +
+    "bundant deploy plan (via api) - " + m.service + "/" + m.role + " rev=" + m.revision +
     " runtime=" + m.runtime + " image=" + m.image,
   );
   lines.push(
@@ -93,7 +93,7 @@ export function renderApiPlan(plan: DeployPlan, opts: ApiPlanOptions): string {
     lines.push("");
     lines.push("host " + host + ":");
     let i = 1;
-    lines.push("  " + i++ + ") [ssh] host prerequisites (systemd units, sysctl floor) — same as today");
+    lines.push("  " + i++ + ") [ssh] host prerequisites (systemd units, sysctl floor) - same as today");
     if (m.localImage !== undefined) {
       lines.push("  " + i++ + ") [cli] --local-image streaming still uses save|gzip|ssh|load (stage 4)");
     } else {
@@ -117,8 +117,8 @@ export function renderApiPlan(plan: DeployPlan, opts: ApiPlanOptions): string {
       "  " + i++ + ") [health] for each " + m.containerNames.join(", ") + ":",
     );
     lines.push(
-      "       POST /containers/create?name=bundant-probe-…. {image:\"curlimages/curl:8.11.1\", " +
-      "network:\"bundant\", cmd:[\"-w\",\"%{http_code}\", …]}",
+      "       POST /containers/create?name=bundant-probe-.... {image:\"curlimages/curl:8.11.1\", " +
+      "network:\"bundant\", cmd:[\"-w\",\"%{http_code}\", ...]}",
     );
     lines.push("       POST /containers/<probe>/start -> GET /containers/<probe>/json until exit");
     lines.push("       GET /containers/<probe>/logs -> DELETE /containers/<probe>?force=1");

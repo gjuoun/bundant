@@ -15,7 +15,7 @@ export interface Executor {
   stream?(cmd: string, opts?: { tty?: boolean; onLine?: (line: string) => void }): Promise<number>;
 }
 
-/** Lifecycle phase of a planned command — consumed by the dry-run renderer and orchestrators. */
+/** Lifecycle phase of a planned command - consumed by the dry-run renderer and orchestrators. */
 export type Phase =
   | "lock"
   | "unlock"

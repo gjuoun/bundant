@@ -7,7 +7,7 @@ import { openAdapter } from "./adapters/index.ts";
 import { socketServiceState } from "./adapters/service.ts";
 
 /**
- * Host bootstrap: make any mainstream Linux box able to run this deployment —
+ * Host bootstrap: make any mainstream Linux box able to run this deployment -
  * install podman when it is missing, enable the boot-time restart unit and give
  * podman a registry search path. Everything is idempotent and converging: a host
  * that is already ready costs one probe and no changes.
@@ -213,7 +213,7 @@ export function lingerStep(): BootstrapStep {
     label: "rootless linger",
     cmd:
       'if [ "$(id -u)" = "0" ]; then ' +
-      "echo 'bundant: rootful podman — linger not needed'; " +
+      "echo 'bundant: rootful podman - linger not needed'; " +
       'else u="$(id -un)"; ' +
       'if loginctl show-user "$u" -p Linger --value 2>/dev/null | grep -q yes; then ' +
       "echo \"bundant: linger already enabled for $u\"; " +
@@ -235,7 +235,7 @@ export function planBootstrap(probe: BootstrapProbe, opts: BootstrapRunOptions =
       cmd:
         "if docker info >/dev/null 2>&1; then " +
         "echo 'bundant: docker socket reachable'; else " +
-        "echo 'bundant: docker socket not reachable — start dockerd on the host; bundant leaves it alone' >&2; exit 1; fi",
+        "echo 'bundant: docker socket not reachable - start dockerd on the host; bundant leaves it alone' >&2; exit 1; fi",
     });
     steps.push({ label: "docker version", cmd: "docker --version", show: true });
     return steps;
@@ -248,7 +248,7 @@ export function planBootstrap(probe: BootstrapProbe, opts: BootstrapRunOptions =
         label: "install podman",
         cmd:
           "echo 'bundant: no supported package manager for " + probe.os.prettyName +
-          " — install podman manually' >&2; exit 1",
+          " - install podman manually' >&2; exit 1",
       });
     } else {
       install.forEach((cmd, i) => {
@@ -290,7 +290,7 @@ export function planBootstrap(probe: BootstrapProbe, opts: BootstrapRunOptions =
         "if podman run --rm docker.io/library/hello-world >/dev/null 2>&1; then " +
         "echo 'bundant: smoke test passed'; else " +
         "echo 'bundant: smoke test FAILED" +
-        (probe.inContainer === "lxc" ? " — inside LXC the container needs nesting=1" : "") +
+        (probe.inContainer === "lxc" ? " - inside LXC the container needs nesting=1" : "") +
         "' >&2; exit 1; fi",
     });
   }
@@ -349,7 +349,7 @@ export class HostBootstrap {
   }
 }
 
-/** Prove the socket through the adapter — the same path every command takes. */
+/** Prove the socket through the adapter - the same path every command takes. */
 export async function verifyEndpoint(
   connection: HostConnection,
   runtime: RuntimeKind,

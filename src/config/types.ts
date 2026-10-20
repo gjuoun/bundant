@@ -15,7 +15,7 @@ export interface BundantConfig {
   role: string;
   /** Running copies of this service on each host (default 1; accessories are one of one). */
   replicas: number;
-  /** service (default) or accessory — accessories are never deployed/rolled/pruned. */
+  /** service (default) or accessory - accessories are never deployed/rolled/pruned. */
   kind?: "service" | "accessory";
   /** Named volumes (accessory only). */
   volumes?: string[];

@@ -49,7 +49,7 @@ export class ApiSchemaDriftError extends Error {
     const excerpt = excerptAt(body, issue.path as (string | number)[]);
     super(
       "engine API schema drift: " + context.engine + " " + context.method + " " + context.path +
-        " at " + (pointer === "" ? "<root>" : pointer) + " — " + issue.message +
+        " at " + (pointer === "" ? "<root>" : pointer) + " - " + issue.message +
         " (payload: " + excerpt + ")",
     );
     this.name = "ApiSchemaDriftError";

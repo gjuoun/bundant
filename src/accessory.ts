@@ -16,7 +16,7 @@ import { openOps, type OpsVia } from "./ops/index.ts";
 import { assertPreflight, preflightGate } from "./validation.ts";
 
 /**
- * Accessory lifecycle — the stateful half of a group. An accessory is created
+ * Accessory lifecycle - the stateful half of a group. An accessory is created
  * once (stable container name, named volumes) and is *never* touched by
  * deploy/rollback/prune/group install. Every action here is explicit.
  */
@@ -62,7 +62,7 @@ export function accessoryContainer(config: BundantConfig): string {
   return accessoryContainerName(config);
 }
 
-/** Named volumes declared as "name:/path" — the part before the first colon. */
+/** Named volumes declared as "name:/path" - the part before the first colon. */
 export function accessoryVolumeNames(config: BundantConfig): string[] {
   return (config.volumes ?? [])
     .map((v) => v.split(":")[0]!.trim())
@@ -125,7 +125,7 @@ export class Accessory {
     if (config.kind !== "accessory") {
       throw new AccessoryError(
         "not an accessory: " + config.service + " (kind: " + (config.kind ?? "service") +
-          ") — use \`bundant deploy\`",
+          ") - use \`bundant deploy\`",
       );
     }
     // Preflight before any host contact, for every accessory action.
@@ -158,7 +158,7 @@ export class Accessory {
     const via: OpsVia = opts.via ?? "api";
     const verb = force ? "reboot" : "boot";
     console.log(
-      "bundant accessory " + verb + " — " + name + " on " + targets.join(", ") +
+      "bundant accessory " + verb + " - " + name + " on " + targets.join(", ") +
       " (image " + config.image + ", runtime " + config.runtime + ", via " + via + ")",
     );
     if (opts.dryRun) {
@@ -196,7 +196,7 @@ export class Accessory {
           const rows = await ops.listContainers({ all: true, namePrefix: name });
           const present = rows.some((row) => row.name === name);
           if (present && !force) {
-            console.log("  already exists — " + name + " (use \`accessory reboot\` to recreate)");
+            console.log("  already exists - " + name + " (use \`accessory reboot\` to recreate)");
           } else {
             await ops.ensureNetwork();
             if (present) {
@@ -309,7 +309,7 @@ export class Accessory {
               : "none"),
         );
       } catch (e) {
-        console.log("  status query failed — " + (e as Error).message);
+        console.log("  status query failed - " + (e as Error).message);
         exit = 1;
       } finally {
         await ops.close();
@@ -324,7 +324,7 @@ export class Accessory {
     const name = accessoryContainer(config);
     const via: OpsVia = opts.via ?? "api";
     console.log(
-      "bundant accessory remove — " + name +
+      "bundant accessory remove - " + name +
       " (volumes: " + (opts.volumes ? "delete" : "keep") + ", via " + via + ")",
     );
     if (!opts.yes) {
@@ -355,7 +355,7 @@ export class Accessory {
             const found = await ops.inspectVolume(v);
             const got = found.labels[LABEL_OWNER] ?? "";
             if (got !== "" && got !== owner) {
-              console.log("  volume " + v + " belongs to " + got + " — left alone");
+              console.log("  volume " + v + " belongs to " + got + " - left alone");
               continue;
             }
             await ops.removeVolume(v);

@@ -24,7 +24,7 @@ export const scale = Command.make(
       if (loaded.config.kind === "accessory") {
         console.error(
           "bundant: " + loaded.config.service +
-            " is an accessory — a stateful member is one of one",
+            " is an accessory - a stateful member is one of one",
         );
         return yield* finish(2);
       }
