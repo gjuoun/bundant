@@ -3,13 +3,14 @@
  * docs-check - prove the generated docs site is complete and tutorial-shaped.
  *
  * For every tutorial and reference source: the built /docs/<slug>/ page exists,
- * carries its title, and its sidebar label is on /docs/. Tutorial chapters are
- * MDX and must keep their fenced command block, a "You should see" proof block,
- * a fenced mermaid diagram, and the Starlight components the tutorial uses
- * (<Steps>, <Tabs>, <Aside>, <FileTree>, <Badge>, <CardGrid>). The built pages
- * must carry the matching Starlight classes, keep the diagram source readable
- * with JS off, and (when Chrome is available) render it to SVG with JS on.
- * Reference pages stay plain Markdown. The
+ * carries its title, and its sidebar label is on /docs/. A tutorial chapter is
+ * one straight instruction: a <Steps> wrapper, a fenced command block, a "You
+ * should see" proof line and a fenced mermaid diagram - and no <Aside>, no
+ * <Badge> and no "Did it fail?" catalogue (that lives in
+ * reference/troubleshooting.md, which must exist and appear in the Reference
+ * group). Only the install step uses <Tabs>. The built pages must keep the
+ * diagram source readable with JS off, and (when Chrome is available) render it
+ * to SVG with JS on. Reference pages stay plain Markdown. The
  * legacy /docs/cli/, /docs/naming/ and /docs/transfer/ URLs must still resolve,
  * and /docs/design/ must be gone.
  */
@@ -29,7 +30,6 @@ const failures = [];
 
 /** Chapters that must use a given component (from the tutorial's component map). */
 const NEEDS_TREE = new Set(['01-quickstart', '02-first-service', '04-scale-and-groups']);
-const NEEDS_BADGE = new Set(['01-quickstart', '02-first-service', '03-operate']);
 
 function chapterOf(source) {
   return source.replace(/^.*\//, '').replace(/\.mdx?$/, '');
@@ -140,7 +140,17 @@ async function main() {
   const reference = docs.filter((doc) => doc.group === 'Reference');
 
   if (tutorial.length !== 5) failures.push('expected 5 tutorial pages, found ' + tutorial.length);
-  if (reference.length !== 9) failures.push('expected 9 reference pages, found ' + reference.length);
+  if (reference.length !== 10) failures.push('expected 10 reference pages, found ' + reference.length);
+
+  if (!reference.some((doc) => doc.slug === 'troubleshooting')) {
+    failures.push('the Reference group has no troubleshooting page');
+  }
+  if (!(await exists(join(repoRoot, 'docs', 'reference', 'troubleshooting.md')))) {
+    failures.push('docs/reference/troubleshooting.md is missing');
+  }
+  if (landing && !landing.includes('Troubleshooting')) {
+    failures.push('the docs index does not link Troubleshooting');
+  }
 
   for (const doc of docs) {
     const pagePath = join(distDir, 'docs', doc.slug, 'index.html');
@@ -160,24 +170,27 @@ async function main() {
       if (!/\`\`\`sh\n/.test(source)) problems.push('no fenced sh command block');
       if (!/\`\`\`mermaid\n/.test(source)) problems.push('no fenced mermaid diagram');
       if (!/You should see/.test(source)) problems.push('no "You should see" block');
-      if (!/## Did it fail\?/.test(source)) problems.push('no "Did it fail?" block');
+
+      // One straight instruction: no tips, cautions, badges or failure catalogue.
+      if (/<Aside\b/.test(source)) problems.push('has an <Aside>');
+      if (/<Badge\b/.test(source)) problems.push('has a <Badge>');
+      if (/Did it fail\?/.test(source)) problems.push('has a "Did it fail?" section');
 
       // The components wrap content; they must never be the only copy of it.
       if (!/<Steps>/.test(source)) problems.push('no <Steps> wrapper');
-      if (!/<Tabs>/.test(source) || !/<TabItem\b/.test(source)) problems.push('no <Tabs> wrapper');
-      if (!/<Aside\b/.test(source)) problems.push('no <Aside>');
-      if (!/<Aside type="note"/.test(source)) problems.push('no <Aside type="note"> term definition');
-      if (!/<Aside type="tip"/.test(source)) problems.push('no <Aside type="tip"> shortcut');
-      if (!/<Aside type="caution"/.test(source)) problems.push('no <Aside type="caution"> failure note');
+      if (chapter === '01-quickstart' && (!/<Tabs>/.test(source) || !/<TabItem\b/.test(source))) {
+        problems.push('no install <Tabs>');
+      }
+      if (chapter !== '01-quickstart' && /<Tabs>/.test(source)) {
+        problems.push('has <Tabs> outside the install step');
+      }
       if (!/<CardGrid>/.test(source) || !/<LinkCard\b/.test(source)) problems.push('no LinkCard footer');
       if (NEEDS_TREE.has(chapter) && !/<FileTree>/.test(source)) problems.push('no <FileTree>');
-      if (NEEDS_BADGE.has(chapter) && !/<Badge\b/.test(source)) problems.push('no <Badge>');
-      if (chapter === '03-operate' && !/<Aside type="danger"/.test(source)) problems.push('no <Aside type="danger"> for rollback');
 
       if (page) {
         if (!page.includes('class="sl-steps"')) problems.push('built page has no sl-steps');
-        if (!page.includes('role="tab"')) problems.push('built page has no tab list');
-        if (!page.includes('class="starlight-aside')) problems.push('built page has no aside');
+        if (chapter === '01-quickstart' && !page.includes('role="tab"')) problems.push('built page has no tab list');
+        if (page.includes('class="starlight-aside')) problems.push('built page has an aside');
         if (NEEDS_TREE.has(chapter) && !page.includes('<starlight-file-tree')) problems.push('built page has no file tree');
         if (!page.includes('class="sl-link-card')) problems.push('built page has no link card');
         // JS off: the diagram source must still be in the HTML.
