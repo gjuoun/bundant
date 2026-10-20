@@ -4,7 +4,7 @@ import { hostTargets, connectionForTarget } from "./hosts.ts";
 import { parseHistory, revisionOf, type RevisionEntry } from "./revisions.ts";
 import { runtimeFor } from "./runtime.ts";
 import { belongsToService, serviceLabels } from "./naming.ts";
-import { openOps, type OpsVia } from "./ops/index.ts";
+import { openOps } from "./ops/index.ts";
 import { assertPreflight } from "./validation.ts";
 
 export interface PruneEntry {
@@ -15,8 +15,6 @@ export interface PruneEntry {
 export interface PruneOptions {
   keep: number;
   dryRun: boolean;
-  /** Mutations through the engine API (default) or the legacy CLI strings. */
-  via?: OpsVia;
 }
 
 /** Parse "name createdAt" listing, newest first. */
@@ -96,31 +94,20 @@ export async function prune(loaded: LoadedConfig, opts: PruneOptions): Promise<n
   const { config } = loaded;
   assertPreflight(loaded);
   const rt = runtimeFor(config.runtime);
-  const via: OpsVia = opts.via ?? "api";
-
   for (const host of hostTargets(config)) {
     console.log("== " + host + " ==");
     if (opts.dryRun) {
-      if (via === "cli") {
-        console.log("  (dry-run) " + docker.listHistoryByLabels(rt, labelsFor(config)));
-        console.log(
-          "  (dry-run) " + rt.bin + " rm <stopped " + config.service + "-" + config.role +
-          "-* revisions beyond the newest " + opts.keep + ", never running ones>",
-        );
-        console.log("  (dry-run) " + docker.imagePrune(rt));
-      } else {
-        const filters = encodeURIComponent(JSON.stringify({ label: Object.entries(labelsFor(config)).map(([k, v]) => k + "=" + v) }));
-        console.log("  (dry-run) GET /containers/json?all=1&filters=" + filters);
-        console.log(
-          "  (dry-run) DELETE /containers/<stopped " + config.service + "-" + config.role +
-          "-* revisions beyond the newest " + opts.keep + ", never running ones>?force=1",
-        );
-        console.log("  (dry-run) POST /images/prune?filters=" + encodeURIComponent(JSON.stringify({ dangling: { "true": true } })));
-      }
+      const filters = encodeURIComponent(JSON.stringify({ label: Object.entries(labelsFor(config)).map(([k, v]) => k + "=" + v) }));
+      console.log("  (dry-run) GET /containers/json?all=1&filters=" + filters);
+      console.log(
+        "  (dry-run) DELETE /containers/<stopped " + config.service + "-" + config.role +
+        "-* revisions beyond the newest " + opts.keep + ", never running ones>?force=1",
+      );
+      console.log("  (dry-run) POST /images/prune?filters=" + encodeURIComponent(JSON.stringify({ dangling: { "true": true } })));
       continue;
     }
 
-    const ops = await openOps(via, connectionForTarget(config, host), config);
+    const ops = await openOps(connectionForTarget(config, host), config);
     try {
       const history = await ops.history(labelsFor(config), config);
       const entries = entriesOf(history);

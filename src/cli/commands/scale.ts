@@ -3,7 +3,7 @@ import { Argument, Command } from "effect/cli";
 import { scale as runScale } from "../../scale.ts";
 import { UsageError } from "../../agent/errors.ts";
 import { rootCommand } from "../root.ts";
-import { finish, loadedFor, opsVia, runPromise, value } from "./common.ts";
+import { finish, loadedFor, runPromise, value } from "./common.ts";
 
 export const scale = Command.make(
   "scale",
@@ -25,10 +25,8 @@ export const scale = Command.make(
           message: loaded.config.service + " is an accessory - a stateful member is one of one",
         });
       }
-      const via = opsVia(g.via);
-      if (via === null) return yield* finish(2);
       const code = yield* runPromise(() =>
-        runScale(loaded, { replicas, dryRun: g["dry-run"], via }),
+        runScale(loaded, { replicas, dryRun: g["dry-run"] }),
       );
       yield* finish(code);
     }),

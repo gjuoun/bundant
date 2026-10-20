@@ -1,19 +1,18 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://bundant.dev/schema/v1/group.schema.json",
-  "title": "bundant group.yml (v1)",
-  "description": "A namespace: members in install order plus explicit needs. Version 1.",
+  "$id": "https://bundant.dev/schema/v2/group.schema.json",
+  "title": "bundant group.yml (v2)",
+  "description": "A namespace: members in install order plus explicit needs. Version 2.",
   "type": "object",
   "properties": {
     "version": {
       "type": "number",
-      "const": 1,
-      "description": "config schema version; omitted = 1 (implicit)"
+      "const": 2
     },
     "group": {
       "type": "string",
-      "pattern": "^[a-z0-9]+$",
-      "description": "namespace name; no hyphens (they are separators): scopes the env directory and the lock key"
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9]|[-_](?=[A-Za-z0-9]))*$",
+      "description": "namespace name (v2 identifier)"
     },
     "services": {
       "type": "array",
@@ -22,21 +21,19 @@
         "properties": {
           "name": {
             "type": "string",
-            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-            "description": "member identity; must equal the member file's service (single hyphens allowed)"
+            "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9]|[-_](?=[A-Za-z0-9]))*$",
+            "description": "member identity (v2 identifier)"
           },
           "file": {
             "type": "string",
-            "minLength": 1,
-            "description": "path to deploy.yml/accessory.yml, relative to the group directory"
+            "minLength": 1
           },
           "needs": {
             "type": "array",
             "items": {
               "type": "string",
-              "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
-            },
-            "description": "members that must be ready first; the install order is their topological sort"
+              "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9]|[-_](?=[A-Za-z0-9]))*$"
+            }
           }
         },
         "required": [
@@ -45,11 +42,11 @@
         ],
         "additionalProperties": false
       },
-      "minItems": 1,
-      "description": "members; array order only breaks ties, needs decides the real order"
+      "minItems": 1
     }
   },
   "required": [
+    "version",
     "group",
     "services"
   ],

@@ -10,7 +10,6 @@ import { command } from "./cli/tree.ts";
 import { LockError } from "./effect/errors.ts";
 import { runMain } from "./effect/runtime.ts";
 import { findCaseCollision } from "./deploy.ts";
-import { ACCESSORY_ALIASES, ACCESSORY_DEFAULT_ACTION } from "./cli/commands/accessory.ts";
 import { GROUP_DEFAULT_ACTION, GROUP_STATUS_ALIAS } from "./cli/commands/group.ts";
 import { flatLoadedFor, resolutionOptions, selectorFor } from "./cli/commands/flat-common.ts";
 import { loadConfig } from "./config.ts";
@@ -58,7 +57,6 @@ describe("effect/cli parsing", () => {
           g.tail,
           g.since,
           g.port,
-          g.via,
           g["dry-run"],
           g.follow,
           g["all-revisions"],
@@ -71,7 +69,7 @@ describe("effect/cli parsing", () => {
     );
     const app = rootCommand.pipe(Command.withSubcommands([probe]));
     await run(["probe"], app);
-    expect(seen).toBe("3|200|2h|8787|api|false|false|false|false|false|missing|false");
+    expect(seen).toBe("3|200|2h|8787|false|false|false|false|false|missing|false");
   });
 
   test("-f alias and long flag both parse", async () => {
@@ -94,6 +92,7 @@ describe("effect/cli parsing", () => {
     writeFileSync(
       file,
       [
+        "version: 2",
         "kind: accessory",
         "service: db",
         "image: postgres:16",
@@ -102,7 +101,7 @@ describe("effect/cli parsing", () => {
       ].join("\n"),
     );
     await expect(run(["deploy", "-f", file])).rejects.toThrow(
-      "is an accessory - use `bundant accessory boot`",
+      "is an accessory - use `bundant start -f",
     );
   });
 
@@ -112,6 +111,7 @@ describe("effect/cli parsing", () => {
     writeFileSync(
       file,
       [
+        "version: 2",
         "kind: accessory",
         "service: db2",
         "image: postgres:16",
@@ -150,22 +150,9 @@ describe("effect/cli parsing", () => {
     );
   });
 
-  test("group defaults to install and accessory defaults to status", () => {
+  test("group defaults to install and keeps the status subcommand", () => {
     expect(GROUP_DEFAULT_ACTION).toBe("install");
-    expect(ACCESSORY_DEFAULT_ACTION).toBe("status");
     expect(GROUP_STATUS_ALIAS).toBe("status '<group>.**'");
-    expect(ACCESSORY_ALIASES).toEqual({
-      boot: "start",
-      reboot: "restart",
-      stop: "stop",
-      logs: "logs",
-      status: "status",
-      remove: "rm",
-    });
-  });
-
-  test("an invalid accessory action is a parse error", async () => {
-    await expect(run(["accessory", "bogus"])).rejects.toBeDefined();
   });
 
   test("-- passthrough keeps --version for the remote command", async () => {
@@ -191,7 +178,7 @@ describe("effect/cli parsing", () => {
       "validate", "start", "stop", "restart", "rm",
       "deploy", "scale", "rollback", "history", "status", "delete", "prune",
       "bootstrap", "runtime", "ps", "stats", "inspect", "logs", "events", "exec", "ui",
-      "group", "accessory",
+      "group",
     ]) {
       expect(names).toContain(name);
     }

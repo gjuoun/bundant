@@ -5,7 +5,7 @@ import { NoMatchError } from "../../select/selector.ts";
 import { UsageError } from "../../agent/errors.ts";
 import { recordData } from "../../agent/emit.ts";
 import { rootCommand } from "../root.ts";
-import { finish, opsVia, runPromise } from "./common.ts";
+import { finish, runPromise } from "./common.ts";
 import { flatLoadedFor, opsFor, withFlatUnits } from "./flat-common.ts";
 
 export const start = Command.make(
@@ -15,15 +15,24 @@ export const start = Command.make(
     Effect.gen(function* () {
       const g = yield* rootCommand;
       const pattern = path._tag === "Some" ? path.value : undefined;
-      if (pattern === undefined) {
-        throw new UsageError({ message: "start needs a unit path" });
-      }
-      const via = opsVia(g.via);
-      if (via === null) return yield* finish(2);
       const loaded = yield* runPromise(async () => flatLoadedFor(g));
+      if (pattern === undefined) {
+        if (loaded.config.kind !== "accessory") {
+          throw new UsageError({ message: "start needs a unit path" });
+        }
+        const code = yield* runPromise(() =>
+          new Accessory(loaded).run("boot", {
+            yes: g.yes,
+            volumes: g.volumes,
+            tail: Number(g.tail),
+            dryRun: g["dry-run"],
+          }),
+        );
+        return yield* finish(code);
+      }
       try {
         const started = yield* runPromise(() =>
-          withFlatUnits(loaded, via, pattern, {}, async (ctx) => {
+          withFlatUnits(loaded, pattern, {}, async (ctx) => {
             const names: string[] = [];
             for (const unit of ctx.units) {
               for (const container of unit.containers) {
@@ -43,7 +52,6 @@ export const start = Command.make(
             volumes: g.volumes,
             tail: Number(g.tail),
             dryRun: g["dry-run"],
-            via,
           }),
         );
         return yield* finish(code);

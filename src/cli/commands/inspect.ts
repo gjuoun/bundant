@@ -5,7 +5,7 @@ import { renderInspect } from "../../monitor-render.ts";
 import { recordData } from "../../agent/emit.ts";
 import { NotFoundError } from "../../agent/errors.ts";
 import { rootCommand } from "../root.ts";
-import { finish, opsVia, runPromise } from "./common.ts";
+import { finish, runPromise } from "./common.ts";
 import { flatLoadedFor, resolutionOptions, selectorFor, withFlatUnits } from "./flat-common.ts";
 
 export const inspect = Command.make(
@@ -14,12 +14,10 @@ export const inspect = Command.make(
   ({ path }) =>
     Effect.gen(function* () {
       const g = yield* rootCommand;
-      const via = opsVia(g.via);
-      if (via === null) return yield* finish(2);
       const loaded = yield* runPromise(async () => flatLoadedFor(g));
       const pattern = selectorFor(g, loaded, path._tag === "Some" ? path.value : undefined);
       const first = yield* runPromise(() =>
-        withFlatUnits(loaded, via, pattern, resolutionOptions(g), async (ctx) => {
+        withFlatUnits(loaded, pattern, resolutionOptions(g), async (ctx) => {
           const unit = ctx.units[0];
           return unit?.containers.find((c) => c.state === "running") ?? unit?.containers[0];
         }),

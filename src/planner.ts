@@ -259,7 +259,7 @@ export function buildDeployPlan(
     desc:
       "stop previous " +
       ((config.group !== undefined && config.group !== "" && config.group !== "default")
-        ? config.group + "-" + config.service + "-" + config.role + "-* and legacy "
+        ? config.group + "-" + config.service + "-" + config.role + "-* "
         : "") +
       config.service + "-" + config.role + "-* containers (keep " + names.join(", ") + ")",
     cmds: [docker.stopOld(rt, config, names)],

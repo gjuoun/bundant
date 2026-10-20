@@ -1,34 +1,31 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://bundant.dev/schema/v1/deploy.schema.json",
-  "title": "bundant deploy.yml (v1)",
-  "description": "One file per service. Version 1 pins this schema, its grammar and its defaults.",
+  "$id": "https://bundant.dev/schema/v2/deploy.schema.json",
+  "title": "bundant deploy.yml (v2)",
+  "description": "One file per service. Version 2 pins this schema, its grammar and its defaults.",
   "type": "object",
   "properties": {
     "version": {
       "type": "number",
-      "const": 1,
-      "description": "config schema version; omitted = 1 (implicit)"
+      "const": 2
     },
     "service": {
       "type": "string",
-      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
-      "description": "service name; also the identity in container names (single hyphens allowed)"
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9]|[-_](?=[A-Za-z0-9]))*$",
+      "description": "service name (v2 identifier)"
     },
     "image": {
       "type": "string",
-      "minLength": 1,
-      "description": "registry ref to run; --local-image overrides it"
+      "minLength": 1
     },
     "role": {
       "type": "string",
-      "pattern": "^[a-z0-9]+$",
-      "description": "variant within the service (default web); no hyphens: containers are <service>-<role>-<rev>"
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9]|[-_](?=[A-Za-z0-9]))*$",
+      "description": "role name (v2 identifier)"
     },
     "replicas": {
       "type": "integer",
-      "minimum": 1,
-      "description": "running copies of this service on each host (default 1); >1 requires proxy.enabled: true"
+      "minimum": 1
     },
     "kind": {
       "type": "string",
@@ -36,7 +33,7 @@
         "service",
         "accessory"
       ],
-      "description": "service (default) deploys/rolls back; accessory is stateful: stable name, named volumes, only touched by 'bundant accessory'"
+      "description": "service (default) deploys/rolls back; accessory is stateful: stable name, named volumes, flat lifecycle verbs"
     },
     "volumes": {
       "type": "array",
@@ -51,8 +48,7 @@
       "items": {
         "type": "string",
         "minLength": 1
-      },
-      "description": "user@host[:port] entries; BUNDANT_HOSTS=a,b overrides at deploy time"
+      }
     },
     "ssh": {
       "anyOf": [
@@ -89,21 +85,14 @@
           "type": "string",
           "minLength": 1
         }
-      ],
-      "description": "inline ssh defaults, or a path to a shared ssh YAML file"
-    },
-    "user": {
-      "type": "string",
-      "pattern": "^[A-Za-z0-9._-]+$",
-      "description": "legacy alias for ssh.user"
+      ]
     },
     "runtime": {
       "type": "string",
       "enum": [
         "docker",
         "podman"
-      ],
-      "description": "container runtime on the hosts (default docker)"
+      ]
     },
     "env": {
       "type": "object",
@@ -180,6 +169,7 @@
     }
   },
   "required": [
+    "version",
     "service",
     "image"
   ],

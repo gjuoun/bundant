@@ -1,8 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { BundantConfig } from "./config.ts";
 import { containerName, indexedContainerName } from "./replicas.ts";
-import { replicaOf, revisionOf } from "./revisions.ts";
-import { serviceId } from "./commands/proxy.ts";
 import { buildDeleteSteps } from "./delete.ts";
 import { stopOld } from "./commands/docker.ts";
 import { runtimeFor } from "./runtime.ts";
@@ -10,6 +8,7 @@ import { accessoryContainerName, belongsToService, isGrouped } from "./naming.ts
 
 function cfg(over: Partial<BundantConfig> = {}): BundantConfig {
   return {
+    version: 2,
     service: "api",
     image: "traefik/whoami",
     role: "web",
@@ -27,91 +26,59 @@ function cfg(over: Partial<BundantConfig> = {}): BundantConfig {
 
 describe("group-scoped names", () => {
   test("all four rules: ungrouped/grouped x single/replicas", () => {
-    expect(containerName(cfg(), "abc1234")).toBe("api-web-abc1234");
-    expect(containerName(cfg({ replicas: 2 }), "abc1234", 2)).toBe("api-web-abc1234-2");
-    expect(containerName(cfg({ group: "alpha" }), "abc1234")).toBe("alpha-api-web-abc1234");
+    expect(containerName(cfg(), "abc1234")).toBe("default.api.web.abc1234");
+    expect(containerName(cfg({ replicas: 2 }), "abc1234", 2)).toBe("default.api.web.abc1234.2");
+    expect(containerName(cfg({ group: "alpha" }), "abc1234")).toBe("alpha.api.web.abc1234");
     expect(containerName(cfg({ group: "alpha", replicas: 2 }), "abc1234", 2)).toBe(
-      "alpha-api-web-abc1234-2",
+      "alpha.api.web.abc1234.2",
     );
     expect(indexedContainerName(cfg({ group: "alpha" }), "abc1234", 2)).toBe(
-      "alpha-api-web-abc1234-2",
+      "alpha.api.web.abc1234.2",
     );
   });
 
-  test("proxy id keeps the role segment, default never prefixes", () => {
-    expect(serviceId("api", "web")).toBe("api-web");
-    expect(serviceId("api", "web", "default")).toBe("api-web");
-    expect(serviceId("api", "web", "alpha")).toBe("alpha-api-web");
-  });
-
-  test("accessories: grouped gets <group>-<service>, standalone stays stable", () => {
-    expect(accessoryContainerName(cfg({ kind: "accessory", service: "db", group: "alpha" }))).toBe("alpha-db");
-    expect(accessoryContainerName(cfg({ kind: "accessory", group: "default" }))).toBe("api");
-    expect(accessoryContainerName(cfg({ kind: "accessory", group: undefined }))).toBe("api");
+  test("accessories: grouped gets <group>.<service>, standalone carries the default group", () => {
+    expect(accessoryContainerName(cfg({ kind: "accessory", service: "db", group: "alpha" }))).toBe("alpha.db");
+    expect(accessoryContainerName(cfg({ kind: "accessory", group: "default" }))).toBe("default.api");
+    expect(accessoryContainerName(cfg({ kind: "accessory", group: undefined }))).toBe("default.api");
   });
 
   test("composition is injective: a hyphen in the service cannot alias a group split", () => {
     const grouped = containerName(cfg({ group: "ab", service: "c" }), "1234");
     const otherSplit = containerName(cfg({ group: "a", service: "b-c" }), "1234");
-    expect(grouped).toBe("ab-c-web-1234");
-    expect(otherSplit).toBe("a-b-c-web-1234");
+    expect(grouped).toBe("ab.c.web.1234");
+    expect(otherSplit).toBe("a.b-c.web.1234");
     expect(grouped).not.toBe(otherSplit);
-    // Parsing the only legal shape is deterministic.
-    expect(revisionOf(otherSplit, "b-c", "web", "a")).toBe("1234");
-    expect(replicaOf(otherSplit + "-2", "b-c", "web", "a")).toBe(2);
   });
 
-  test("revision segment stays hyphen-free; legacy rev-* names still parse", () => {
-    expect(containerName(cfg(), "r1abc")).toBe("api-web-r1abc");
-    expect(revisionOf("api-web-r1abc", "api", "web")).toBe("r1abc");
-    // Old pre-first-commit fallback name (rev-<base36>) remains addressable.
-    expect(revisionOf("api-web-rev-lz9", "api", "web")).toBe("rev-lz9");
+  test("belongsToService matches the composed prefix only", () => {
+    expect(belongsToService("alpha.api.web.abc1234", cfg({ group: "alpha" }))).toBe(true);
+    expect(belongsToService("alpha.api.web.abc1234.2", cfg({ group: "alpha" }))).toBe(true);
+    expect(belongsToService("api-web-abc1234", cfg({ group: "alpha" }))).toBe(false);
+    expect(belongsToService("beta.api.web.abc1234", cfg({ group: "alpha" }))).toBe(false);
   });
 
-  test("revisionOf and replicaOf understand the group prefix", () => {
-    expect(revisionOf("alpha-api-web-abc1234", "api", "web", "alpha")).toBe("abc1234");
-    expect(revisionOf("alpha-api-web-abc1234-2", "api", "web", "alpha")).toBe("abc1234");
-    expect(replicaOf("alpha-api-web-abc1234-2", "api", "web", "alpha")).toBe(2);
-    expect(replicaOf("alpha-api-web-abc1234", "api", "web", "alpha")).toBeUndefined();
-  });
-
-  test("legacy grouped names still parse to the same revision", () => {
-    // Pre-JW-174 containers were <service>-<role>-<rev> but carried the group label.
-    expect(revisionOf("api-web-abc1234", "api", "web", "alpha")).toBe("abc1234");
-    expect(replicaOf("api-web-abc1234-3", "api", "web", "alpha")).toBe(3);
-    expect(belongsToService("api-web-abc1234", cfg({ group: "alpha" }))).toBe(true);
-    expect(belongsToService("alpha-api-web-abc1234", cfg({ group: "alpha" }))).toBe(true);
-    expect(belongsToService("api-web-abc1234", cfg({ group: "default" }))).toBe(true);
-    expect(belongsToService("api-web-abc1234", cfg({ group: "beta" }))).toBe(true);
-  });
-
-  test("delete sweeps the new prefix and legacy names guarded by the group label", () => {
+  test("delete sweeps the composed prefix", () => {
     const steps = buildDeleteSteps(cfg({ group: "alpha" }), {
       yes: true,
       images: false,
       dryRun: true,
     });
     const containers = steps.find((s) => s.phase === "containers");
-    expect(containers?.cmds[0]).toContain('name=alpha-api-web-');
-    expect(containers?.cmds[0]).toContain('name=api-web-');
-    expect(containers?.cmds[0]).toContain("bundant.group");
-    expect(containers?.cmds[0]).toContain('"alpha"');
+    expect(containers?.cmds[0]).toContain('name=alpha.api.web.');
+    expect(containers?.cmds[0]).not.toContain('name=api-web-');
   });
 
-  test("stop-old sweeps the new prefix and legacy names for a real group", () => {
-    const cmd = stopOld(runtimeFor("docker"), cfg({ group: "alpha" }), ["alpha-api-web-abc"]);
+  test("stop-old uses the scoped prefix for a real group", () => {
+    const cmd = stopOld(runtimeFor("docker"), cfg({ group: "alpha" }), ["alpha.api.web.abc"]);
     expect(cmd).toContain('name=alpha-api-web-');
-    expect(cmd).toContain('name=api-web-');
-    expect(cmd).toContain("bundant.group");
-    expect(cmd).toContain('"alpha"');
-    expect(cmd).toContain("alpha-api-web-abc");
+    expect(cmd).not.toContain('name=api-web-');
   });
 
-  test("ungrouped delete keeps the historical single-prefix command", () => {
+  test("ungrouped delete keeps the single-prefix command", () => {
     const steps = buildDeleteSteps(cfg(), { yes: true, images: false, dryRun: true });
     const containers = steps.find((s) => s.phase === "containers");
-    expect(containers?.cmds[0]).not.toContain("bundant.group");
-    expect(containers?.cmds[0]).toContain('name=api-web-');
+    expect(containers?.cmds[0]).toContain('name=default.api.web.');
   });
 
   test("isGrouped ignores the default namespace", () => {

@@ -14,10 +14,10 @@ import { runtimeFor } from "../runtime.ts";
 import type { Executor } from "../types.ts";
 import { deployOnHost, pullForPolicy } from "../deploy.ts";
 import { ApiOps } from "./adapter.ts";
-import { LegacyOps } from "./legacy.ts";
 
 function cfg(over: Partial<BundantConfig> = {}): BundantConfig {
   return {
+    version: 2,
     service: "hello",
     image: "traefik/whoami:v1.10",
     role: "web",
@@ -40,7 +40,7 @@ function cfg(over: Partial<BundantConfig> = {}): BundantConfig {
 }
 
 function loadedFor(config: BundantConfig): LoadedConfig {
-  return { config, envContent: null, envCount: 0, path: "/tmp/deploy.yml" };
+  return { config, envContent: null, envCount: 0, path: "/tmp/deploy.yml", version: 2 };
 }
 
 class FakeExecutor implements Executor {
@@ -180,36 +180,25 @@ class FakeAdapter implements RuntimeAdapter {
   }
 }
 
-function opsPair(adapter: FakeAdapter) {
-  const config = cfg();
-  const exec = new FakeExecutor();
-  return {
-    legacy: new LegacyOps(exec, runtimeFor("docker")),
-    api: new ApiOps(adapter, exec, runtimeFor("docker"), async () => {}),
-  };
-}
-
-describe("RuntimeOps equivalence", () => {
-  test("legacy and adapter implementations produce the same semantic sequence", async () => {
+describe("RuntimeOps sequence", () => {
+  test("the API implementation records the semantic sequence", async () => {
     const config = cfg();
     const plan = buildDeployPlan(config, "abc1234");
     const adapter = new FakeAdapter();
     adapter.imageAvailable = true;
-    const { legacy, api } = opsPair(adapter);
+    const api = new ApiOps(adapter, new FakeExecutor(), runtimeFor("docker"), async () => {});
 
-    await deployOnHost(legacy, plan, loadedFor(config), { host: "box.test" });
     await deployOnHost(api, plan, loadedFor(config), { host: "box.test" });
 
-    expect(api.steps).toEqual(legacy.steps);
-    expect(legacy.steps).toEqual([
+    expect(api.steps).toEqual([
       "prereqs",
       "network",
-      "create:hello-web-abc1234",
-      "start:hello-web-abc1234",
-      "health:hello-web-abc1234",
+      "create:default.hello.web.abc1234",
+      "start:default.hello.web.abc1234",
+      "health:default.hello.web.abc1234",
       "proxy-ensure",
-      "proxy-deploy:hello-web-abc1234:80",
-      "stop-old:hello-web-abc1234",
+      "proxy-deploy:default.hello.web.abc1234:80",
+      "stop-old:default.hello.web.abc1234",
     ]);
   });
 
@@ -221,7 +210,7 @@ describe("RuntimeOps equivalence", () => {
     const ops = new ApiOps(adapter, exec, runtimeFor("docker"), async () => {});
     const loaded = { ...loadedFor(config), envContent: "SECRET=s3cr3t\n", envCount: 1 };
 
-    await deployOnHost(ops, plan, loaded, { host: "box.test", envLocalFile: null });
+    await deployOnHost(ops, plan, loaded, { host: "box.test" });
     expect(ops.steps[0]).toBe("env:1");
     expect(exec.commands.some((c) => c.includes("putFile"))).toBe(false);
     expect(adapter.steps).not.toContain("env:1");
@@ -342,26 +331,6 @@ describe("incremental image transfer wiring", () => {
     ]);
   });
 
-  test("the CLI fallback path still invokes the legacy pipeline", async () => {
-    const config = cfg();
-    const plan = buildDeployPlan(config, "abc1234", { localImage: "app:t1" });
-    const adapter = new FakeAdapter();
-    const ops = new ApiOps(adapter, new FakeExecutor(), runtimeFor("docker"), async () => {});
-    const reports: unknown[] = [];
-    await deployOnHost(ops, plan, loadedFor(config), {
-      host: "box.test",
-      localImageTransfer: async () => ({
-        mode: "full",
-        bytesSent: 9000,
-        layersReused: 0,
-        layersTotal: 1,
-        missingLayers: 1,
-      }),
-      onTransfer: (_host, report) => reports.push(report),
-    });
-    expect(reports).toHaveLength(1);
-    expect((reports[0] as { mode: string }).mode).toBe("full");
-  });
 });
 
 describe("zero-downtime contract on the ops layer", () => {
@@ -377,7 +346,7 @@ describe("zero-downtime contract on the ops layer", () => {
     );
     // A new revision skips the pre-create rm; exactly one removal proves the
     // failure cleanup ran.
-    expect(adapter.removed.filter((n) => n === "hello-web-abc1234")).toHaveLength(1);
+    expect(adapter.removed.filter((n) => n === "default.hello.web.abc1234")).toHaveLength(1);
     expect(adapter.execCalls).toHaveLength(0);
   });
 
@@ -391,7 +360,7 @@ describe("zero-downtime contract on the ops layer", () => {
     const swaps = adapter.execCalls.filter((argv) => argv[0] === "kamal-proxy" && argv[1] === "deploy");
     expect(swaps).toHaveLength(1);
     expect(swaps[0]!.filter((a) => a === "--target")).toHaveLength(2);
-    expect(swaps[0]!).toContain("hello-web-abc1234-1:80");
-    expect(swaps[0]!).toContain("hello-web-abc1234-2:80");
+    expect(swaps[0]!).toContain("default.hello.web.abc1234.1:80");
+    expect(swaps[0]!).toContain("default.hello.web.abc1234.2:80");
   });
 });

@@ -4,12 +4,12 @@ import * as proxy from "./commands/proxy.ts";
 import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
 import { connectionForTarget, hostTargets } from "./hosts.ts";
 import { acquireLock, lockKey, releaseLock } from "./lock.ts";
-import { envRemotePath, groupLabels, indexedContainerName } from "./planner.ts";
+import { groupLabels, indexedContainerName } from "./planner.ts";
 import { computeScalePlan, currentRevision } from "./scale-plan.ts";
 import { runtimeFor } from "./runtime.ts";
 import { belongsToService, serviceLabels } from "./naming.ts";
 import { replicaOf, revisionOf } from "./revisions.ts";
-import { openOps, type OpsVia } from "./ops/index.ts";
+import { openOps } from "./ops/index.ts";
 import { envArray } from "./deploy.ts";
 import { preflightGate } from "./validation.ts";
 import { ServiceIdentity } from "./domain/identity.ts";
@@ -28,7 +28,7 @@ import { ServiceIdentity } from "./domain/identity.ts";
  * scale never pulls an image, never changes the revision or env, and never
  * writes deploy.yml: the file stays authoritative for the next deploy.
  * The pure plan lives in scale-plan.ts; this module executes it through
- * RuntimeOps (API by default, --via cli for the legacy path).
+ * RuntimeOps.
  */
 
 export {
@@ -43,8 +43,6 @@ export type { ReplicaLine, ScalePlan, ScaleStepOptions } from "./scale-plan.ts";
 export interface ScaleOptions {
   replicas: number;
   dryRun: boolean;
-  /** Mutations through the engine API (default) or the legacy CLI strings. */
-  via?: OpsVia;
 }
 
 function assertTarget(config: LoadedConfig["config"], target: number): string | null {
@@ -74,8 +72,6 @@ export async function scale(loaded: LoadedConfig, opts: ScaleOptions): Promise<n
   }
 
   const targets = hostTargets(config);
-  const via: OpsVia = opts.via ?? "api";
-
   if (opts.dryRun) {
     console.log(
       "bundant scale (dry-run) - " + config.service + "/" + config.role + " -> " +
@@ -94,7 +90,6 @@ export async function scale(loaded: LoadedConfig, opts: ScaleOptions): Promise<n
   );
   let locked = false;
   const env = envArray(loaded.envContent);
-  const hasEnv = Object.keys(config.env.vars).length > 0 || config.env.file !== undefined;
 
   try {
     await acquireLock(primary, lockKey(config.group, config.service));
@@ -102,9 +97,7 @@ export async function scale(loaded: LoadedConfig, opts: ScaleOptions): Promise<n
 
     for (const host of targets) {
       console.log("== " + host + " ==");
-      const ops = await openOps(via, connectionForTarget(config, host), config, {
-        envRemotePath: hasEnv ? envRemotePath(config) : undefined,
-      });
+      const ops = await openOps(connectionForTarget(config, host), config);
       try {
         const rows = await ops.listContainers({ all: false, labels: serviceLabels(config) });
         const lines = rows

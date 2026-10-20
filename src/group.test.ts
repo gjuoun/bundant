@@ -21,6 +21,7 @@ function write(rel: string, body: string): string {
 }
 
 const accessory = [
+  "version: 2",
   "kind: accessory",
   "service: db",
   "image: docker.io/library/postgres:16-alpine",
@@ -32,6 +33,7 @@ const accessory = [
 
 function service(name: string, host = "root@host1"): string {
   return [
+    "version: 2",
     "service: " + name,
     "image: traefik/whoami:v1.10",
     "hosts: [" + host + "]",
@@ -40,6 +42,7 @@ function service(name: string, host = "root@host1"): string {
 }
 
 const manifest = [
+  "version: 2",
   "group: shop",
   "services:",
   "  - name: db",

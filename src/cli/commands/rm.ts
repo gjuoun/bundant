@@ -3,7 +3,7 @@ import { Argument, Command } from "effect/cli";
 import { recordData } from "../../agent/emit.ts";
 import { UsageError } from "../../agent/errors.ts";
 import { rootCommand } from "../root.ts";
-import { finish, opsVia, runPromise } from "./common.ts";
+import { finish, runPromise } from "./common.ts";
 import { flatLoadedFor, opsFor, resolutionOptions, withFlatUnits } from "./flat-common.ts";
 import type { RuntimeOps } from "../../ops/index.ts";
 
@@ -16,8 +16,6 @@ function envPath(path: string, kind: "service" | "accessory"): string {
 
 async function removeRoute(ops: RuntimeOps, path: string): Promise<void> {
   await ops.proxyRemove(path);
-  const legacy = path.replaceAll(".", "-");
-  if (legacy !== path) await ops.proxyRemove(legacy);
 }
 
 export const rm = Command.make(
@@ -33,12 +31,10 @@ export const rm = Command.make(
       if (!g.yes && !g["dry-run"]) {
         throw new UsageError({ message: "rm is destructive: pass --yes (or --dry-run to preview)" });
       }
-      const via = opsVia(g.via);
-      if (via === null) return yield* finish(2);
       const loaded = yield* runPromise(async () => flatLoadedFor(g));
       const removed: string[] = [];
       yield* runPromise(() =>
-        withFlatUnits(loaded, via, pattern, resolutionOptions(g), async (ctx) => {
+        withFlatUnits(loaded, pattern, resolutionOptions(g), async (ctx) => {
           if (!g.json) {
             console.log("resolved " + ctx.units.length + " unit(s):");
             for (const unit of ctx.units) {

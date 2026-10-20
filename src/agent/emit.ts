@@ -102,7 +102,7 @@ export function commandName(argv: ReadonlyArray<string>): string {
   const withValue = new Set([
     "--file", "-f", "--rev", "--local-image", "--pull", "--keep", "--replicas",
     "--to-revision", "--host", "--container", "--tail", "--since", "--port",
-    "--hosts", "--via", "--replica", "--revision",
+    "--hosts", "--replica", "--revision",
   ]);
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;

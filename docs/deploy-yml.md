@@ -47,7 +47,7 @@ pipeline.
 ## Field notes
 
 - **user / hosts** — the ssh login user, resolved with this precedence:
-  `user@host` on a hosts entry › top-level `user:` › whatever `~/.ssh/config`
+  `user@host` on a hosts entry › `ssh.user` › whatever `~/.ssh/config`
   provides (the local username when nothing is configured). Use it for hosts where
   the login name differs from your local one — the classic case is a bare IP:
   `hosts: [root@192.168.2.104]` instead of an `ssh junguo@192.168.2.104` denial.
@@ -67,9 +67,8 @@ pipeline.
   `bundant.replica`. `N > 1` requires `proxy.enabled: true` (the proxy is what
   distributes requests) and is rejected on `kind: accessory` (a stateful member
   is one of one). See [`replicas.md`](replicas.md) and `bundant scale`.
-- **env** — values are never printed; the merged result is uploaded to
-  `~/.bundant/env/<group>/<service>-<role>.env` (`default` when the file is in no group) with
-  mode 0600 and passed with `--env-file`.
+- **env** — values are never printed; the merged result rides `ContainerSpec.Env` in
+  the engine create request, so no env file is written to the host.
   Secrets belong in that local file (gitignored), not in git.
 - **healthcheck** — the gate probes the container by name from a throwaway curl sidecar
   on the `bundant` network. A failed gate aborts, removes the new container, and never

@@ -11,6 +11,7 @@ import {
 
 function cfg(over: Partial<BundantConfig> = {}): BundantConfig {
   return {
+    version: 2,
     service: "echoes",
     image: "traefik/whoami:v1.10",
     role: "web",
@@ -69,12 +70,12 @@ describe("buildScaleSteps ordering", () => {
     });
     expect(steps.map((s) => s.phase)).toEqual(["run", "health", "proxy-swap"]);
     expect(steps[0]!.cmds).toHaveLength(2);
-    expect(steps[0]!.cmds[1]).toContain("--name echoes-web-abc1234-3");
+    expect(steps[0]!.cmds[1]).toContain("--name default.echoes.web.abc1234.3");
     expect(steps[0]!.cmds[1]).toContain("--label bundant.replica=3");
     expect(steps[1]!.cmds).toHaveLength(1);
     const swap = steps[2]!.cmds[0]!;
     expect(swap.split("--target ").length - 1).toBe(3);
-    expect(swap).toContain("--target echoes-web-abc1234-3:80");
+    expect(swap).toContain("--target default.echoes.web.abc1234.3:80");
   });
 
   test("down: the proxy drops the victims BEFORE any container is stopped", () => {
@@ -84,28 +85,28 @@ describe("buildScaleSteps ordering", () => {
     expect(steps.map((s) => s.phase)).toEqual(["proxy-swap", "stop-old"]);
     const swap = steps[0]!.cmds[0]!;
     expect(swap.split("--target ").length - 1).toBe(2);
-    expect(swap).not.toContain("echoes-web-abc1234-3");
+    expect(swap).not.toContain("default.echoes.web.abc1234.3");
     // stop + rm per removed replica, after the swap
     expect(steps[1]!.cmds).toEqual([
-      "docker stop -t 10 echoes-web-abc1234-3",
-      "docker rm -f echoes-web-abc1234-3",
-      "docker stop -t 10 echoes-web-abc1234-4",
-      "docker rm -f echoes-web-abc1234-4",
-      "docker stop -t 10 echoes-web-abc1234-5",
-      "docker rm -f echoes-web-abc1234-5",
+      "docker stop -t 10 default.echoes.web.abc1234.3",
+      "docker rm -f default.echoes.web.abc1234.3",
+      "docker stop -t 10 default.echoes.web.abc1234.4",
+      "docker rm -f default.echoes.web.abc1234.4",
+      "docker stop -t 10 default.echoes.web.abc1234.5",
+      "docker rm -f default.echoes.web.abc1234.5",
     ]);
   });
 
-  test("a surviving legacy replica keeps its unsuffixed name", () => {
-    const names = new Map([[1, "echoes-web-abc1234"]]);
+  test("a surviving replica keeps its unsuffixed name", () => {
+    const names = new Map([[1, "default.echoes.web.abc1234"]]);
     const steps = buildScaleSteps(cfg(), "abc1234", computeScalePlan([1], 2), {
       image: "traefik/whoami:v1.10",
-      nameOf: (i) => names.get(i) ?? "echoes-web-abc1234-" + i,
+      nameOf: (i) => names.get(i) ?? "default.echoes.web.abc1234." + i,
     });
-    expect(steps[0]!.cmds[1]).toContain("--name echoes-web-abc1234-2");
+    expect(steps[0]!.cmds[1]).toContain("--name default.echoes.web.abc1234.2");
     const swap = steps[2]!.cmds[0]!;
-    expect(swap).toContain("--target echoes-web-abc1234:80");
-    expect(swap).toContain("--target echoes-web-abc1234-2:80");
+    expect(swap).toContain("--target default.echoes.web.abc1234:80");
+    expect(swap).toContain("--target default.echoes.web.abc1234.2:80");
   });
 
   test("podman renders through podman", () => {
@@ -123,8 +124,8 @@ describe("parseReplicaInventory", () => {
   test("reads labels when present", () => {
     const lines = parseReplicaInventory(
       [
-        "echoes-web-abc1234-1|abc1234|1|traefik/whoami:v1.10",
-        "echoes-web-abc1234-2|abc1234|2|traefik/whoami:v1.10",
+        "default.echoes.web.abc1234.1|abc1234|1|traefik/whoami:v1.10",
+        "default.echoes.web.abc1234.2|abc1234|2|traefik/whoami:v1.10",
       ].join("\n"),
       "echoes",
       "web",
@@ -133,7 +134,7 @@ describe("parseReplicaInventory", () => {
     expect(lines[0]!.revision).toBe("abc1234");
   });
 
-  test("falls back to the name for legacy containers without labels", () => {
+  test("falls back to the name when labels are absent", () => {
     const lines = parseReplicaInventory("echoes-web-abc1234|||traefik/whoami:v1.10", "echoes", "web");
     expect(lines[0]!.revision).toBe("abc1234");
     expect(lines[0]!.index).toBe(1);

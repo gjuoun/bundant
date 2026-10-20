@@ -2,9 +2,6 @@ import type { ContainerInfo, ContainerSpec, ContainerSummary } from "../adapters
 import type { BundantConfig } from "../config.ts";
 import type { RevisionEntry } from "../revisions.ts";
 
-/** Execution backend for a mutating command: the engine API (default) or the legacy CLI strings. */
-export type OpsVia = "api" | "cli";
-
 /** Image pull policy: missing (default), always, never. */
 export type PullPolicy = "missing" | "always" | "never";
 
@@ -36,13 +33,12 @@ export interface ProxyDeployOptions {
  * dry-run honest.
  */
 export interface RuntimeOps {
-  readonly via: OpsVia;
   readonly steps: string[];
 
   /** Host-side prerequisites the engine API cannot express (systemd, sysctl). */
   hostPrereqs(): Promise<void>;
-  /** Upload the merged env file (legacy) or note that Env rides the API call. */
-  putEnv(localFile: string | null, remotePath: string | undefined, count: number): Promise<void>;
+  /** Note that the merged env rides the create request. */
+  putEnv(remotePath: string | undefined, count: number): Promise<void>;
 
   /** Whether the image ref is already on the host. */
   imagePresent(image: string): Promise<boolean>;
@@ -87,7 +83,7 @@ export interface RuntimeOps {
   proxyList(): Promise<string[]>;
   /** kamal-proxy remove, tolerated when the proxy or the route is absent. */
   proxyRemove(serviceId: string): Promise<void>;
-  /** Delete a legacy rendered env file (API path never writes one). */
+  /** Delete a rendered env file left on the host, when present. */
   removeEnv(remotePath: string): Promise<void>;
   /** Accessory logs (static tail). */
   logs(name: string, tail: number): Promise<string>;

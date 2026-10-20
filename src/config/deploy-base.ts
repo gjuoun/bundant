@@ -1,23 +1,14 @@
 import { z } from "zod";
-import { PROXY_IMAGE } from "../../commands/proxy.ts";
-import type { RuntimeKind } from "../../runtime.ts";
-import { ConfigError } from "../errors.ts";
-import { namedString, zodIssues } from "../zod.ts";
-import type { BundantConfig, LoadedConfig, RawConfig, ValidationIssue } from "../types.ts";
-import {
-  DEFAULT_GROUP,
-  ROLE_NAME_RE,
-  SERVICE_NAME_RE,
-  SEGMENT_NAME_RULE,
-  SERVICE_NAME_RULE,
-  v1Grammar,
-  type NameGrammar,
-  type NameIdentity,
-} from "./grammar.ts";
+import { PROXY_IMAGE } from "../commands/proxy.ts";
+import type { RuntimeKind } from "../runtime.ts";
+import { ConfigError } from "./errors.ts";
+import { namedString, zodIssues } from "./zod.ts";
+import type { BundantConfig, LoadedConfig, RawConfig, ValidationIssue } from "./types.ts";
+import type { NameGrammar, NameIdentity } from "./grammar.ts";
 
 export { namedString, zodIssues };
 
-/** deploy.yml/accessory.yml schema for version 1. */
+/** Shared config sections every schema version reuses. */
 export const EnvSchema = z.object({
   file: z.string().describe("local KEY=VAL file (gitignored); uploaded to the host as mode 0600").optional(),
   vars: z
@@ -58,58 +49,6 @@ export const SshFileSchema = SshSchema.extend({
   hosts: z.array(z.string().min(1)).describe("default host pool for deployments that reference this file").optional(),
 }).strict();
 
-export const RawConfigSchema = z.object({
-  version: z.literal(1).describe("config schema version; omitted = 1 (implicit)").optional(),
-  service: namedString("service", SERVICE_NAME_RE, SERVICE_NAME_RULE, "service name; also the identity in container names (single hyphens allowed)"),
-  image: z.string().min(1).describe("registry ref to run; --local-image overrides it"),
-  role: namedString("role", ROLE_NAME_RE, SEGMENT_NAME_RULE, "variant within the service (default web); no hyphens: containers are <service>-<role>-<rev>").optional(),
-  replicas: z
-    .number()
-    .int()
-    .min(1)
-    .describe("running copies of this service on each host (default 1); >1 requires proxy.enabled: true")
-    .optional(),
-  kind: z
-    .enum(["service", "accessory"])
-    .describe("service (default) deploys/rolls back; accessory is stateful: stable name, named volumes, only touched by 'bundant accessory'")
-    .optional(),
-  volumes: z
-    .array(z.string().min(1))
-    .describe('accessory named volumes, "name:/path/in/container" - survive container recreation')
-    .optional(),
-  hosts: z
-    .array(z.string().min(1))
-    .describe("user@host[:port] entries; BUNDANT_HOSTS=a,b overrides at deploy time")
-    .optional(),
-  ssh: z
-    .union([SshSchema, z.string().min(1)])
-    .describe("inline ssh defaults, or a path to a shared ssh YAML file")
-    .optional(),
-  user: z.string().regex(/^[A-Za-z0-9._-]+$/, "must be a plain ssh user name").describe("legacy alias for ssh.user").optional(),
-  runtime: z.enum(["docker", "podman"]).describe("container runtime on the hosts (default docker)").optional(),
-  env: EnvSchema.optional(),
-  healthcheck: HealthSchema.optional(),
-  proxy: ProxySchema.optional(),
-})
-  .strict()
-  .superRefine((raw, ctx) => {
-    const identity: NameIdentity = {
-      group: DEFAULT_GROUP,
-      service: raw.service,
-      role: raw.role ?? "web",
-      revision: "r0",
-    };
-    if (!SERVICE_NAME_RE.test(identity.service) || !ROLE_NAME_RE.test(identity.role)) return;
-    if (v1Grammar.roundTrips(identity)) return;
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ["name"],
-      message:
-        'composed name "' + v1Grammar.compose(identity) +
-        '" does not round-trip to the declared identity',
-    });
-  });
-
 export function normalize(raw: RawConfig, hosts?: string[]): BundantConfig {
   const proxy = {
     enabled: raw.proxy?.enabled ?? true,
@@ -148,7 +87,6 @@ export function normalize(raw: RawConfig, hosts?: string[]): BundantConfig {
     kind,
     volumes: raw.volumes ?? [],
     hosts: hosts ?? raw.hosts ?? [],
-    user: raw.user,
     ssh: typeof raw.ssh === "object" ? raw.ssh ?? {} : {},
     runtime: (raw.runtime ?? "docker") as RuntimeKind,
     env: { file: raw.env?.file, vars: raw.env?.vars ?? {} },
@@ -162,8 +100,8 @@ export function normalize(raw: RawConfig, hosts?: string[]): BundantConfig {
   };
 }
 
-/** v1 cross-field rules. The grammar is a parameter so a v2 can supply its own. */
-export function preflight(loaded: LoadedConfig, grammar: NameGrammar = v1Grammar): ValidationIssue[] {
+/** Cross-field rules shared by every version; the grammar supplies the names. */
+export function preflight(loaded: LoadedConfig, grammar: NameGrammar): ValidationIssue[] {
   const config = loaded.config;
   const errors: ValidationIssue[] = [];
   const group = config.group ?? grammar.defaultGroup;

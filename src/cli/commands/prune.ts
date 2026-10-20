@@ -3,7 +3,7 @@ import { Command } from "effect/cli";
 import { prune as runPrune } from "../../prune.ts";
 import { UsageError } from "../../agent/errors.ts";
 import { rootCommand } from "../root.ts";
-import { finish, loadedFor, opsVia, runPromise } from "./common.ts";
+import { finish, loadedFor, runPromise } from "./common.ts";
 
 export const prune = Command.make("prune", {}, () =>
   Effect.gen(function* () {
@@ -13,10 +13,8 @@ export const prune = Command.make("prune", {}, () =>
       throw new UsageError({ message: "--keep must be a non-negative integer" });
     }
     const loaded = yield* runPromise(async () => loadedFor(g));
-    const via = opsVia(g.via);
-    if (via === null) return yield* finish(2);
     const code = yield* runPromise(() =>
-      runPrune(loaded, { keep, dryRun: g["dry-run"], via }),
+      runPrune(loaded, { keep, dryRun: g["dry-run"] }),
     );
     yield* finish(code);
   }),

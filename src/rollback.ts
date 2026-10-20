@@ -14,7 +14,7 @@ import {
 } from "./revisions.ts";
 import { runtimeFor } from "./runtime.ts";
 import { belongsToService, serviceLabels } from "./naming.ts";
-import { openOps, type OpsVia } from "./ops/index.ts";
+import { openOps } from "./ops/index.ts";
 import { assertPreflight } from "./validation.ts";
 import { isJsonMode, recordFailure } from "./agent/emit.ts";
 import { NotFoundError } from "./agent/errors.ts";
@@ -23,8 +23,6 @@ import { toAppError } from "./effect/errors.ts";
 export interface RollbackOptions {
   /** Exact revision id (the kubectl --to-revision equivalent); omitted = previous revision. */
   toRevision?: string;
-  /** Mutations through the engine API (default) or the legacy CLI strings. */
-  via?: OpsVia;
 }
 
 /** Read this service's revisions on one host, newest first (used by \`history\`). */
@@ -49,11 +47,9 @@ export async function listRevisions(
 export async function rollback(loaded: LoadedConfig, opts: RollbackOptions = {}): Promise<number> {
   const { config } = loaded;
   assertPreflight(loaded);
-  const via: OpsVia = opts.via ?? "api";
-
   for (const conn of resolveConnections(config)) {
     const host = conn.sshTarget;
-    const ops = await openOps(via, conn, config);
+    const ops = await openOps(conn, config);
     try {
       const entries = await ops.history(serviceLabels(config), config);
       const summaries = summarizeRevisions(entries, config.service, config.role, config.group);
@@ -95,7 +91,7 @@ export async function rollback(loaded: LoadedConfig, opts: RollbackOptions = {})
       }
 
       console.log(
-        "[" + host + "] rollback (via " + via + "): " + current.revision + " -> " +
+        "[" + host + "] rollback: " + current.revision + " -> " +
           target.revision + " (" + targetNames.length + " replica(s) as deployed)",
       );
 

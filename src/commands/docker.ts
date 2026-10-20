@@ -129,10 +129,8 @@ export function volumeLabel(rt: Runtime, volume: string, key: string): string {
 
 /**
  * Stop every container of this service-role except the freshly deployed set.
- * The default group keeps the historical single-prefix command byte-for-byte.
- * A real group also sweeps the pre-grouping names, but only containers whose
- * bundant.group label matches - another group may legitimately use the same
- * service name.
+ * The default group uses the bare prefix; a real group scopes it with the
+ * group segment.
  */
 export function stopOld(
   rt: Runtime,
@@ -141,7 +139,7 @@ export function stopOld(
   timeout = 10,
 ): string {
   const { service, role, group } = config;
-  const legacyPrefix = service + "-" + role + "-";
+  const servicePrefix = service + "-" + role + "-";
   const keepSet = new Set(typeof keep === "string" ? [keep] : keep);
   const keepFilter =
     keepSet.size === 1
@@ -156,12 +154,10 @@ export function stopOld(
     rt.bin + " stop -t " + timeout + ' "$c"; done';
 
   if (group === undefined || group === "" || group === "default") {
-    return loop(legacyPrefix, "");
+    return loop(servicePrefix, "");
   }
-  const scopedPrefix = group + "-" + legacyPrefix;
-  const guard = 'g=$(' + inspectLabel(rt, '"$c"', 'bundant.group') + '); ' +
-    '[ "$g" = "' + group + '" ] || continue; ';
-  return loop(scopedPrefix, "") + "; " + loop(legacyPrefix, guard);
+  const scopedPrefix = group + "-" + servicePrefix;
+  return loop(scopedPrefix, "");
 }
 
 /** Listing used by rollback selection: "<name> <createdAt>" per line. */

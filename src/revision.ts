@@ -14,7 +14,7 @@ export function sanitizeRevision(rev: string): string {
  * Deployment revision: git short sha of the repo containing deploy.yml.
  * Falls back to r<base36 epoch> when HEAD does not exist yet (bundant's own
  * repo starts with zero commits). The fallback is hyphen-free like every new
- * revision; legacy rev-<base36> containers stay selectable by name.
+ * revision; rev-<base36> container names stay selectable by name.
  */
 export async function resolveRevision(dir: string, now: number = Date.now()): Promise<string> {
   const r = await runProcess(["git", "-C", dir, "rev-parse", "--short", "HEAD"]);

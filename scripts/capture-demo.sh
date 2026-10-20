@@ -46,7 +46,7 @@ YAML
 
 # Seed a previous revision so the captured rollback has somewhere to go.
 echo "== seed $SEED_REV"
-cli deploy --via api -f "$CONFIG" --rev "$SEED_REV" >/dev/null
+cli deploy -f "$CONFIG" --rev "$SEED_REV" >/dev/null
 
 run_capture() { # run_capture <name> <command...>
   local name="$1"; shift
@@ -68,7 +68,7 @@ run_capture() { # run_capture <name> <command...>
 echo "== validate"
 run_capture validate validate -f "$CONFIG"
 echo "== deploy $DISPLAY_REV"
-run_capture deploy deploy --via api -f "$CONFIG" --rev "$DISPLAY_REV"
+run_capture deploy deploy -f "$CONFIG" --rev "$DISPLAY_REV"
 echo "== status"
 run_capture status status -f "$CONFIG" --json --all-revisions
 echo "== rollback"

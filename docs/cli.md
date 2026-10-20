@@ -11,11 +11,10 @@ validate  deploy  rollback  scale  prune  delete  history
 start  stop  restart  rm
 status  logs  stats  inspect  exec  ps  events  runtime  bootstrap  ui
 group      { install | uninstall | status | rollback }
-accessory  { boot | reboot | stop | logs | status | remove }   # deprecated aliases
 ```
 
 - `group` with no action defaults to `install`.
-- `accessory` with no action defaults to `status` and prints a deprecation hint.
+- An accessory is driven by the flat verbs (`start`, `restart`, `stop`, `logs`, `status`, `rm`).
 - `exec … -- <cmd…>` forwards everything after `--` to the remote command.
 - `logs --follow` keeps the old SIGINT behaviour and closes its forwards.
 
@@ -56,23 +55,8 @@ Per-verb scope:
 bundant status '*' --json | jq -r '.[].path'
 bundant status 'shop.**' --json | jq '.[] | select(.live < .expected)'
 bundant logs '**.web' --tail 50
-bundant rm 'legacy.**' --yes --dry-run
+bundant rm 'shop.**' --yes --dry-run
 ```
-
-## Deprecated aliases
-
-| old | new |
-|---|---|
-| `accessory boot` | `bundant start <path>` (or `-f accessory.yml`) |
-| `accessory reboot` | `bundant restart <path>` |
-| `accessory stop` | `bundant stop <path>` |
-| `accessory logs` | `bundant logs <path>` |
-| `accessory status` | `bundant status <path>` |
-| `accessory remove` | `bundant rm <path> --yes [--volumes]` |
-| `group status` | `bundant status '<group>.**'` |
-
-Aliases print one `deprecated: …` line on stderr and forward to the same policy.
-`group install/uninstall` stay as they are.
 
 ## Global flags
 
@@ -83,7 +67,7 @@ Aliases print one `deprecated: …` line on stderr and forward to the same polic
     --revision <rev>    flat verbs: select a revision
     --replica <n>       flat verbs: select one replica
     --all-revisions     flat verbs: include stopped revisions
-    --local-image <n:t> stream a local image (--via api sends only missing layers; --via cli sends the full archive)
+    --local-image <n:t> stream a local image (only missing layers are sent)
     --keep <k>          prune: revisions to keep (default 3)
     --replicas <n>      scale target
     --yes / --images / --volumes
@@ -96,7 +80,6 @@ Aliases print one `deprecated: …` line on stderr and forward to the same polic
     --since <dur>       default 2h
     --port <n>          ui: default 8787
     --json / --hosts
-    --via cli|api       default api
     --strict            validate: require an explicit version
     --allow-case-collision  deploy v2: permit case-only duplicate units
 ```

@@ -89,10 +89,6 @@ export const globalFlags = {
     Flag.optional,
     Flag.withDescription("filter to a comma-separated host list"),
   ),
-  via: Flag.String("via").pipe(
-    Flag.withDefault("api"),
-    Flag.withDescription("ops transport: api or cli (default api)"),
-  ),
   strict: Flag.Boolean("strict").pipe(
     Flag.withDefault(false),
     Flag.withDescription("validate: require an explicit version"),

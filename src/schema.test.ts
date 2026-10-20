@@ -64,7 +64,7 @@ describe("published JSON Schemas", () => {
       const version = (doc as { version?: unknown }).version;
       if (typeof version === "number") return version;
     }
-    return 1;
+    return 2;
   }
 
   test("every example deploy.yml/accessory.yml validates against its version", () => {
@@ -94,16 +94,16 @@ describe("published JSON Schemas", () => {
   });
 
   test("the schema rejects what zod rejects (negative control)", () => {
-    const badName = { service: "API_Service", image: "x" };
-    expect(errorsFor("v1/deploy.schema.json", badName).join(" ")).toContain("pattern");
-    const typo = { service: "api", image: "x", healthchek: { path: "/" } };
-    expect(errorsFor("v1/deploy.schema.json", typo).join(" ")).toContain("additional properties");
-    const missingFile = { group: "shop", services: [{ name: "api" }] };
-    expect(errorsFor("v1/group.schema.json", missingFile).join(" ")).toContain("required property 'file'");
-    const groupTypo = { group: "shop", services: [{ name: "api", file: "./api/deploy.yml" }], servicez: [] };
-    expect(errorsFor("v1/group.schema.json", groupTypo).join(" ")).toContain("additional properties");
-    const wrongVersion = { version: 2, service: "api", image: "x" };
-    expect(errorsFor("v1/deploy.schema.json", wrongVersion).join(" ")).toContain("must be equal to constant");
+    const badName = { version: 2, service: "Bad@Name", image: "x" };
+    expect(errorsFor("v2/deploy.schema.json", badName).join(" ")).toContain("pattern");
+    const typo = { version: 2, service: "api", image: "x", healthchek: { path: "/" } };
+    expect(errorsFor("v2/deploy.schema.json", typo).join(" ")).toContain("additional properties");
+    const missingFile = { version: 2, group: "shop", services: [{ name: "api" }] };
+    expect(errorsFor("v2/group.schema.json", missingFile).join(" ")).toContain("required property 'file'");
+    const groupTypo = { version: 2, group: "shop", services: [{ name: "api", file: "./api/deploy.yml" }], servicez: [] };
+    expect(errorsFor("v2/group.schema.json", groupTypo).join(" ")).toContain("additional properties");
+    const wrongVersion = { version: 0, service: "api", image: "x" };
+    expect(errorsFor("v2/deploy.schema.json", wrongVersion).join(" ")).toContain("must be equal to constant");
   });
 
   test("each version's schema mirrors its zod field set exactly", () => {
@@ -127,7 +127,7 @@ describe("published JSON Schemas", () => {
   });
 
   test("accessory-only fields are described for editor hints", () => {
-    const schema = load("v1/deploy.schema.json") as {
+    const schema = load("v2/deploy.schema.json") as {
       properties: {
         kind: { description: string; enum: string[] };
         volumes: { description: string };

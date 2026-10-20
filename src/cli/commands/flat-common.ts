@@ -1,6 +1,6 @@
 import { loadConfig, type BundantConfig, type LoadedConfig } from "../../config.ts";
 import { resolveConnections } from "../../hosts.ts";
-import { openOps, type OpsVia, type RuntimeOps } from "../../ops/index.ts";
+import { openOps, type RuntimeOps } from "../../ops/index.ts";
 import { resolve, type ResolvedUnit, type UnitSource } from "../../select/resolve.ts";
 import { unitPath } from "../../select/selector.ts";
 import { ServiceIdentity } from "../../domain/identity.ts";
@@ -16,7 +16,6 @@ export interface FlatUnits {
 /** Open one RuntimeOps per host, resolve the pattern, and keep the ops open. */
 export async function withFlatUnits<T>(
   loaded: LoadedConfig,
-  via: OpsVia,
   pattern: string,
   opts: { replica?: number; revision?: string; allRevisions?: boolean },
   run: (ctx: FlatUnits) => Promise<T>,
@@ -25,7 +24,7 @@ export async function withFlatUnits<T>(
   try {
     const sources: UnitSource[] = [];
     for (const connection of resolveConnections(loaded.config)) {
-      const hostOps = await openOps(via, connection, loaded.config);
+      const hostOps = await openOps(connection, loaded.config);
       ops.set(connection.sshTarget, hostOps);
       sources.push({ host: connection.sshTarget, ops: hostOps });
     }
@@ -44,7 +43,7 @@ export async function withFlatUnits<T>(
 
 function syntheticConfig(hosts: string[]): BundantConfig {
   return {
-    version: 1,
+    version: 2,
     service: "*",
     image: "",
     role: "web",
@@ -69,7 +68,7 @@ export function flatLoadedFor(g: Pick<GlobalConfig, "file" | "hosts">): LoadedCo
   if (hosts.length === 0) {
     throw new UsageError({ message: "no hosts: pass -f <config>, --hosts <a,b> or set BUNDANT_HOSTS" });
   }
-  return { config: syntheticConfig(hosts), envContent: null, envCount: 0, path: "", version: 1 };
+  return { config: syntheticConfig(hosts), envContent: null, envCount: 0, path: "", version: 2 };
 }
 
 /** One option mapping shared by every flat verb. */

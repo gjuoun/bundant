@@ -6,7 +6,6 @@ import { recordData } from "../../agent/emit.ts";
 import { rootCommand } from "../root.ts";
 import { finish, loadedFor, runPromise } from "./common.ts";
 import { flatLoadedFor, resolutionOptions, selectorFor, withFlatUnits } from "./flat-common.ts";
-import { opsVia } from "./common.ts";
 
 export const stats = Command.make(
   "stats",
@@ -14,12 +13,10 @@ export const stats = Command.make(
   ({ path }) =>
     Effect.gen(function* () {
       const g = yield* rootCommand;
-      const via = opsVia(g.via);
-      if (via === null) return yield* finish(2);
       const loaded = yield* runPromise(async () => flatLoadedFor(g));
       const pattern = selectorFor(g, loaded, path._tag === "Some" ? path.value : undefined);
       const names = yield* runPromise(() =>
-        withFlatUnits(loaded, via, pattern, resolutionOptions(g), async (ctx) =>
+        withFlatUnits(loaded, pattern, resolutionOptions(g), async (ctx) =>
           ctx.units.flatMap((unit) => unit.containers.map((c) => c.name)),
         ),
       );

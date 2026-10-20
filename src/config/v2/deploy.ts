@@ -7,21 +7,26 @@ import {
   SshSchema,
   normalize,
   preflight,
-} from "../v1/deploy.ts";
+} from "../deploy-base.ts";
 import { IDENTIFIER_RE, IDENTIFIER_RULE, v2Grammar } from "./grammar.ts";
 
-/** v2 reuses v1's sections and only swaps the naming grammar. */
+/** Version 2 deploy schema: shared sections plus the dotted naming grammar. */
 export const RawConfigSchema = z.object({
   version: z.literal(2),
   service: namedString("service", IDENTIFIER_RE, IDENTIFIER_RULE, "service name (v2 identifier)"),
   image: z.string().min(1),
   role: namedString("role", IDENTIFIER_RE, IDENTIFIER_RULE, "role name (v2 identifier)").optional(),
   replicas: z.number().int().min(1).optional(),
-  kind: z.enum(["service", "accessory"]).optional(),
-  volumes: z.array(z.string().min(1)).optional(),
+  kind: z
+    .enum(["service", "accessory"])
+    .describe("service (default) deploys/rolls back; accessory is stateful: stable name, named volumes, flat lifecycle verbs")
+    .optional(),
+  volumes: z
+    .array(z.string().min(1))
+    .describe('accessory named volumes, "name:/path/in/container" - survive container recreation')
+    .optional(),
   hosts: z.array(z.string().min(1)).optional(),
   ssh: z.union([SshSchema, z.string().min(1)]).optional(),
-  user: z.string().regex(/^[A-Za-z0-9._-]+$/, "must be a plain ssh user name").optional(),
   runtime: z.enum(["docker", "podman"]).optional(),
   env: EnvSchema.optional(),
   healthcheck: HealthSchema.optional(),

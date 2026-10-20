@@ -1,5 +1,4 @@
 import type { ContainerSummary } from "../adapters/types.ts";
-import { v1Grammar } from "../config/v1/grammar.ts";
 import { v2Grammar } from "../config/v2/grammar.ts";
 import type { RuntimeOps } from "../ops/types.ts";
 import { NoMatchError, parseSelector, type ParsedSelector } from "./selector.ts";
@@ -53,76 +52,25 @@ function identityOf(row: ContainerSummary): {
   const kind = labels["bundant.kind"] === "accessory" ? "accessory" : "service";
   const replica = Number(labels["bundant.replica"] ?? "1");
 
-  if (service === undefined) {
-    // No labels at all: recover the path from the name grammar. The legacy
-    // fallback revision is "rev-<base36>", so its second-to-last segment is
-    // "rev" and the role is the segment before it.
-    if (!row.name.includes(".")) {
-      const parts = row.name.split("-");
-      if (parts.length >= 4 && parts[parts.length - 2] === "rev") {
-        const revision = "rev-" + parts[parts.length - 1]!;
-        const role = parts[parts.length - 3]!;
-        const serviceName = parts.slice(0, -3).join("-");
-        return {
-          path: "default." + serviceName + "." + role,
-          kind: "service",
-          revision,
-          replica: 1,
-        };
-      }
-    }
-    const grammar = row.name.includes(".") ? v2Grammar : v1Grammar;
-    try {
-      const parsed = grammar.parse(row.name, row.name.includes(".") ? undefined : group);
-      return {
-        path:
-          parsed.role === ""
-            ? group + "." + parsed.service
-            : group + "." + parsed.service + "." + parsed.role,
-        kind: parsed.role === "" ? "accessory" : "service",
-        revision: parsed.revision,
-        replica: parsed.replica ?? 1,
-      };
-    } catch {
-      return undefined;
-    }
-  }
-
-  if (kind === "accessory") {
+  if (service !== undefined && kind === "accessory") {
     return { path: group + "." + service, kind, revision: "", replica: 1 };
   }
 
-  // Labelled v2 service name: the dotted grammar has the role.
-  if (row.name.includes(".")) {
-    try {
-      const parsed = v2Grammar.parse(row.name, group);
-      return {
-        path: group + "." + service + "." + parsed.role,
-        kind,
-        revision: labels["bundant.revision"] ?? parsed.revision,
-        replica,
-      };
-    } catch {
-      // fall through to the legacy name derivation
-    }
+  try {
+    const parsed = v2Grammar.parse(row.name, group);
+    const parsedKind = parsed.kind ?? "service";
+    return {
+      path:
+        parsedKind === "accessory"
+          ? group + "." + parsed.service
+          : group + "." + parsed.service + "." + parsed.role,
+      kind: parsedKind,
+      revision: labels["bundant.revision"] ?? parsed.revision,
+      replica: parsed.replica ?? 1,
+    };
+  } catch {
+    return undefined;
   }
-
-  // Pre-label / legacy v1 name: strip <group>-<service>- or <service>-, the
-  // first remaining segment is the role (roles never contain '-') and the rest
-  // is the revision, including the old rev-<base36> form.
-  const groupPrefix = group + "-" + service + "-";
-  const servicePrefix = service + "-";
-  const rest = row.name.startsWith(groupPrefix)
-    ? row.name.slice(groupPrefix.length)
-    : row.name.startsWith(servicePrefix)
-      ? row.name.slice(servicePrefix.length)
-      : "";
-  if (rest === "") return { path: group + "." + service, kind: "accessory", revision: "", replica: 1 };
-  const dash = rest.indexOf("-");
-  if (dash <= 0) return undefined;
-  const role = rest.slice(0, dash);
-  const revision = labels["bundant.revision"] ?? rest.slice(dash + 1);
-  return { path: group + "." + service + "." + role, kind, revision, replica };
 }
 
 /** Fold container rows into units, one per (path, revision). */

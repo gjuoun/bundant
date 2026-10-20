@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { Command } from "effect/cli";
 import { dirname } from "node:path";
-import { buildDeployPlan, renderPlan } from "../../planner.ts";
+import { buildDeployPlan } from "../../planner.ts";
 import { renderApiPlan } from "../../plan-render.ts";
 import type { PullPolicy } from "../../ops/index.ts";
 import { resolveRevision, sanitizeRevision } from "../../revision.ts";
@@ -13,7 +13,7 @@ import { runtimeFor } from "../../runtime.ts";
 import { resolveLocalImage } from "../../transfer/transfer.ts";
 import type { TransferReport } from "../../transfer/transfer.ts";
 import { rootCommand } from "../root.ts";
-import { finish, loadedFor, opsVia, runPromise, value } from "./common.ts";
+import { finish, loadedFor, runPromise, value } from "./common.ts";
 
 export const deploy = Command.make("deploy", {}, () =>
   Effect.gen(function* () {
@@ -21,7 +21,7 @@ export const deploy = Command.make("deploy", {}, () =>
     const loaded = yield* runPromise(async () => loadedFor(g));
     if (loaded.config.kind === "accessory") {
       throw new UsageError({
-        message: loaded.config.service + " is an accessory - use \`bundant accessory boot\`",
+        message: loaded.config.service + " is an accessory - use `bundant start -f " + loaded.path + "`",
       });
     }
     const revision = value(g.rev)
@@ -32,35 +32,28 @@ export const deploy = Command.make("deploy", {}, () =>
       throw new UsageError({ message: "--local-image requires a name:tag value" });
     }
     const plan = buildDeployPlan(loaded.config, revision, { localImage });
-    const via = opsVia(g.via);
-    if (via === null) return yield* finish(2);
     if (g["dry-run"]) {
-      let rendered: string;
-      if (via === "api") {
-        let layersTotal: number | undefined;
-        if (localImage !== undefined) {
-          layersTotal = yield* runPromise(async () => {
-            try {
-              const found = await resolveLocalImage(
-                localImage,
-                runtimeFor(loaded.config.runtime),
-                new LocalExecutor(),
-              );
-              return found.layers.length;
-            } catch {
-              return undefined; // image not built yet; the transport still shows
-            }
-          });
-        }
-        rendered = renderApiPlan(plan, {
-          envCount: loaded.envCount,
-          transfer: localImage === undefined
-            ? undefined
-            : { ref: localImage, layersTotal },
+      let layersTotal: number | undefined;
+      if (localImage !== undefined) {
+        layersTotal = yield* runPromise(async () => {
+          try {
+            const found = await resolveLocalImage(
+              localImage,
+              runtimeFor(loaded.config.runtime),
+              new LocalExecutor(),
+            );
+            return found.layers.length;
+          } catch {
+            return undefined; // image not built yet; the transport still shows
+          }
         });
-      } else {
-        rendered = renderPlan(plan);
       }
+      const rendered = renderApiPlan(plan, {
+        envCount: loaded.envCount,
+        transfer: localImage === undefined
+          ? undefined
+          : { ref: localImage, layersTotal },
+      });
       if (g.json) recordData({ status: "dry-run", plan: rendered });
       else console.log(rendered);
       return yield* finish(0);
@@ -79,7 +72,6 @@ export const deploy = Command.make("deploy", {}, () =>
     try {
       code = yield* runPromise(() =>
         runDeploy(plan, loaded, {
-          via,
           allowCaseCollision: g["allow-case-collision"],
           pullPolicy: g.pull as PullPolicy,
           phases,

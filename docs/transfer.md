@@ -4,17 +4,14 @@
 existing ssh connection. There is no registry and no daemon on the host beyond the engine
 socket.
 
-## Two transports
+## Transport
 
-- **API (default, `--via api`) - incremental OCI delta.** bundant reads the local image's
-  `RootFS.Layers` (diffIDs), folds every layer of every image on the host into one set, and
-  streams an OCI-layout tar that references **all** layers of the image while carrying blob
-  files only for the layers the host lacks. Sizes and digests in the manifest stay truthful,
-  and the index entry carries the image's platform. The tar goes to `POST /images/load`
-  through the same forwarded engine socket the rest of the API path uses.
-- **CLI (fallback, `--via cli`) - full archive.** The legacy
-  `save | gzip | ssh "gunzip | load"` pipeline is unchanged. Use it when the host's engine
-  cannot resolve omitted blobs, or when you want the old behaviour.
+bundant reads the local image's `RootFS.Layers` (diffIDs), folds every layer of
+every image on the host into one set, and streams an OCI-layout tar that references
+**all** layers of the image while carrying blob files only for the layers the host
+lacks. Sizes and digests in the manifest stay truthful, and the index entry carries
+the image's platform. The tar goes to `POST /images/load` through the forwarded
+engine socket.
 
 A redeploy that changes one layer of a large image therefore sends kilobytes instead of the
 whole image. The saving is measured on the wire, not inferred from the layer count.
@@ -29,7 +26,7 @@ The delta needs two engines that agree on layer identity:
   (docker's OCI save and podman's docker-archive save both do).
 
 If a layer cannot be resolved, the first load reports it and bundant retries once with a
-complete OCI archive (every layer blob). `--via cli` never takes the delta path.
+complete OCI archive (every layer blob).
 
 ## Fallback rules
 

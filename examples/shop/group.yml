@@ -5,7 +5,7 @@ version: 2
 group: shop
 services:
   # db is an accessory: stateful, never recreated by a deploy. Boot it once with
-  #   bundant accessory boot -f examples/shop/db/accessory.yml
+  #   bundant start -f examples/shop/db/accessory.yml
   # group install verifies it and stops with that exact command if it is missing.
   - name: db
     file: ./db/accessory.yml

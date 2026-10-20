@@ -1,11 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import type { BundantConfig } from "../config.ts";
-import { v1Grammar, type NameGrammar, type NameIdentity } from "../config/v1/grammar.ts";
+import type { NameGrammar, NameIdentity } from "../config/grammar.ts";
 import { v2Grammar } from "../config/v2/grammar.ts";
 import { ServiceIdentity } from "./identity.ts";
 
 function cfg(over: Partial<BundantConfig> = {}): BundantConfig {
   return {
+    version: 2,
     service: "api",
     image: "x:1",
     role: "web",
@@ -23,34 +24,27 @@ function cfg(over: Partial<BundantConfig> = {}): BundantConfig {
 
 describe("ServiceIdentity names", () => {
   test("ungrouped, grouped and accessory names", () => {
-    expect(ServiceIdentity.from(cfg(), v1Grammar, "r1").containerName()).toBe("api-web-r1");
-    expect(ServiceIdentity.from(cfg({ group: "shop" }), v1Grammar, "r1").containerName()).toBe(
-      "shop-api-web-r1",
+    expect(ServiceIdentity.from(cfg(), v2Grammar, "r1").containerName()).toBe("default.api.web.r1");
+    expect(ServiceIdentity.from(cfg({ group: "shop" }), v2Grammar, "r1").containerName()).toBe(
+      "shop.api.web.r1",
     );
     expect(
-      ServiceIdentity.from(cfg({ group: "shop", kind: "accessory" }), v1Grammar, "r1").containerName(),
-    ).toBe("shop-api");
+      ServiceIdentity.from(cfg({ group: "shop", kind: "accessory" }), v2Grammar, "r1").containerName(),
+    ).toBe("shop.api");
     expect(
-      ServiceIdentity.from(cfg({ group: "default", kind: "accessory" }), v1Grammar, "r1").containerName(),
-    ).toBe("api");
+      ServiceIdentity.from(cfg({ group: "default", kind: "accessory" }), v2Grammar, "r1").containerName(),
+    ).toBe("default.api");
   });
 
-  test("v2 produces dotted service and accessory names", () => {
+  test("camelCase, snake_case and uppercase identifiers compose dotted names", () => {
     const service = ServiceIdentity.from(
-      cfg({ version: 2, group: "Shop", service: "api", role: "Web" }),
+      cfg({ group: "Shop", service: "api", role: "Web" }),
       v2Grammar,
       "r2026a",
     );
     expect(service.containerName()).toBe("Shop.api.Web.r2026a");
     expect(service.containerName(2)).toBe("Shop.api.Web.r2026a.2");
     expect(service.proxyId()).toBe("Shop.api.Web");
-
-    const accessory = ServiceIdentity.from(
-      cfg({ version: 2, group: "Shop", service: "db", kind: "accessory" }),
-      v2Grammar,
-      "r2026a",
-    );
-    expect(accessory.containerName()).toBe("Shop.db");
 
     const parsed = ServiceIdentity.parse("Shop.api.Web.r2026a.2", v2Grammar);
     expect(parsed?.containerName()).toBe("Shop.api.Web.r2026a.2");
@@ -59,37 +53,27 @@ describe("ServiceIdentity names", () => {
     expect(accessoryParsed?.containerName()).toBe("Shop.db");
   });
 
-  test("v1 stays hyphen-shaped for the same identity", () => {
-    const service = ServiceIdentity.from(
-      cfg({ group: "Shop", service: "api", role: "Web" }),
-      v1Grammar,
-      "r2026a",
-    );
-    expect(service.containerName()).toBe("Shop-api-Web-r2026a");
-    expect(service.proxyId()).toBe("Shop-api-Web");
-  });
-
   test("replica suffixes appear only when requested", () => {
-    const identity = ServiceIdentity.from(cfg({ replicas: 3 }), v1Grammar, "r1");
-    expect(identity.containerName(2)).toBe("api-web-r1-2");
-    expect(identity.containerName(3)).toBe("api-web-r1-3");
-    expect(identity.containerName()).toBe("api-web-r1");
+    const identity = ServiceIdentity.from(cfg({ replicas: 3 }), v2Grammar, "r1");
+    expect(identity.containerName(2)).toBe("default.api.web.r1.2");
+    expect(identity.containerName(3)).toBe("default.api.web.r1.3");
+    expect(identity.containerName()).toBe("default.api.web.r1");
   });
 
   test("proxy id, env path and lock key", () => {
-    const ungrouped = ServiceIdentity.from(cfg({ group: "default" }), v1Grammar, "r1");
-    expect(ungrouped.proxyId()).toBe("api-web");
+    const ungrouped = ServiceIdentity.from(cfg({ group: "default" }), v2Grammar, "r1");
+    expect(ungrouped.proxyId()).toBe("default.api.web");
     expect(ungrouped.envPath()).toBe("~/.bundant/env/default/api-web.env");
     expect(ungrouped.lockKey()).toBe("default/api");
 
-    const grouped = ServiceIdentity.from(cfg({ group: "shop" }), v1Grammar, "r1");
-    expect(grouped.proxyId()).toBe("shop-api-web");
+    const grouped = ServiceIdentity.from(cfg({ group: "shop" }), v2Grammar, "r1");
+    expect(grouped.proxyId()).toBe("shop.api.web");
     expect(grouped.envPath()).toBe("~/.bundant/env/shop/api-web.env");
     expect(grouped.lockKey()).toBe("shop/api");
   });
 
   test("labels carry service/group/kind and revision/replica", () => {
-    const labels = ServiceIdentity.from(cfg({ group: "shop" }), v1Grammar, "r1").labels({}, 2);
+    const labels = ServiceIdentity.from(cfg({ group: "shop" }), v2Grammar, "r1").labels({}, 2);
     expect(labels).toEqual({
       "bundant.service": "api",
       "bundant.group": "shop",
@@ -100,9 +84,9 @@ describe("ServiceIdentity names", () => {
   });
 
   test("withRevision keeps every other field", () => {
-    const before = ServiceIdentity.from(cfg({ group: "shop", replicas: 2 }), v1Grammar, "r1");
+    const before = ServiceIdentity.from(cfg({ group: "shop", replicas: 2 }), v2Grammar, "r1");
     const after = before.withRevision("r2");
-    expect(after.compose()).toBe("shop-api-web-r2");
+    expect(after.compose()).toBe("shop.api.web.r2");
     expect(after.proxyId()).toBe(before.proxyId());
     expect(after.envPath()).toBe(before.envPath());
     expect(after.lockKey()).toBe(before.lockKey());
@@ -111,7 +95,7 @@ describe("ServiceIdentity names", () => {
 
 describe("parse(compose(x)) === x", () => {
   const table: Array<{ name: string; group: string; service: string; role: string; revision: string }> = [
-    { name: "ungrouped", group: "", service: "api", role: "web", revision: "r1" },
+    { name: "ungrouped", group: "default", service: "api", role: "web", revision: "r1" },
     { name: "grouped", group: "shop", service: "api", role: "web", revision: "r1" },
     { name: "grouped service", group: "shop", service: "my-service", role: "web", revision: "r9x2k" },
   ];
@@ -124,10 +108,10 @@ describe("parse(compose(x)) === x", () => {
           service: entry.service,
           role: entry.role,
         }),
-        v1Grammar,
+        v2Grammar,
         entry.revision,
       );
-      const parsed = ServiceIdentity.parse(identity.compose(), v1Grammar, entry.group);
+      const parsed = ServiceIdentity.parse(identity.compose(), v2Grammar, entry.group);
       expect(parsed).toBeDefined();
       expect(parsed!.group).toBe(entry.group);
       expect(parsed!.service).toBe(entry.service);
@@ -136,43 +120,24 @@ describe("parse(compose(x)) === x", () => {
     });
   }
 
-  test("an unambigous composed name parses without a group hint", () => {
-    const parsed = ServiceIdentity.parse("shop-api-web-r1", v1Grammar);
+  test("an unambiguous composed name parses without a group hint", () => {
+    const parsed = ServiceIdentity.parse("shop.api.web.r1", v2Grammar);
     expect(parsed?.group).toBe("shop");
     expect(parsed?.service).toBe("api");
     expect(parsed?.revision).toBe("r1");
   });
 
   test("an invalid composed name is rejected", () => {
-    expect(ServiceIdentity.parse("Bad-Name-Web-r1", v1Grammar)).toBeUndefined();
-    expect(ServiceIdentity.parse("onlytwo", v1Grammar)).toBeUndefined();
+    expect(ServiceIdentity.parse("Bad-Name-Web-r1", v2Grammar)).toBeUndefined();
+    expect(ServiceIdentity.parse("onlytwo", v2Grammar)).toBeUndefined();
   });
 
   test("the grammar comes from the version module, not a constant", () => {
-    const dotGrammar: NameGrammar = {
-      ...v1Grammar,
-      compose: (identity: NameIdentity) =>
-        (identity.group !== undefined && identity.group !== "" && identity.group !== "default"
-          ? identity.group + "."
-          : "") +
-        identity.service + "." + identity.role + "." + identity.revision +
-        (identity.replica === undefined ? "" : "." + identity.replica),
-      parse: (name: string) => {
-        const [group, service, role, revision, replica] = name.split(".");
-        if (!service || !role || !revision) throw new Error("bad dot name");
-        return {
-          group: group === service ? undefined : group,
-          service: group === service ? group : service!,
-          role: role!,
-          revision: revision!,
-          replica: replica === undefined ? undefined : Number(replica),
-        } as NameIdentity;
-      },
-    };
-    const v1 = ServiceIdentity.from(cfg({ group: "shop" }), v1Grammar, "r1");
-    const v2 = ServiceIdentity.from(cfg({ group: "shop" }), dotGrammar, "r1");
-    expect(v1.containerName()).toBe("shop-api-web-r1");
-    expect(v2.containerName()).toBe("shop.api.web.r1");
-    expect(v1.containerName()).not.toBe(v2.containerName());
+    const dottedGrammar: NameGrammar = v2Grammar;
+    const identity = ServiceIdentity.from(cfg({ group: "shop" }), dottedGrammar, "r1");
+    expect(identity.containerName()).toBe("shop.api.web.r1");
+    expect(v2Grammar.compose({ group: "shop", service: "api", role: "web", revision: "r1" })).toBe(
+      identity.containerName(),
+    );
   });
 });

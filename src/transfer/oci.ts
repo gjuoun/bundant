@@ -470,7 +470,7 @@ async function assemble(
     await readTar(input, async (header, body) => {
       const name = header.name;
       if (name === "manifest.json" || name === "index.json" || name === "oci-layout") {
-        return; // regenerated below; the legacy path would demand every layer file
+        return; // regenerated below; a full archive would demand every layer file
       }
       if (name === "repositories" || name === "VERSION" || header.size === 0) return;
 

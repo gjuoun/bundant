@@ -100,11 +100,11 @@ That metadata is what the safety rules are built on, not a name convention:
 
 - `delete` and the `group uninstall` sweep select by `bundant.kind=service`, and
   each candidate is re-checked — a container that says `accessory` is skipped with
-  `skip accessory <name> (stateful: use bundant accessory remove)`, even if its
+  `skip accessory <name> (stateful: use bundant rm <path> --yes)`, even if its
   name happens to match a service prefix.
 - `deploy`'s stop-old pass skips accessories the same way.
-- `accessory remove --volumes` only deletes a volume whose `bundant.owner` is this
-  accessory; a volume owned by someone else is reported and left alone.
+- `rm --volumes` only deletes a volume whose `bundant.owner` is this accessory; a
+  volume owned by someone else is reported and left alone.
 
 ```yaml
 # shop/db/accessory.yml
@@ -133,16 +133,16 @@ Rules enforced by bundant:
 Lifecycle (explicit only):
 
 ```sh
-bundant accessory boot   -f shop/db/accessory.yml            # create if absent
-bundant accessory reboot -f shop/db/accessory.yml            # recreate, keep volumes
-bundant accessory stop   -f shop/db/accessory.yml
-bundant accessory logs   -f shop/db/accessory.yml
-bundant accessory status -f shop/db/accessory.yml
-bundant accessory remove -f shop/db/accessory.yml --yes             # keep volumes
-bundant accessory remove -f shop/db/accessory.yml --yes --volumes   # delete data
+bundant start   -f shop/db/accessory.yml          # create if absent
+bundant restart -f shop/db/accessory.yml          # recreate, keep volumes
+bundant stop    shop.db
+bundant logs    shop.db
+bundant status  shop.db
+bundant rm      shop.db --yes                     # keep volumes
+bundant rm      shop.db --yes --volumes           # delete data
 ```
 
-When an accessory file sits inside a group directory, `bundant accessory`
+When an accessory file sits inside a group directory, `bundant start`
 resolves the sibling `../group.yml` automatically, so its container carries the
 same `bundant.group` label and its env file lands under the group directory. A
 standalone accessory file (no group directory) lands in `default`.
