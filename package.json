@@ -47,6 +47,7 @@
     "schema:check": "bun test src/schema.test.ts"
   },
   "dependencies": {
+    "effect": "4.0.5",
     "yaml": "^2.6.0",
     "zod": "^3.24.0"
   },
