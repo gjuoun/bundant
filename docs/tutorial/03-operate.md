@@ -15,7 +15,7 @@ back without editing a file.
 **Why it matters:** deploys are the easy part. The cost shows up on day two, when a new revision
 looks healthy but behaves badly and you need the old one back in seconds.
 
-## Ship a second revision
+## Ship a second revision 🚀
 
 Change one value in the complete `deploy.yml` from chapter 2:
 
@@ -59,7 +59,7 @@ deploy hello/web rev=8de4a23 -> root@box.example.com
 deployed default.hello.web.8de4a23 on 1 host(s)
 ```
 
-## Read it back
+## Read it back 📊
 
 ```sh
 bundant status '*' -f deploy.yml
@@ -94,7 +94,7 @@ bundant history -f deploy.yml
   * = running revision
 ```
 
-## Roll back
+## Roll back ⏪
 
 **Rollback** means starting a retained revision and pointing the proxy back at it. `bundant
 rollback` with no target goes to the previous revision: it starts the old container, runs the same
@@ -135,16 +135,21 @@ is a **start**, not a rebuild. The stopped revisions wait until `bundant prune` 
 
 ```mermaid
 flowchart TD
-  r1["11a45b2 · first revision<br/>stopped, kept"]
-  r2["0f2c8cc · second revision<br/>healthy, live"]
-  r3["8de4a23 · third revision<br/>live"]
-  r4["0f2c8cc · live again"]
-  kept["older revisions stay stopped<br/>until prune"]
-  r1 -- "deploy" --> r2
-  r2 -- "deploy" --> r3
-  r3 -- "rollback, no target" --> r4
-  r1 -.-> kept
-  r3 -.-> kept
+  r1["11a45b2 · first revision<br/>stopped, kept"] -- "deploy" --> r2["0f2c8cc · second revision<br/>healthy, live"]
+  r2 -- "deploy" --> r3["8de4a23 · third revision<br/>live"]
+  r3 -- "rollback, no target" --> r4["0f2c8cc · live again"]
+  r1 -. "prune keeps newest 3" .-> kept["older revisions stay stopped<br/>until prune"]
+  r3 -. "kept for rollback" .-> kept
+  r4 -. "start, then health gate" .-> n1["rollback starts the old container;<br/>nothing is rebuilt"]
+  r3 -. "swap is the only traffic move" .-> n2["old container stays live<br/>until the swap succeeds"]
+  classDef ok fill:#0f2a17,color:#00c853,stroke:#494848;
+  classDef risk fill:#2e1a12,color:#fc5d23,stroke:#494848;
+  classDef storage fill:#211a33,color:#ae81ff,stroke:#494848;
+  classDef neutral fill:#2e332e,color:#d9d9d4,stroke:#494848;
+  class r2,r3 ok;
+  class r4 risk;
+  class kept storage;
+  class r1,n1,n2 neutral;
 ```
 
 To pick an exact revision, use `bundant rollback --to-revision <sha> -f deploy.yml`. A revision
@@ -153,7 +158,7 @@ is retained until `bundant prune` removes it or you delete the service.
 You should see `rolled back to default.hello.web.0f2c8cc` and, in `status`, the revision
 after `rev=` change from `8de4a23` back to `0f2c8cc`.
 
-## What actually happens
+## What actually happens ⚙️
 
 `deploy` takes a per-service `mkdir` **lock** on the first host — `~/.bundant/locks/default/hello.lock`,
 holding an owner line and reclaimed after `BUNDANT_LOCK_TTL_S` — so two deploys cannot interleave.
@@ -164,7 +169,7 @@ one proxy deploy, then stops the revision that was live. Commands and exit codes
 [CLI reference](/bundant/docs/cli/); the sequence is in
 [Architecture](/bundant/docs/architecture/).
 
-## Did it fail?
+## Did it fail? ⚠️
 
 A **unit** is one addressable thing bundant manages: a service or an accessory. A **selector** is
 the unit path you pass to a flat verb — `group.service.role` for a service, `group.service` for an
