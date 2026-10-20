@@ -3,13 +3,18 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "sync:docs": "node scripts/sync-docs.mjs",
+    "predev": "bun run sync:docs",
     "dev": "astro dev",
+    "prebuild": "bun run sync:docs",
     "build": "astro build",
     "preview": "astro preview",
+    "precheck": "bun run sync:docs",
     "check": "astro check"
   },
   "dependencies": {
     "@astrojs/react": "^4.4.2",
+    "@astrojs/starlight": "0.37",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
