@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Readable } from "node:stream";
 import { ApiError, type ApiClient, type ApiQuery } from "./api.ts";
 import { toEpochSeconds } from "./time.ts";
 import { demuxStream } from "./api.ts";
@@ -80,8 +81,60 @@ export class DockerAdapter implements RuntimeAdapter {
     }
   }
 
-  async loadImage(_stream: NodeJS.ReadableStream): Promise<void> {
-    throw new NotImplementedInStage1("loadImage");
+  async imageIds(): Promise<string[]> {
+    const res = await this.client.request("GET", "/images/json");
+    const parsed = imageListSchema.safeParse(res.json);
+    return parsed.success ? parsed.data.map((row) => row.Id) : [];
+  }
+
+  async imageLayers(ref: string): Promise<string[]> {
+    const path = "/images/" + encodeURIComponent(ref) + "/json";
+    const res = await this.client.request("GET", path);
+    if (typeof res.json !== "object" || res.json === null) return [];
+    const rootfs = (res.json as { RootFS?: { Layers?: unknown } }).RootFS;
+    const layers = rootfs?.Layers;
+    if (!Array.isArray(layers)) return [];
+    return layers.filter((layer): layer is string => typeof layer === "string");
+  }
+
+  /**
+   * Stream a tar archive into POST /images/load. The body is sent chunked:
+   * the delta builder emits bytes as it decides, so its length is not known
+   * up front. Both engine families accept a chunked load request.
+   */
+  async loadImage(stream: NodeJS.ReadableStream): Promise<void> {
+    const res = await this.client.requestBody(
+      "POST",
+      "/images/load",
+      stream as unknown as Readable,
+      "application/x-tar",
+    );
+    // Both engines report load failures in the response body: docker keeps a
+    // 200 and emits {"errorDetail":...,"error":"..."} records on the stream,
+    // podman answers 500. Load the whole (tiny) body and surface either form.
+    const chunks: Buffer[] = [];
+    for await (const chunk of res) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    const text = Buffer.concat(chunks).toString("utf8");
+    for (const line of text.split("\n")) {
+      const trimmed = line.trim();
+      if (trimmed === "" || !trimmed.startsWith("{")) continue;
+      try {
+        const record = JSON.parse(trimmed) as { error?: unknown; errorDetail?: { message?: unknown } };
+        const message = typeof record.error === "string"
+          ? record.error
+          : typeof record.errorDetail?.message === "string"
+            ? record.errorDetail.message
+            : undefined;
+        if (message !== undefined && message !== "") {
+          throw new Error("engine image load failed: " + message);
+        }
+      } catch (err) {
+        if (err instanceof SyntaxError) continue;
+        throw err;
+      }
+    }
   }
 
   async removeImage(ref: string): Promise<void> {
@@ -367,6 +420,7 @@ export class DockerAdapter implements RuntimeAdapter {
 }
 
 const createResponse = z.object({ Id: z.string() });
+const imageListSchema = z.array(z.object({ Id: z.string() }));
 const execCreateResponse = z.object({ Id: z.string() });
 const execInspectSchema = z.object({ ExitCode: z.number().nullish() });
 

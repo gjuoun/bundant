@@ -78,6 +78,12 @@ class FakeAdapter implements RuntimeAdapter {
     this.steps.push("pull:" + ref);
   }
   async loadImage(): Promise<void> {}
+  async imageIds(): Promise<string[]> {
+    return [];
+  }
+  async imageLayers(): Promise<string[]> {
+    return [];
+  }
   async pruneImages(): Promise<void> {
     this.steps.push("prune-images");
   }

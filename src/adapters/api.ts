@@ -168,6 +168,39 @@ export class ApiClient {
     return res;
   }
 
+  /**
+   * Streaming request whose body is a readable stream (image load). The body
+   * is sent chunked, so the caller does not need to know its length first.
+   */
+  async requestBody(
+    method: string,
+    path: string,
+    body: Readable,
+    contentType: string,
+  ): Promise<IncomingMessage> {
+    const res = await new Promise<IncomingMessage>((resolve, reject) => {
+      const req = http.request(
+        {
+          socketPath: this.socketPath,
+          method,
+          path,
+          headers: { "content-type": contentType, "transfer-encoding": "chunked" },
+        },
+        (response) => resolve(response),
+      );
+      req.on("error", (err) => {
+        void normalizeConnectError(err, this.socketPath).then(reject);
+      });
+      body.on("error", (err: Error) => req.destroy(err));
+      body.pipe(req);
+    });
+    if (res.statusCode !== undefined && res.statusCode >= 400) {
+      const buf = await readBody(res);
+      throw new ApiError(method, path, res.statusCode, parseBody(buf, res.headers["content-type"]));
+    }
+    return res;
+  }
+
   async close(): Promise<void> {
     const handle = this.dockerode as { destroy?: () => void } | null;
     try {

@@ -96,6 +96,10 @@ export interface RuntimeAdapter {
   pull(ref: string): Promise<void>;
   /** True when the image ref is present locally (GET /images/{ref}/json). */
   imagePresent(ref: string): Promise<boolean>;
+  /** Every image id the engine holds (GET /images/json). */
+  imageIds(): Promise<string[]>;
+  /** One image's ordered layer diffIDs (GET /images/{ref}/json RootFS.Layers). */
+  imageLayers(ref: string): Promise<string[]>;
   loadImage(stream: NodeJS.ReadableStream): Promise<void>;
   removeImage(ref: string): Promise<void>;
   /** Remove dangling image layers (the old `image prune -f`). */
