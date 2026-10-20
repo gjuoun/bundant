@@ -7,6 +7,7 @@ import { NoMatchError, parseSelector, type ParsedSelector } from "./selector.ts"
 export interface UnitContainer {
   host: string;
   name: string;
+  image: string;
   state: string;
   revision: string;
   replica: number;
@@ -91,6 +92,7 @@ export function foldUnits(rows: Array<{ host: string; row: ContainerSummary }>):
     unit.containers.push({
       host,
       name: row.name,
+      image: row.image,
       state: row.state,
       revision: identity.revision,
       replica: identity.replica,

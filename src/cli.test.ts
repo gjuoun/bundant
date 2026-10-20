@@ -51,12 +51,23 @@ describe("effect/cli parsing", () => {
     const probe = Command.make("probe", {}, () =>
       Effect.gen(function* () {
         const g = yield* rootCommand;
-        seen = [g.keep, g.tail, g.since, g.port, g.via, g["dry-run"], g.follow].join("|");
+        seen = [
+          g.keep,
+          g.tail,
+          g.since,
+          g.port,
+          g.via,
+          g["dry-run"],
+          g.follow,
+          g["all-revisions"],
+          g.route,
+          g.env,
+        ].join("|");
       }),
     );
     const app = rootCommand.pipe(Command.withSubcommands([probe]));
     await run(["probe"], app);
-    expect(seen).toBe("3|200|2h|8787|api|false|false");
+    expect(seen).toBe("3|200|2h|8787|api|false|false|false|false|false");
   });
 
   test("-f alias and long flag both parse", async () => {
@@ -182,7 +193,8 @@ describe("effect/cli parsing", () => {
       group.commands.map((entry) => String(entry.name)),
     );
     for (const name of [
-      "validate", "deploy", "scale", "rollback", "history", "status", "delete", "prune",
+      "validate", "start", "stop", "restart", "rm",
+      "deploy", "scale", "rollback", "history", "status", "delete", "prune",
       "bootstrap", "runtime", "ps", "stats", "inspect", "logs", "events", "exec", "ui",
       "group", "accessory",
     ]) {

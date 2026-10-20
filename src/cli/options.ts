@@ -25,4 +25,9 @@ export const globalFlags = {
   via: Flag.String("via").pipe(Flag.withDefault("api")),
   strict: Flag.Boolean("strict").pipe(Flag.withDefault(false)),
   "allow-case-collision": Flag.Boolean("allow-case-collision").pipe(Flag.withDefault(false)),
+  replica: Flag.String("replica").pipe(Flag.optional),
+  revision: Flag.String("revision").pipe(Flag.optional),
+  "all-revisions": Flag.Boolean("all-revisions").pipe(Flag.withDefault(false)),
+  route: Flag.Boolean("route").pipe(Flag.withDefault(false)),
+  env: Flag.Boolean("env").pipe(Flag.withDefault(false)),
 };
