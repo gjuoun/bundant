@@ -44,7 +44,8 @@
     "schema:gen": "bun run scripts/gen-schema.ts",
     "api:gen": "bun run scripts/api-gen.ts",
     "api:check": "bun run scripts/api-gen.ts --check",
-    "schema:check": "bun test src/schema.test.ts"
+    "schema:check": "bun test src/schema.test.ts",
+    "errors:gen": "bun run scripts/gen-errors.ts"
   },
   "dependencies": {
     "effect": "4.0.5",

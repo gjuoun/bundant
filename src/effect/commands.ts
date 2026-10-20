@@ -15,11 +15,15 @@ import {
   runtimeExitCode,
   runtimeReport,
   renderRuntimeReport,
+  type RuntimeHostReport,
 } from "../runtime-report.ts";
 import {
   renderValidationReport,
   validatePath,
+  type ValidationReport,
 } from "../validation.ts";
+import { recordData } from "../agent/emit.ts";
+import { UsageError } from "../agent/errors.ts";
 import { toAppError, type AppError } from "./errors.ts";
 
 export interface ValidateCommandOptions {
@@ -28,21 +32,17 @@ export interface ValidateCommandOptions {
   strict: boolean;
 }
 
-/** bundant validate as an Effect program. */
+/** bundant validate as an Effect program; the caller renders/finishes. */
 export function validateCommand(
   opts: ValidateCommandOptions,
-): Effect.Effect<number, AppError> {
+): Effect.Effect<{ code: number; report: ValidationReport }, AppError> {
   return Effect.gen(function* () {
     const report = yield* Effect.tryPromise({
       try: () => validatePath(opts.file, process.env, { strict: opts.strict }),
       catch: toAppError,
     });
-    if (opts.json) {
-      console.log(JSON.stringify(report, null, 2));
-    } else {
-      console.log(renderValidationReport(report));
-    }
-    return report.ok ? 0 : 1;
+    if (!opts.json) console.log(renderValidationReport(report));
+    return { code: report.ok ? 0 : 1, report };
   });
 }
 
@@ -52,21 +52,17 @@ export interface RuntimeCommandOptions {
   hosts?: string[];
 }
 
-/** bundant runtime as an Effect program. */
+/** bundant runtime as an Effect program; the caller renders/finishes. */
 export function runtimeCommand(
   opts: RuntimeCommandOptions,
-): Effect.Effect<number, AppError> {
+): Effect.Effect<{ code: number; reports: RuntimeHostReport[] }, AppError> {
   return Effect.gen(function* () {
     const reports = yield* Effect.tryPromise({
       try: () => runtimeReport(opts.loaded, { hosts: opts.hosts }),
       catch: toAppError,
     });
-    if (opts.json) {
-      console.log(JSON.stringify(reports, null, 2));
-    } else {
-      console.log(renderRuntimeReport(reports));
-    }
-    return runtimeExitCode(reports);
+    if (!opts.json) console.log(renderRuntimeReport(reports));
+    return { code: runtimeExitCode(reports), reports };
   });
 }
 
@@ -75,6 +71,7 @@ export type ReadCommand = "ps" | "stats" | "inspect" | "events" | "logs";
 export interface ReadCommandOptions {
   loaded: LoadedConfig;
   command: ReadCommand;
+  json: boolean;
   host?: string;
   container?: string;
   selector?: string;
@@ -102,40 +99,60 @@ function withMonitor<A>(
 export function readCommand(
   opts: ReadCommandOptions,
 ): Effect.Effect<number, AppError> {
-  const { loaded, command } = opts;
+  const { loaded, command, json } = opts;
   return withMonitor(loaded, async (monitor) => {
     if (command === "ps") {
-      console.log(renderContainers(await monitor.containers()));
+      const data = await monitor.containers();
+      if (json) recordData(data);
+      else console.log(renderContainers(data));
       return 0;
     }
     if (command === "stats") {
-      console.log(renderStats(await monitor.stats()));
+      const data = await monitor.stats();
+      if (json) recordData(data);
+      else console.log(renderStats(data));
       return 0;
     }
     if (command === "inspect") {
       const selector = opts.selector ?? opts.container;
       if (selector === undefined) {
-        console.error("bundant: inspect needs a container name (or --container)");
-        return 2;
+        throw new UsageError({ message: "inspect needs a container name (or --container)" });
       }
-      console.log(renderInspect(await monitor.inspect(selector)));
+      const data = await monitor.inspect(selector);
+      if (json) recordData(data);
+      else console.log(renderInspect(data));
       return 0;
     }
     if (command === "logs") {
       const hosts = opts.host === undefined ? monitor.hosts : [opts.host];
+      const entries: { host: string; container: string; lines: string[] }[] = [];
       for (const h of hosts) {
-        process.stdout.write("== " + h + " ==\n");
-        process.stdout.write(await monitor.logs(h, opts.container ?? "", opts.tail));
+        const text = await monitor.logs(h, opts.container ?? "", opts.tail);
+        entries.push({
+          host: h,
+          container: opts.container ?? "",
+          lines: text.split("\n").filter((line) => line !== ""),
+        });
+        if (!json) {
+          process.stdout.write("== " + h + " ==\n");
+          process.stdout.write(text);
+        }
       }
+      if (json) recordData(entries);
       return 0;
     }
     const since = opts.since;
     const hosts = opts.host === undefined ? monitor.hosts : [opts.host];
+    const entries: { host: string; lines: string[] }[] = [];
     for (const h of hosts) {
       const lines = await monitor.events(h, since, { windowSeconds: 3 });
-      console.log("== " + h + " ==");
-      for (const line of lines.slice(-80)) console.log("  " + line);
+      entries.push({ host: h, lines: lines.slice(-80) });
+      if (!json) {
+        console.log("== " + h + " ==");
+        for (const line of lines.slice(-80)) console.log("  " + line);
+      }
     }
+    if (json) recordData(entries);
     return 0;
   });
 }

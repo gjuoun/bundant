@@ -1,0 +1,135 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://bundant.dev/schema/errors.json",
+  "title": "bundant agent surface",
+  "description": "The one JSON object bundant writes to stdout with --json, plus the stable error catalog.",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "ok",
+        "command",
+        "data"
+      ],
+      "properties": {
+        "ok": {
+          "const": true
+        },
+        "command": {
+          "type": "string"
+        },
+        "data": {}
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "ok",
+        "command",
+        "error"
+      ],
+      "properties": {
+        "ok": {
+          "const": false
+        },
+        "command": {
+          "type": "string"
+        },
+        "error": {
+          "$ref": "#/definitions/error"
+        }
+      },
+      "additionalProperties": false
+    }
+  ],
+  "definitions": {
+    "errorCode": {
+      "enum": [
+        "OK",
+        "USAGE",
+        "CONFIG_INVALID",
+        "CONFIG_VERSION_UNSUPPORTED",
+        "VALIDATION_FAILED",
+        "NO_MATCH",
+        "LOCK_HELD",
+        "ENGINE_UNAVAILABLE",
+        "API_DRIFT",
+        "HEALTH_TIMEOUT",
+        "PROXY_SWAP_FAILED",
+        "TRANSPORT_ERROR",
+        "NOT_FOUND",
+        "INTERNAL"
+      ]
+    },
+    "error": {
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "details"
+      ],
+      "properties": {
+        "code": {
+          "$ref": "#/definitions/errorCode"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "catalogEntry": {
+      "type": "object",
+      "required": [
+        "code",
+        "exitCode",
+        "when"
+      ],
+      "properties": {
+        "code": {
+          "$ref": "#/definitions/errorCode"
+        },
+        "exitCode": {
+          "enum": [
+            0,
+            4,
+            1,
+            3,
+            2
+          ]
+        },
+        "when": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "catalog": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/catalogEntry"
+      }
+    }
+  },
+  "x-bundant-exit-codes": {
+    "OK": 0,
+    "USAGE": 4,
+    "CONFIG_INVALID": 1,
+    "CONFIG_VERSION_UNSUPPORTED": 1,
+    "VALIDATION_FAILED": 1,
+    "NO_MATCH": 3,
+    "LOCK_HELD": 2,
+    "ENGINE_UNAVAILABLE": 1,
+    "API_DRIFT": 1,
+    "HEALTH_TIMEOUT": 1,
+    "PROXY_SWAP_FAILED": 1,
+    "TRANSPORT_ERROR": 1,
+    "NOT_FOUND": 1,
+    "INTERNAL": 1
+  }
+}

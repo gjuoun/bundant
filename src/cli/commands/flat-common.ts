@@ -4,6 +4,7 @@ import { openOps, type OpsVia, type RuntimeOps } from "../../ops/index.ts";
 import { resolve, type ResolvedUnit, type UnitSource } from "../../select/resolve.ts";
 import { unitPath } from "../../select/selector.ts";
 import { ServiceIdentity } from "../../domain/identity.ts";
+import { UsageError } from "../../agent/errors.ts";
 import { value, type GlobalConfig } from "./common.ts";
 
 export interface FlatUnits {
@@ -66,9 +67,7 @@ export function flatLoadedFor(g: Pick<GlobalConfig, "file" | "hosts">): LoadedCo
     .map((host) => host.trim())
     .filter((host) => host !== "");
   if (hosts.length === 0) {
-    throw new Error(
-      "no hosts: pass -f <config>, --hosts <a,b> or set BUNDANT_HOSTS",
-    );
+    throw new UsageError({ message: "no hosts: pass -f <config>, --hosts <a,b> or set BUNDANT_HOSTS" });
   }
   return { config: syntheticConfig(hosts), envContent: null, envCount: 0, path: "", version: 1 };
 }

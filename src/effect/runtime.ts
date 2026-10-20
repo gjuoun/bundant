@@ -6,6 +6,7 @@ import {
   toAppError,
   type AppError,
 } from "./errors.ts";
+import { isJsonMode, recordFailure } from "../agent/emit.ts";
 
 /**
  * Runtime skeleton: one layer per process, one error formatter, and a bridge
@@ -54,6 +55,10 @@ export async function runMain<A, E extends AppError>(
     return typeof value === "number" ? value : 0;
   } catch (error) {
     const mapped = toAppError(error);
+    if (isJsonMode()) {
+      recordFailure(mapped);
+      return exitCodeFor(mapped);
+    }
     console.error("bundant: " + formatError(mapped));
     return exitCodeFor(mapped);
   }

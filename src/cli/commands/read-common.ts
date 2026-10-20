@@ -16,6 +16,7 @@ export function runRead(
   return readCommand({
     loaded,
     command: name,
+    json: g.json,
     host: value(g.host),
     container: value(g.container),
     selector,

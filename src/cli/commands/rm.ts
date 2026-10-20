@@ -1,5 +1,7 @@
 import { Effect } from "effect";
 import { Argument, Command } from "effect/cli";
+import { recordData } from "../../agent/emit.ts";
+import { UsageError } from "../../agent/errors.ts";
 import { rootCommand } from "../root.ts";
 import { finish, opsVia, runPromise } from "./common.ts";
 import { flatLoadedFor, opsFor, resolutionOptions, withFlatUnits } from "./flat-common.ts";
@@ -26,24 +28,25 @@ export const rm = Command.make(
       const g = yield* rootCommand;
       const pattern = path._tag === "Some" ? path.value : undefined;
       if (pattern === undefined) {
-        console.error("bundant: rm needs a unit path");
-        return yield* finish(2);
+        throw new UsageError({ message: "rm needs a unit path" });
       }
       if (!g.yes && !g["dry-run"]) {
-        console.error("bundant: rm is destructive: pass --yes (or --dry-run to preview)");
-        return yield* finish(2);
+        throw new UsageError({ message: "rm is destructive: pass --yes (or --dry-run to preview)" });
       }
       const via = opsVia(g.via);
       if (via === null) return yield* finish(2);
       const loaded = yield* runPromise(async () => flatLoadedFor(g));
+      const removed: string[] = [];
       yield* runPromise(() =>
         withFlatUnits(loaded, via, pattern, resolutionOptions(g), async (ctx) => {
-          console.log("resolved " + ctx.units.length + " unit(s):");
-          for (const unit of ctx.units) {
-            console.log(
-              "  " + unit.path + " rev=" + unit.revision + " -> " +
-                unit.containers.map((c) => c.name).join(", "),
-            );
+          if (!g.json) {
+            console.log("resolved " + ctx.units.length + " unit(s):");
+            for (const unit of ctx.units) {
+              console.log(
+                "  " + unit.path + " rev=" + unit.revision + " -> " +
+                  unit.containers.map((c) => c.name).join(", "),
+              );
+            }
           }
           if (g["dry-run"]) return;
           for (const unit of ctx.units) {
@@ -55,6 +58,7 @@ export const rm = Command.make(
             const images = [...new Set(unit.containers.map((c) => c.image))];
             for (const container of unit.containers) {
               await ops.removeContainer(container.name, { force: true });
+              removed.push(container.name);
             }
             if (g.images) {
               for (const image of images) {
@@ -79,6 +83,6 @@ export const rm = Command.make(
           }
         }),
       );
-      yield* finish(0);
+      yield* finish(0, { units: removed });
     }),
 ).pipe(Command.withDescription("remove matched units (containers; --route/--env/--images/--volumes)"));
