@@ -1,0 +1,3429 @@
+[
+  {
+    "name": "deploy",
+    "group": "deploy",
+    "summary": "deploy the current revision to every host",
+    "usage": "bundant deploy [flags]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant deploy -f deploy.yml"
+  },
+  {
+    "name": "scale",
+    "group": "deploy",
+    "summary": "add/remove replicas of the running revision (no drops)",
+    "usage": "bundant scale [flags] [<replicas>]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant scale --replicas 3 -f deploy.yml"
+  },
+  {
+    "name": "rollback",
+    "group": "deploy",
+    "summary": "previous revision, or the one named by --to-revision",
+    "usage": "bundant rollback [flags]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant rollback --to-revision 59ceb8d"
+  },
+  {
+    "name": "history",
+    "group": "deploy",
+    "summary": "revisions newest-first, with state and the current one",
+    "usage": "bundant history [flags]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant history -f deploy.yml"
+  },
+  {
+    "name": "delete",
+    "group": "deploy",
+    "summary": "remove the service: proxy route, containers, env file",
+    "usage": "bundant delete [flags]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant delete --yes"
+  },
+  {
+    "name": "prune",
+    "group": "deploy",
+    "summary": "remove stopped revisions beyond the newest K (--keep, default 3)",
+    "usage": "bundant prune [flags]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant prune --keep 3 -f deploy.yml"
+  },
+  {
+    "name": "validate",
+    "group": "units",
+    "summary": "parse and validate deploy.yml / group.yml / accessory.yml",
+    "usage": "bundant validate [flags]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant validate -f deploy.yml"
+  },
+  {
+    "name": "start",
+    "group": "units",
+    "summary": "start a unit (or create an accessory from -f)",
+    "usage": "bundant start [flags] [<path>]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant start shop.api.web"
+  },
+  {
+    "name": "stop",
+    "group": "units",
+    "summary": "stop every replica matched by the path",
+    "usage": "bundant stop [flags] [<path>]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant stop 'shop.**'"
+  },
+  {
+    "name": "restart",
+    "group": "units",
+    "summary": "restart a unit (accessory: recreate; service: stop/start)",
+    "usage": "bundant restart [flags] [<path>]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant restart shop.api.web"
+  },
+  {
+    "name": "rm",
+    "group": "units",
+    "summary": "remove matched units (containers; --route/--env/--images/--volumes)",
+    "usage": "bundant rm [flags] [<path>]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant rm 'legacy.**' --yes --dry-run"
+  },
+  {
+    "name": "status",
+    "group": "units",
+    "summary": "unit status by path (no path = every unit; --json for scripts)",
+    "usage": "bundant status [flags] [<path>]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant status 'shop.**' --json"
+  },
+  {
+    "name": "exec",
+    "group": "units",
+    "summary": "exec in the first running replica (--all for every replica)",
+    "usage": "bundant exec [flags] [<path>] [<cmd...>]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant exec shop.api.web -- env"
+  },
+  {
+    "name": "inspect",
+    "group": "units",
+    "summary": "inspect the first running replica matched by the path",
+    "usage": "bundant inspect [flags] [<path>]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant inspect shop.api.web"
+  },
+  {
+    "name": "logs",
+    "group": "units",
+    "summary": "logs by path, each line prefixed with the replica",
+    "usage": "bundant logs [flags] [<path>]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant logs '**.web' --tail 50"
+  },
+  {
+    "name": "group",
+    "group": "groups",
+    "summary": "namespace lifecycle: install, uninstall, status, rollback",
+    "usage": "bundant group <subcommand> [flags]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant group install -f group.yml"
+  },
+  {
+    "name": "accessory",
+    "group": "groups",
+    "summary": "stateful member lifecycle: boot, reboot, stop, logs, status, remove",
+    "usage": "bundant accessory <subcommand> [flags]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant accessory status -f accessory.yml"
+  },
+  {
+    "name": "bootstrap",
+    "group": "groups",
+    "summary": "install/verify podman and its host prerequisites on every host",
+    "usage": "bundant bootstrap [flags]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant bootstrap --dry-run"
+  },
+  {
+    "name": "runtime",
+    "group": "ops",
+    "summary": "per-host engine/API detection: socket, forward, service state",
+    "usage": "bundant runtime [flags]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant runtime --json"
+  },
+  {
+    "name": "ui",
+    "group": "ops",
+    "summary": "local read-only monitoring page (pull-on-demand)",
+    "usage": "bundant ui [flags]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant ui --port 8787"
+  },
+  {
+    "name": "ps",
+    "group": "ops",
+    "summary": "every container on every host, with state and ports",
+    "usage": "bundant ps [flags]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant ps -f deploy.yml"
+  },
+  {
+    "name": "stats",
+    "group": "ops",
+    "summary": "one resource snapshot for the matched units",
+    "usage": "bundant stats [flags] [<path>]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant stats 'shop.**'"
+  },
+  {
+    "name": "events",
+    "group": "ops",
+    "summary": "runtime events since a duration (default 2h)",
+    "usage": "bundant events [flags]",
+    "flags": [
+      {
+        "flag": "--file, -f string",
+        "description": "config path (hosts/runtime; filters read verbs to one unit)"
+      },
+      {
+        "flag": "--dry-run",
+        "description": "print the plan without executing it"
+      },
+      {
+        "flag": "--rev string",
+        "description": "override the revision for file-driven deploys"
+      },
+      {
+        "flag": "--local-image string",
+        "description": "stream a locally built image (name:tag) instead of pulling"
+      },
+      {
+        "flag": "--pull string",
+        "description": "image pull policy: missing, always or never"
+      },
+      {
+        "flag": "--keep string",
+        "description": "prune: revisions to keep (default 3)"
+      },
+      {
+        "flag": "--replicas string",
+        "description": "scale: target replica count"
+      },
+      {
+        "flag": "--yes",
+        "description": "skip the confirmation prompt"
+      },
+      {
+        "flag": "--images",
+        "description": "rm/delete: also remove images"
+      },
+      {
+        "flag": "--volumes",
+        "description": "rm: also remove volumes"
+      },
+      {
+        "flag": "--to-revision string",
+        "description": "rollback: revision to return to"
+      },
+      {
+        "flag": "--skip-smoke",
+        "description": "bootstrap: skip the smoke container"
+      },
+      {
+        "flag": "--host string",
+        "description": "filter to one host"
+      },
+      {
+        "flag": "--container string",
+        "description": "filter to one container"
+      },
+      {
+        "flag": "--tail string",
+        "description": "logs: lines to show (default 200)"
+      },
+      {
+        "flag": "--follow",
+        "description": "logs: keep streaming new lines"
+      },
+      {
+        "flag": "--since string",
+        "description": "events: window to query (default 2h)"
+      },
+      {
+        "flag": "--port string",
+        "description": "ui: port to bind (default 8787)"
+      },
+      {
+        "flag": "--json",
+        "description": "emit machine-readable JSON"
+      },
+      {
+        "flag": "--timings",
+        "description": "print per-phase timings"
+      },
+      {
+        "flag": "--hosts string",
+        "description": "filter to a comma-separated host list"
+      },
+      {
+        "flag": "--via string",
+        "description": "ops transport: api or cli (default api)"
+      },
+      {
+        "flag": "--strict",
+        "description": "validate: require an explicit version"
+      },
+      {
+        "flag": "--allow-case-collision",
+        "description": "deploy v2: permit case-only duplicate units"
+      },
+      {
+        "flag": "--replica string",
+        "description": "flat verbs: select one replica"
+      },
+      {
+        "flag": "--revision string",
+        "description": "flat verbs: select one revision"
+      },
+      {
+        "flag": "--all-revisions",
+        "description": "flat verbs: include stopped revisions"
+      },
+      {
+        "flag": "--route",
+        "description": "rm: also remove the proxy route"
+      },
+      {
+        "flag": "--env",
+        "description": "rm: also remove the rendered env file"
+      },
+      {
+        "flag": "--all",
+        "description": "exec: run in every matching replica"
+      },
+      {
+        "flag": "--help, -h",
+        "description": "Show help information"
+      },
+      {
+        "flag": "--version, -v",
+        "description": "Show version information"
+      },
+      {
+        "flag": "--wizard",
+        "description": "Start wizard mode for a command"
+      },
+      {
+        "flag": "--completions <bash|zsh|fish|powershell|sh|pwsh>",
+        "description": "Print shell completion script (choices: bash, zsh, fish, powershell, sh, pwsh)"
+      },
+      {
+        "flag": "--log-level <all|trace|debug|info|warn|warning|error|fatal|none>",
+        "description": "Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none)"
+      }
+    ],
+    "example": "bundant events --since 2h"
+  }
+]

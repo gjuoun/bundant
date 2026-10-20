@@ -88,25 +88,39 @@ export type HowStep = {
 export const howSteps: HowStep[] = [
   {
     step: '01',
-    title: 'Describe the service',
-    body: 'One deploy.yml holds the image, hosts, env, health check and proxy host. Validate it locally with no network.',
+    title: 'Validate',
+    body: 'One deploy.yml holds the image, hosts, env, health check and proxy host. Validate parses it locally and never contacts a host.',
   },
   {
     step: '02',
-    title: 'Start the new revision',
-    body: 'bundant creates a fresh container beside the running one, on the same docker or podman network, unpublished.',
+    title: 'Deploy',
+    body: 'The new revision starts unpublished, passes a health gate, then kamal-proxy swaps its target set in one call and drains old connections.',
   },
   {
     step: '03',
-    title: 'Pass the health gate',
-    body: 'A short-lived probe container curls your health path. A failed gate stops the deploy before traffic moves.',
+    title: 'Status',
+    body: 'Expected and live replicas, revision and containers for every unit, straight from the host. --json for scripts.',
   },
   {
     step: '04',
-    title: 'Swap and keep the old one',
-    body: 'kamal-proxy switches the target set in one call and drains old connections. Previous revisions stay for rollback and prune.',
+    title: 'Rollback',
+    body: 'The previous revision is re-gated, or the exact one named by --to-revision, then swapped back. The old container was kept for exactly this.',
   },
 ];
+
+/** Real `bundant deploy --dry-run` output, printed before anything runs. */
+export const dryRunExcerpt = `bundant deploy plan (via api)
+  hello/web rev=59ceb8d runtime=podman
+hosts: replace-me.example.ts.net
+
+  1) [ssh] host prerequisites
+  2) [pull] POST /images/create
+  3) [network] POST /networks/create
+  4) [run] POST /containers/create
+  5) [health] probe -> GET /logs
+  6) [proxy-ensure] GET /kamal-proxy
+  7) [proxy-swap] kamal-proxy deploy
+  8) [stop-old] POST /stop?t=10`;
 
 export const installCommands = [
   { label: 'npm', command: 'npm i -g bundant' },
