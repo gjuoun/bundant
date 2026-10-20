@@ -12,6 +12,7 @@ import { belongsToService, serviceLabels } from "../naming.ts";
 import { revisionOf, type RevisionEntry } from "../revisions.ts";
 import { portGuardCommand, runtimeCheckCommands, type Runtime } from "../runtime.ts";
 import { PROXY_CONTAINER } from "../commands/proxy.ts";
+import { loadHostLayers } from "../transfer/layers.ts";
 import type { HealthGateOptions, ProxyDeployOptions, RuntimeOps } from "./types.ts";
 
 const containerSpecSchema = z.object({
@@ -95,6 +96,16 @@ export class ApiOps implements RuntimeOps {
   async pull(image: string): Promise<void> {
     this.steps.push("pull:" + image);
     await this.adapter.pull(image);
+  }
+
+  async imageLayers(): Promise<Set<string>> {
+    this.steps.push("image-layers");
+    return await loadHostLayers(this.adapter);
+  }
+
+  async loadImage(stream: NodeJS.ReadableStream): Promise<void> {
+    this.steps.push("image-load");
+    await this.adapter.loadImage(stream);
   }
 
   async ensureNetwork(): Promise<void> {

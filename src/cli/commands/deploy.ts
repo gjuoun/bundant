@@ -8,6 +8,10 @@ import { resolveRevision, sanitizeRevision } from "../../revision.ts";
 import { deploy as runDeploy } from "../../deploy.ts";
 import { recordData } from "../../agent/emit.ts";
 import { UsageError } from "../../agent/errors.ts";
+import { LocalExecutor } from "../../exec/local.ts";
+import { runtimeFor } from "../../runtime.ts";
+import { resolveLocalImage } from "../../transfer/transfer.ts";
+import type { TransferReport } from "../../transfer/transfer.ts";
 import { rootCommand } from "../root.ts";
 import { finish, loadedFor, opsVia, runPromise, value } from "./common.ts";
 
@@ -31,10 +35,32 @@ export const deploy = Command.make("deploy", {}, () =>
     const via = opsVia(g.via);
     if (via === null) return yield* finish(2);
     if (g["dry-run"]) {
-      const rendered =
-        via === "api" && localImage === undefined
-          ? renderApiPlan(plan, { envCount: loaded.envCount })
-          : renderPlan(plan);
+      let rendered: string;
+      if (via === "api") {
+        let layersTotal: number | undefined;
+        if (localImage !== undefined) {
+          layersTotal = yield* runPromise(async () => {
+            try {
+              const found = await resolveLocalImage(
+                localImage,
+                runtimeFor(loaded.config.runtime),
+                new LocalExecutor(),
+              );
+              return found.layers.length;
+            } catch {
+              return undefined; // image not built yet; the transport still shows
+            }
+          });
+        }
+        rendered = renderApiPlan(plan, {
+          envCount: loaded.envCount,
+          transfer: localImage === undefined
+            ? undefined
+            : { ref: localImage, layersTotal },
+        });
+      } else {
+        rendered = renderPlan(plan);
+      }
       if (g.json) recordData({ status: "dry-run", plan: rendered });
       else console.log(rendered);
       return yield* finish(0);
@@ -43,6 +69,7 @@ export const deploy = Command.make("deploy", {}, () =>
       throw new UsageError({ message: "--pull must be 'missing', 'always' or 'never'" });
     }
     const phases: Record<string, number> = {};
+    const reports: { host: string; report: TransferReport }[] = [];
     // CLI startup is part of the wall time an operator sees.
     phases.startup = performance.now();
     const started = performance.now();
@@ -56,6 +83,7 @@ export const deploy = Command.make("deploy", {}, () =>
           allowCaseCollision: g["allow-case-collision"],
           pullPolicy: g.pull as PullPolicy,
           phases,
+          onTransfer: (host, report) => reports.push({ host, report }),
         }),
       );
     } finally {
@@ -69,7 +97,12 @@ export const deploy = Command.make("deploy", {}, () =>
       // The external wall measurement is the denominator; no total row here."
     }
     if (g.json) {
-      recordData({ status: code === 0 ? "deployed" : "failed", phases, totalMs: Math.round(totalMs) });
+      recordData({
+        status: code === 0 ? "deployed" : "failed",
+        phases,
+        totalMs: Math.round(totalMs),
+        ...(reports.length > 0 ? { transfer: reports[0]!.report } : {}),
+      });
     }
     yield* finish(code);
   }),

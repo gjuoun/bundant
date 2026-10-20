@@ -43,6 +43,8 @@ export function renderPlan(plan: DeployPlan): string {
 export interface ApiPlanOptions {
   /** Values that go into the Env array (never printed). */
   envCount: number;
+  /** --local-image: the delta transport replaces the registry pull. */
+  transfer?: { ref: string; layersTotal?: number };
 }
 
 function labelsFor(plan: DeployPlan, replica: number): Record<string, string> {
@@ -94,8 +96,18 @@ export function renderApiPlan(plan: DeployPlan, opts: ApiPlanOptions): string {
     lines.push("host " + host + ":");
     let i = 1;
     lines.push("  " + i++ + ") [ssh] host prerequisites (systemd units, sysctl floor) - same as today");
-    if (m.localImage !== undefined) {
-      lines.push("  " + i++ + ") [cli] --local-image streaming still uses save|gzip|ssh|load (stage 4)");
+    if (m.localImage !== undefined && opts.transfer !== undefined) {
+      const count = opts.transfer.layersTotal === undefined
+        ? "layer count resolved at deploy time"
+        : opts.transfer.layersTotal + " layer(s) in the local image";
+      lines.push(
+        "  " + i++ + ") [delta] " + opts.transfer.ref +
+          " -> GET /images/json + per-image RootFS.Layers, then POST /images/load " +
+          "(OCI layout: every layer in the manifest, blobs only for layers the host lacks; " +
+          count + "; full save fallback when a blob is missing)",
+      );
+    } else if (m.localImage !== undefined) {
+      lines.push("  " + i++ + ") [cli] --local-image streaming still uses save|gzip|ssh|load");
     } else {
       lines.push("  " + i++ + ") [pull] POST /images/create" + pullQuery + " (progress stream drained)");
     }
