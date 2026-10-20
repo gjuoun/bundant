@@ -38,6 +38,12 @@ export interface DeltaStats {
 export interface DeltaArchive {
   /** Consume this with the engine's image load. */
   stream: Readable;
+  /**
+   * The exact tar length. Resolves after the save stream has been read and
+   * spooled (before the first output byte), so the load request can carry a
+   * Content-Length - docker 29 does not answer a chunked image load.
+   */
+  length: Promise<number>;
   /** Resolves after the stream ends; rejects when the archive is invalid. */
   result: Promise<DeltaStats>;
 }
@@ -279,19 +285,15 @@ class TarWriter {
   }
 
   private async write(buf: Buffer): Promise<void> {
+    if (this.out.destroyed) throw new Error("delta archive consumer closed");
     this.count.bytes += buf.length;
-    if (this.out.write(buf)) return;
+    // The write callback fires when the chunk is flushed (or fails). Unlike a
+    // drain listener it cannot hang if the consumer destroyed the stream.
     await new Promise<void>((resolve, reject) => {
-      const onDrain = (): void => {
-        this.out.off("error", onError);
-        resolve();
-      };
-      const onError = (err: Error): void => {
-        this.out.off("drain", onDrain);
-        reject(err);
-      };
-      this.out.once("drain", onDrain);
-      this.out.once("error", onError);
+      this.out.write(buf, (err) => {
+        if (err !== null && err !== undefined) reject(err);
+        else resolve();
+      });
     });
   }
 
@@ -429,6 +431,7 @@ async function assemble(
   input: NodeJS.ReadableStream,
   out: PassThrough,
   opts: DeltaBuildOptions,
+  lengthSignal: { resolve: (value: number) => void; reject: (err: Error) => void },
 ): Promise<DeltaStats> {
   const have = opts.have instanceof Set
     ? (opts.have as ReadonlySet<string>)
@@ -459,9 +462,6 @@ async function assemble(
         const record = await spoolLayer(body, dir, layerIndex++);
         record.kept = !have.has(record.diffId);
         layers.push(record);
-        if (record.kept) {
-          await writer.addFile("blobs/sha256/" + record.digest.slice(7), record.tempPath, record.size);
-        }
         return;
       }
 
@@ -536,15 +536,41 @@ async function assemble(
       ],
     };
 
+    const indexBytes = Buffer.from(JSON.stringify(index), "utf8");
+    const layoutBytes = Buffer.from(
+      JSON.stringify({ imageLayoutVersion: "1.0.0" }),
+      "utf8",
+    );
+    const keptLayers = layers.filter((layer) => layer.kept);
+    const padded = (n: number): number => n + (n % BLOCK === 0 ? 0 : BLOCK - (n % BLOCK));
+    let dataBytes = 0;
+    for (const layer of keptLayers) dataBytes += BLOCK + padded(layer.size);
+    for (const meta of [configBytes, manifestBytes, indexBytes, layoutBytes]) {
+      dataBytes += BLOCK + padded(meta.length);
+    }
+    const bodyBytes = dataBytes + BLOCK * 2;
+    const endPad = (20 * BLOCK - (bodyBytes % (20 * BLOCK))) % (20 * BLOCK);
+    const totalBytes = bodyBytes + endPad;
+    lengthSignal.resolve(totalBytes);
+
+    for (const layer of keptLayers) {
+      await writer.addFile(
+        "blobs/sha256/" + layer.digest.slice(7),
+        layer.tempPath,
+        layer.size,
+      );
+    }
     await writer.addBuffer("blobs/sha256/" + configDigest.slice(7), configBytes);
     await writer.addBuffer("blobs/sha256/" + manifestDigest.slice(7), manifestBytes);
-    await writer.addBuffer(
-      "index.json",
-      Buffer.from(JSON.stringify(index), "utf8"),
-    );
-    await writer.addBuffer("oci-layout", Buffer.from(JSON.stringify({ imageLayoutVersion: "1.0.0" }), "utf8"));
+    await writer.addBuffer("index.json", indexBytes);
+    await writer.addBuffer("oci-layout", layoutBytes);
     await writer.end();
     out.end();
+    if (counter.bytes !== totalBytes) {
+      throw new Error(
+        "delta archive: computed length " + totalBytes + " but wrote " + counter.bytes,
+      );
+    }
 
     const missing = ordered.filter((layer) => layer.kept).map((layer) => layer.diffId);
     return {
@@ -553,6 +579,9 @@ async function assemble(
       missingLayers: missing,
       bytesSent: counter.bytes,
     };
+  } catch (err) {
+    lengthSignal.reject(err instanceof Error ? err : new Error(String(err)));
+    throw err;
   } finally {
     await rm(dir, { recursive: true, force: true }).catch(() => undefined);
   }
@@ -566,10 +595,19 @@ export function buildOciDelta(
   // A consumer that aborts (load error) destroys the stream; keep that error
   // from becoming an unhandled emitter event - result still rejects.
   stream.on("error", () => undefined);
-  const result = assemble(input, stream, opts).catch((err: unknown) => {
-    if (!stream.destroyed) stream.destroy(err instanceof Error ? err : new Error(String(err)));
-    throw err;
+  let resolveLength: (value: number) => void = () => undefined;
+  let rejectLength: (err: Error) => void = () => undefined;
+  const length = new Promise<number>((resolve, reject) => {
+    resolveLength = resolve;
+    rejectLength = reject;
   });
-  return { stream, result };
+  const result = assemble(input, stream, opts, { resolve: resolveLength, reject: rejectLength })
+    .catch((err: unknown) => {
+      const error = err instanceof Error ? err : new Error(String(err));
+      if (!stream.destroyed) stream.destroy(error);
+      rejectLength(error);
+      throw error;
+    });
+  return { stream, length, result };
 }
 

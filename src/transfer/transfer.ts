@@ -5,29 +5,32 @@ import { runtimeFor, type Runtime } from "../runtime.ts";
 import type { Executor } from "../types.ts";
 import { LocalExecutor } from "../exec/local.ts";
 import { localLayers, missingLayers } from "./layers.ts";
-import { buildOciDelta } from "./oci.ts";
+import { buildOciDelta, type DeltaStats } from "./oci.ts";
 
 /**
  * `--local-image` over the engine API: send only the layers the host lacks as
  * an OCI-layout delta. If the engine cannot resolve an omitted blob, fall back
- * to the full save stream exactly once. The legacy `--via cli` pipeline never
- * enters this module.
+ * to the complete OCI archive exactly once. The legacy `--via cli` pipeline
+ * never enters this module.
  */
 
 export interface TransferReport {
   mode: "delta" | "full";
-  /** Bytes written to the load request (delta tar or full save stream). */
+  /** Bytes written to the load request (delta tar or complete OCI archive). */
   bytesSent: number;
   layersReused: number;
   layersTotal: number;
   missingLayers: number;
-  /** Why the full archive was sent, when mode is "full". */
+  /** Why the complete archive was sent, when mode is "full". */
   fallback?: string;
 }
 
 export interface TransferOps {
   imageLayers(): Promise<ReadonlySet<string> | readonly string[]>;
-  loadImage(stream: NodeJS.ReadableStream): Promise<void>;
+  loadImage(
+    stream: NodeJS.ReadableStream,
+    opts?: { contentLength?: number },
+  ): Promise<void>;
   /** Optional readiness probe: some engines acknowledge load before the tag is visible. */
   imagePresent?(ref: string): Promise<boolean>;
 }
@@ -135,13 +138,57 @@ export function countStream(source: Readable): CountedStream {
   return { stream: tap, bytes: () => sent };
 }
 
-/** A missing blob is the one engine error we retry with the full archive. */
+/** A missing blob is the one engine error we retry with the complete archive. */
 export function isMissingBlobError(err: unknown): boolean {
   const text = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
   if (text.includes("config references layer")) return true;
   const subject = /(blob|layer|content digest|digest)/.test(text);
   const absent = /(not ?found|missing|absent|no such)/.test(text);
   return subject && absent;
+}
+
+const EMPTY_STATS: DeltaStats = {
+  layersTotal: 0,
+  layersReused: 0,
+  missingLayers: [],
+  bytesSent: 0,
+};
+
+interface LoadResult {
+  stats: DeltaStats;
+  failure?: unknown;
+}
+
+/** One load attempt: build an OCI archive for `have`, stream it with its length. */
+async function loadArchive(
+  ops: TransferOps,
+  ref: string,
+  save: SaveStream,
+  have: ReadonlySet<string> | readonly string[],
+): Promise<LoadResult> {
+  console.error("LD start");
+  const built = buildOciDelta(save.stream, { have, ref });
+  try {
+    console.error("LD length wait");
+    const contentLength = await built.length;
+    console.error("LD length", contentLength);
+    await ops.loadImage(built.stream, { contentLength });
+    const stats = await built.result;
+    console.error("LD result", stats.bytesSent);
+    await save.done;
+    await waitForImage(ops, ref);
+    return { stats };
+  } catch (err) {
+    console.error("LD caught", err instanceof Error ? err.message : err);
+    const settled = built.result.catch(() => undefined);
+    built.length.catch(() => undefined);
+    built.stream.destroy(new Error("transfer aborted"));
+    save.stream.destroy();
+    await save.done.catch(() => undefined);
+    await settled;
+    console.error("LD settled");
+    return { stats: EMPTY_STATS, failure: err };
+  }
 }
 
 export async function transferLocalImage(
@@ -157,41 +204,28 @@ export async function transferLocalImage(
   const openSave =
     opts.openSave ?? ((image: string, localRt: Runtime) => spawnSaveStream(image, localRt));
 
-  const first = openSave(ref, resolved.rt);
-  const built = buildOciDelta(first.stream, { have: host, ref });
-  try {
-    await ops.loadImage(built.stream);
-    const stats = await built.result;
-    await first.done;
-    await waitForImage(ops, ref);
+  const first = await loadArchive(ops, ref, openSave(ref, resolved.rt), host);
+  if (first.failure === undefined) {
     return {
       mode: "delta",
-      bytesSent: stats.bytesSent,
-      layersReused: stats.layersReused,
-      layersTotal: stats.layersTotal,
-      missingLayers: stats.missingLayers.length,
-    };
-  } catch (err) {
-    const settled = built.result.catch(() => undefined);
-    built.stream.destroy();
-    first.stream.destroy();
-    await first.done.catch(() => undefined);
-    await settled;
-    if (!isMissingBlobError(err)) throw err;
-
-    // The host refused an omitted blob: send the complete archive once.
-    const full = openSave(ref, resolved.rt);
-    const counted = countStream(full.stream);
-    await ops.loadImage(counted.stream);
-    await full.done;
-    await waitForImage(ops, ref);
-    return {
-      mode: "full",
-      bytesSent: counted.bytes(),
-      layersReused: 0,
-      layersTotal: delta.total,
-      missingLayers: delta.total,
-      fallback: err instanceof Error ? err.message : String(err),
+      bytesSent: first.stats.bytesSent,
+      layersReused: first.stats.layersReused,
+      layersTotal: first.stats.layersTotal,
+      missingLayers: first.stats.missingLayers.length,
     };
   }
+  if (!isMissingBlobError(first.failure)) throw first.failure;
+
+  // The host refused an omitted blob: send every layer once, through the same
+  // builder (so the request still carries an exact Content-Length).
+  const full = await loadArchive(ops, ref, openSave(ref, resolved.rt), []);
+  if (full.failure !== undefined) throw full.failure;
+  return {
+    mode: "full",
+    bytesSent: full.stats.bytesSent,
+    layersReused: 0,
+    layersTotal: full.stats.layersTotal || delta.total,
+    missingLayers: full.stats.missingLayers.length || delta.total,
+    fallback: first.failure instanceof Error ? first.failure.message : String(first.failure),
+  };
 }

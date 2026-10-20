@@ -179,8 +179,16 @@ export class ApiClient {
     path: string,
     body: Readable,
     contentType: string,
+    contentLength?: number,
   ): Promise<Readable> {
-    const res = await rawBodyRequest(this.socketPath, method, path, body, contentType);
+    const res = await rawBodyRequest(
+      this.socketPath,
+      method,
+      path,
+      body,
+      contentType,
+      contentLength,
+    );
     if (res.status >= 400) {
       const buf = await readBody(res.stream as unknown as IncomingMessage);
       throw new ApiError(method, path, res.status, parseBody(buf, res.headers["content-type"]));
@@ -419,14 +427,18 @@ function rawBodyRequest(
   path: string,
   body: Readable,
   contentType: string,
+  contentLength?: number,
 ): Promise<{ status: number; headers: Record<string, string>; stream: Readable }> {
   return new Promise((resolve, reject) => {
     const socket = net.connect(socketPath);
+    const framing = contentLength === undefined
+      ? "Transfer-Encoding: chunked\r\n"
+      : "Content-Length: " + contentLength + "\r\n";
     const head =
       method + " " + path + " HTTP/1.1\r\n" +
       "Host: localhost\r\n" +
       "Content-Type: " + contentType + "\r\n" +
-      "Transfer-Encoding: chunked\r\n" +
+      framing +
       "Connection: close\r\n\r\n";
     let settled = false;
     let headerBuffer = Buffer.alloc(0);
@@ -491,14 +503,27 @@ function rawBodyRequest(
     void (async () => {
       try {
         await writeAll(socket, Buffer.from(head, "latin1"));
+        let written = 0;
         for await (const chunk of body) {
           const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array);
           if (buf.length === 0) continue;
-          await writeAll(socket, Buffer.from(buf.length.toString(16) + "\r\n", "latin1"));
-          await writeAll(socket, buf);
-          await writeAll(socket, Buffer.from("\r\n", "latin1"));
+          written += buf.length;
+          if (contentLength === undefined) {
+            await writeAll(socket, Buffer.from(buf.length.toString(16) + "\r\n", "latin1"));
+            await writeAll(socket, buf);
+            await writeAll(socket, Buffer.from("\r\n", "latin1"));
+          } else {
+            await writeAll(socket, buf);
+          }
         }
-        await writeAll(socket, Buffer.from("0\r\n\r\n", "latin1"));
+        if (contentLength !== undefined && written !== contentLength) {
+          throw new Error(
+            "stream body length mismatch: promised " + contentLength + " bytes, wrote " + written,
+          );
+        }
+        if (contentLength === undefined) {
+          await writeAll(socket, Buffer.from("0\r\n\r\n", "latin1"));
+        }
       } catch (err) {
         fail(err instanceof Error ? err : new Error(String(err)));
       }

@@ -100,7 +100,7 @@ export interface RuntimeAdapter {
   imageIds(): Promise<string[]>;
   /** One image's ordered layer diffIDs (GET /images/{ref}/json RootFS.Layers). */
   imageLayers(ref: string): Promise<string[]>;
-  loadImage(stream: NodeJS.ReadableStream): Promise<void>;
+  loadImage(stream: NodeJS.ReadableStream, opts?: { contentLength?: number }): Promise<void>;
   removeImage(ref: string): Promise<void>;
   /** Remove dangling image layers (the old `image prune -f`). */
   pruneImages(): Promise<void>;

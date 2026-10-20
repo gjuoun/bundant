@@ -93,7 +93,10 @@ export class LegacyOps implements RuntimeOps {
     return layers;
   }
 
-  async loadImage(_stream: NodeJS.ReadableStream): Promise<void> {
+  async loadImage(
+    _stream: NodeJS.ReadableStream,
+    _opts: { contentLength?: number } = {},
+  ): Promise<void> {
     throw new Error("image streaming needs the engine API; run with --via api");
   }
 

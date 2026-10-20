@@ -103,9 +103,12 @@ export class ApiOps implements RuntimeOps {
     return await loadHostLayers(this.adapter);
   }
 
-  async loadImage(stream: NodeJS.ReadableStream): Promise<void> {
+  async loadImage(
+    stream: NodeJS.ReadableStream,
+    opts: { contentLength?: number } = {},
+  ): Promise<void> {
     this.steps.push("image-load");
-    await this.adapter.loadImage(stream);
+    await this.adapter.loadImage(stream, opts);
   }
 
   async ensureNetwork(): Promise<void> {

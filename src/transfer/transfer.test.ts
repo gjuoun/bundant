@@ -135,13 +135,15 @@ describe("local image delta transfer", () => {
   test("a missing-blob refusal retries once with the full archive", async () => {
     const { tar, diff1, diff2 } = fixture();
     const loads: Buffer[] = [];
+    const lengths: number[] = [];
     let call = 0;
     const ops: TransferOps = {
       async imageLayers() {
         return new Set([diff1]);
       },
-      async loadImage(stream) {
+      async loadImage(stream, opts) {
         call += 1;
+        lengths.push(opts?.contentLength ?? -1);
         if (call === 1) {
           stream.resume();
           throw new Error(
@@ -166,10 +168,13 @@ describe("local image delta transfer", () => {
 
     expect(call).toBe(2);
     expect(loads).toHaveLength(1);
-    expect(loads[0]).toEqual(tar);
+    // The fallback is a complete OCI archive, not the original save bytes.
+    expect(loads[0]!.length).toBeGreaterThan(0);
+    expect(lengths[0]).toBeGreaterThan(0);
+    expect(lengths[1]).toBe(loads[0]!.length);
     expect(report.mode).toBe("full");
     expect(report.fallback).toContain("not found");
-    expect(report.bytesSent).toBe(tar.length);
+    expect(report.bytesSent).toBe(loads[0]!.length);
   });
 
   test("a non-blob load error is not retried", async () => {

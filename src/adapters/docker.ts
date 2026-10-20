@@ -102,12 +102,16 @@ export class DockerAdapter implements RuntimeAdapter {
    * the delta builder emits bytes as it decides, so its length is not known
    * up front. Both engine families accept a chunked load request.
    */
-  async loadImage(stream: NodeJS.ReadableStream): Promise<void> {
+  async loadImage(
+    stream: NodeJS.ReadableStream,
+    opts: { contentLength?: number } = {},
+  ): Promise<void> {
     const res = await this.client.requestBody(
       "POST",
       "/images/load",
       stream as unknown as Readable,
       "application/x-tar",
+      opts.contentLength,
     );
     // Both engines report load failures in the response body: docker keeps a
     // 200 and emits {"errorDetail":...,"error":"..."} records on the stream,
