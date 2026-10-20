@@ -1,0 +1,45 @@
+/* The screen keeps one fixed height at every breakpoint, so streaming
+   output scrolls inside it instead of moving the page. */
+.terminal-demo-screen {
+  height: 21rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+@media (min-width: 768px) {
+  .terminal-demo-screen {
+    height: 25rem;
+  }
+}
+
+.terminal-demo-screen::-webkit-scrollbar {
+  width: 8px;
+}
+
+.terminal-demo-screen::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+.terminal-demo-cursor {
+  display: inline-block;
+  width: 0.5rem;
+  height: 1.05em;
+  flex: none;
+  background: var(--primary);
+  animation: terminal-demo-blink 1.05s steps(1, end) infinite;
+}
+
+@keyframes terminal-demo-blink {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .terminal-demo-cursor {
+    animation: none;
+    opacity: 1;
+  }
+}
