@@ -10,6 +10,8 @@ export interface UnitContainer {
   state: string;
   revision: string;
   replica: number;
+  /** The deploy ran this image under qemu (bundant.emulated label). */
+  emulated?: boolean;
 }
 
 export interface Unit {
@@ -97,6 +99,7 @@ export function foldUnits(rows: Array<{ host: string; row: ContainerSummary }>):
       state: row.state,
       revision: identity.revision,
       replica: identity.replica,
+      ...(row.labels["bundant.emulated"] === "true" ? { emulated: true } : {}),
     });
     unit.created = Math.max(unit.created, row.created);
     units.set(key, unit);

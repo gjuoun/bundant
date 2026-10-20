@@ -23,6 +23,7 @@ export const status = Command.make(
         withFlatUnits(loaded, pattern, resolutionOptions(g), async (ctx) =>
           ctx.units.map((unit) => {
             const live = unit.containers.filter((c) => c.state === "running").length;
+            const emulated = unit.containers.some((c) => c.emulated === true);
             const identity = ServiceIdentity.from(loaded.config);
             const configPath = unitPath({
               group: identity.group,
@@ -39,6 +40,7 @@ export const status = Command.make(
               expected,
               live,
               containers: unit.containers.map((c) => c.name),
+              ...(emulated ? { emulated: true } : {}),
             };
           }),
         ),
@@ -49,6 +51,7 @@ export const status = Command.make(
         for (const unit of units) {
           console.log(
             unit.path + " rev=" + unit.revision + " live=" + unit.live + "/" + unit.expected +
+              (unit.emulated === true ? " (emulated)" : "") +
               " [" + unit.containers.join(", ") + "]",
           );
         }
