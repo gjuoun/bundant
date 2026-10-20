@@ -1,14 +1,15 @@
-# yaml-language-server: $schema=../../../schema/deploy.schema.json
+# yaml-language-server: $schema=../../../schema/v2/deploy.schema.json
 # Stateless group member; starts after db is ready (needs: [db] in group.yml).
+version: 2
 service: api
 image: traefik/whoami:v1.10
 hosts:
   - replace-me.example.ts.net
 env:
   vars:
-    # Container-to-container DNS on the shared `bundant` network: the accessory's
-    # container name IS the hostname.
-    DATABASE_HOST: db
+    # Container-to-container DNS on the shared `bundant` network: the accessory
+    # is named shop.db.
+    DATABASE_HOST: shop.db
     DATABASE_PORT: "5432"
 healthcheck:
   path: /

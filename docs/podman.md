@@ -5,8 +5,9 @@ Set `runtime: podman` and every emitted step switches binary — `podman pull`,
 --format docker-archive` for `--local-image`. No docker shim, no compatibility layer.
 
 ```yaml
+version: 2
 service: hello
-image: traefik/whoami:v1.10
+image: traefik/whoami:latest
 runtime: podman
 hosts: [box.example.com]
 proxy: { enabled: true, host: hello-podman.example.com, port: 80 }

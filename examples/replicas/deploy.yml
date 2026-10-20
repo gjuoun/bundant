@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../schema/deploy.schema.json
+# yaml-language-server: $schema=../../schema/v2/deploy.schema.json
 # bundant example: three copies of one service on one host.
 # traefik/whoami echoes its container hostname, so a loop of 9 requests shows
 # the three replicas in strict rotation:
@@ -6,8 +6,8 @@
 #   for i in $(seq 9); do curl -s -H "Host: echoes.bundant.test" http://HOST/; done
 #
 # replicas > 1 needs proxy.enabled: true — the proxy is what distributes the
-# requests. Use a fresh service name: service names are still global until
-# group-scoped naming lands.
+# requests.
+version: 2
 service: echoes
 image: traefik/whoami:v1.10
 role: web

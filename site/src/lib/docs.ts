@@ -30,7 +30,7 @@ export const docDescriptions: Record<string, string> = {
   'deploy-yml': 'Every field, env handling and revisions.',
   cli: 'The effect/cli command tree, shared flags and completions.',
   group: 'Namespaces, needs: ordering and accessory lifecycle.',
-  naming: 'v1 hyphen names, v2 dotted names and the migration.',
+  naming: 'Dotted container names, selectors and case collisions.',
   replicas: 'N copies on one host, scale, and the drain ordering invariant.',
   validation: 'Preflight, what is checked, and the --json shape.',
   monitoring: 'CLI plus local UI monitoring, and what it leaves out.',

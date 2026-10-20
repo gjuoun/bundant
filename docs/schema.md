@@ -1,23 +1,17 @@
 # Editor schema (JSON Schema)
 
-bundant validates configs at load time with versioned zod modules
-(`src/config/v1/`, dispatched by `src/config/registry.ts`). The same schemas are
-projected to **JSON Schema draft-07** under `schema/v<version>/`, so your editor
-can autocomplete field names and flag typos before you run the CLI.
+bundant validates configs at load time with the version 2 zod modules in
+`src/config/v2/`, dispatched by `src/config/registry.ts`. The same schemas are
+projected to **JSON Schema draft-07** under `schema/v2/`, so your editor can
+autocomplete field names and flag typos before you run the CLI.
 
 ```
 schema/
 ├── README.md
-├── v1/
-│   ├── deploy.schema.json       # deploy.yml (hyphen names)
-│   ├── accessory.schema.json    # accessory.yml
-│   └── group.schema.json        # group.yml
-├── v2/
-│   ├── deploy.schema.json       # deploy.yml (dotted names, wider charset)
-│   ├── accessory.schema.json    # accessory.yml
-│   └── group.schema.json        # group.yml
-├── deploy.schema.json           # stable v1 alias (existing examples)
-└── group.schema.json            # stable v1 alias (existing examples)
+└── v2/
+    ├── deploy.schema.json       # deploy.yml
+    ├── accessory.schema.json    # accessory.yml
+    └── group.schema.json        # group.yml
 ```
 
 ## Enable it in your editor
@@ -29,11 +23,11 @@ anything else built on `yaml-language-server`, understands it):
 # yaml-language-server: $schema=./schema/v2/deploy.schema.json
 version: 2
 service: Shop-Api
-image: traefik/whoami:v1.10
+image: traefik/whoami:latest
 ```
 
 Relative paths resolve against the YAML file, so an example two directories down
-writes `../../schema/v2/deploy.schema.json` (see `examples/v2/`). You get:
+writes `../../schema/v2/deploy.schema.json`. You get:
 
 - field name completion with the description from the zod schema
 - inline errors for unknown keys, bad `service`/`role`/`group` names, out-of-range
@@ -46,9 +40,9 @@ If you prefer not to touch the files, map them by glob in VS Code
 ```json
 {
   "yaml.schemas": {
-    "https://bundant.dev/schema/v1/deploy.schema.json": ["**/deploy.yml"],
-    "https://bundant.dev/schema/v1/accessory.schema.json": ["**/accessory.yml"],
-    "https://bundant.dev/schema/v1/group.schema.json": ["**/group.yml"]
+    "https://bundant.dev/schema/v2/deploy.schema.json": ["**/deploy.yml"],
+    "https://bundant.dev/schema/v2/accessory.schema.json": ["**/accessory.yml"],
+    "https://bundant.dev/schema/v2/group.schema.json": ["**/group.yml"]
   }
 }
 ```
@@ -58,14 +52,12 @@ If you prefer not to touch the files, map them by glob in VS Code
 They are generated, never hand-edited:
 
 ```sh
-bun run schema:gen      # rewrite schema/v<version>/*.json from the registry
+bun run schema:gen      # rewrite schema/v2/*.json from the registry
 bun run schema:check    # just the schema tests
 ```
 
-`src/schema.test.ts` fails when any registered version's checked-in files drift,
-when an example stops validating, or when a schema stops rejecting something zod
-rejects. The drift test iterates the registry, so a new version cannot ship
-without its `schema/v<version>/` directory.
+`src/schema.test.ts` fails when the checked-in files drift, when an example
+stops validating, or when a schema stops rejecting something zod rejects.
 
 ## Limits
 
@@ -76,5 +68,5 @@ they depend on more than one file or on the host:
 - a group member's `name` must equal its file's `service:`
 - `needs:` cycles, and dependencies that are not members of the group
 
-See [validation.md](validation.md#versions) for the version/support policy and
-[naming.md](naming.md) for the v1/v2 grammar.
+See [validation.md](validation.md#version-2) for the validation rules and
+[naming.md](naming.md#identifiers) for the composed-name grammar.

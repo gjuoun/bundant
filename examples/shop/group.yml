@@ -1,6 +1,7 @@
-# yaml-language-server: $schema=../../schema/group.schema.json
+# yaml-language-server: $schema=../../schema/v2/group.schema.json
 # bundant example: a group is a namespace. One repo per group, so its git sha is
 # the release id for the whole set.
+version: 2
 group: shop
 services:
   # db is an accessory: stateful, never recreated by a deploy. Boot it once with
