@@ -1,0 +1,95 @@
+---
+import Pagination from '@astrojs/starlight/components/Pagination.astro';
+import { withBase } from '@/lib/utils';
+
+const year = new Date().getFullYear();
+---
+
+<footer class="bf-footer">
+  <Pagination />
+
+  <div class="bf-footer-bar">
+    <div class="bf-footer-brand">
+      <span class="bf-mark">b</span>
+      <span>bundant — zero-downtime single-host deploys.</span>
+    </div>
+    <div class="bf-footer-links">
+      <a href={withBase('docs/')}>Docs</a>
+      <a href="https://github.com/gjuoun/bundant">GitHub</a>
+      <a href="https://github.com/gjuoun/bundant/blob/main/LICENSE">MIT License</a>
+      <span>{year}</span>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .bf-footer {
+    margin-top: 3rem;
+  }
+
+  .bf-footer-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-block: 1.75rem 0.5rem;
+    border-top: 1px solid #494848;
+    font-size: 0.8125rem;
+    color: #9c9a8f;
+  }
+
+  .bf-footer-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+  }
+
+  .bf-mark {
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 0.25rem;
+    background: #40c4ff;
+    color: #1f231f;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .bf-footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 1.25rem;
+  }
+
+  .bf-footer-links a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    color: #9c9a8f;
+    text-decoration: none;
+  }
+
+  .bf-footer-links a:hover {
+    color: #d9d9d4;
+  }
+
+  .bf-footer-links span {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+  }
+
+  @media (min-width: 40rem) {
+    .bf-footer-bar {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .bf-footer-links a {
+      min-height: 0;
+    }
+  }
+</style>

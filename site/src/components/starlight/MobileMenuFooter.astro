@@ -1,0 +1,58 @@
+---
+const base = import.meta.env.BASE_URL.replace(/\/+$/, '');
+const links = [
+  { href: base + '/#features', label: 'Features' },
+  { href: base + '/#how', label: 'How it works' },
+  { href: base + '/#commands', label: 'Commands' },
+  { href: base + '/docs/', label: 'Docs' },
+];
+---
+
+<div class="bf-mobile-nav">
+  <p class="bf-mobile-label">Site</p>
+  <nav aria-label="Site">
+    {links.map((link) => (
+      <a href={link.href}>{link.label}</a>
+    ))}
+    <a href="https://github.com/gjuoun/bundant" target="_blank" rel="noreferrer">GitHub</a>
+  </nav>
+</div>
+
+<style>
+  .bf-mobile-nav {
+    border-top: 1px solid #333333;
+    padding-block: 0.75rem 1rem;
+  }
+
+  .bf-mobile-label {
+    margin: 0 0 0.375rem;
+    padding-inline: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #9c9a8f;
+  }
+
+  nav {
+    display: grid;
+    gap: 0.125rem;
+  }
+
+  a {
+    display: flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding-inline: 0.75rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #9c9a8f;
+    text-decoration: none;
+  }
+
+  a:hover {
+    background: #2e332e;
+    color: #d9d9d4;
+  }
+</style>

@@ -1,12 +1,13 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
+import starlight from '@astrojs/starlight';
 import tailwindcss from '@tailwindcss/vite';
 
 const BASE = '/bundant';
 
 /**
- * Bigface theme for Shiki, derived from site/src/data/bigface.json.
+ * Bigface theme for Expressive Code / Shiki, derived from site/src/data/bigface.json.
  * Keywords blue, strings yellow, numbers burntOrange, comments #75715e,
  * functions lime, types cyan — no stock GitHub rainbow.
  */
@@ -57,7 +58,35 @@ export default defineConfig({
   site: 'https://gjuoun.github.io',
   base: BASE,
   trailingSlash: 'ignore',
-  integrations: [react()],
+  integrations: [
+    react(),
+    starlight({
+      title: 'bundant',
+      description: 'bundant documentation: deploy.yml, the CLI, groups, replicas, validation and monitoring.',
+      pagefind: true,
+      social: [],
+      sidebar: [{ label: 'Documentation', autogenerate: { directory: 'docs' } }],
+      tableOfContents: { minHeadingLevel: 2, maxHeadingLevel: 4 },
+      disable404Route: false,
+      customCss: ['./src/styles/starlight.css'],
+      components: {
+        Header: './src/components/starlight/Header.astro',
+        Footer: './src/components/starlight/Footer.astro',
+        ThemeSelect: './src/components/starlight/ThemeSelect.astro',
+        MobileMenuFooter: './src/components/starlight/MobileMenuFooter.astro',
+      },
+      expressiveCode: {
+        themes: [bigfaceTheme],
+        useStarlightDarkModeSwitch: false,
+        styleOverrides: {
+          borderRadius: '0.5rem',
+          codeBackground: '#2e332e',
+          borderColor: '#494848',
+          codeFontSize: '0.8125rem',
+        },
+      },
+    }),
+  ],
   markdown: {
     rehypePlugins: [rehypeDocLinks],
     shikiConfig: { theme: bigfaceTheme },
