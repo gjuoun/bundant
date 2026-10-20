@@ -1,0 +1,102 @@
+---
+import { Github, Menu, Moon, Sun } from 'lucide-react';
+import { withBase } from '@/lib/utils';
+
+const links = [
+  { href: withBase('#why'), label: 'Why' },
+  { href: withBase('#features'), label: 'Features' },
+  { href: withBase('#how'), label: 'How it works' },
+  { href: withBase('#commands'), label: 'Commands' },
+  { href: withBase('docs/'), label: 'Docs' },
+];
+---
+
+<header class="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
+  <div class="container-page flex h-16 items-center justify-between gap-4">
+    <a href={withBase('')} class="flex items-center gap-2.5" aria-label="bundant home">
+      <span class="grid size-8 place-items-center rounded-md bg-primary font-mono text-[15px] font-bold text-primary-foreground">b</span>
+      <span class="text-[0.9375rem] font-semibold tracking-tight">bundant</span>
+      <span class="hidden rounded border border-border px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground sm:inline">0.1.0</span>
+    </a>
+
+    <nav class="hidden items-center gap-1 md:flex" aria-label="Primary">
+      {links.map((link) => (
+        <a
+          href={link.href}
+          class="inline-flex h-11 items-center rounded-md px-3 text-[0.8125rem] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          {link.label}
+        </a>
+      ))}
+    </nav>
+
+    <div class="flex items-center gap-1">
+      <a
+        href="https://github.com/gjuoun/bundant"
+        target="_blank"
+        rel="noreferrer"
+        class="hidden h-11 items-center gap-2 rounded-lg border border-border px-3 text-[0.8125rem] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:inline-flex"
+      >
+        <Github className="size-4" />
+        <span>GitHub</span>
+      </a>
+      <button
+        id="theme-toggle"
+        type="button"
+        aria-label="Toggle color theme"
+        class="grid size-11 place-items-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        <Moon className="size-4 dark:hidden" />
+        <Sun className="hidden size-4 dark:block" />
+      </button>
+      <button
+        type="button"
+        aria-label="Open menu"
+        aria-expanded="false"
+        data-mobile-menu
+        class="grid size-11 place-items-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
+      >
+        <Menu className="size-4" />
+      </button>
+    </div>
+  </div>
+
+  <div id="mobile-menu" class="hidden border-t border-border bg-background md:hidden">
+    <nav class="container-page grid gap-1 py-3" aria-label="Mobile">
+      {links.map((link) => (
+        <a href={link.href} class="flex min-h-11 items-center rounded-md px-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
+          {link.label}
+        </a>
+      ))}
+      <a href="https://github.com/gjuoun/bundant" target="_blank" rel="noreferrer" class="flex min-h-11 items-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
+        <Github className="size-4" /> GitHub
+      </a>
+    </nav>
+  </div>
+</header>
+
+<script>
+  const toggle = document.getElementById('theme-toggle');
+  const root = document.documentElement;
+  toggle?.addEventListener('click', () => {
+    const dark = !root.classList.contains('dark');
+    root.classList.toggle('dark', dark);
+    root.style.colorScheme = dark ? 'dark' : 'light';
+    try {
+      localStorage.setItem('theme', dark ? 'dark' : 'light');
+    } catch {}
+  });
+
+  const menuButton = document.querySelector('[data-mobile-menu]');
+  const menu = document.getElementById('mobile-menu');
+  menuButton?.addEventListener('click', () => {
+    const open = menu?.classList.toggle('hidden') === false;
+    menuButton.setAttribute('aria-expanded', String(open));
+  });
+  menu?.querySelectorAll('a').forEach((a) =>
+    a.addEventListener('click', () => {
+      menu.classList.add('hidden');
+      menuButton?.setAttribute('aria-expanded', 'false');
+    }),
+  );
+</script>

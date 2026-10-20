@@ -1,0 +1,39 @@
+---
+import { Github } from 'lucide-react';
+import { buttonVariants } from '@/components/ui/button';
+import { withBase } from '@/lib/utils';
+
+const year = new Date().getFullYear();
+---
+
+<footer class="bg-background">
+  <div class="container-page">
+    <div class="grid gap-8 border-b border-border py-14 md:grid-cols-[1.2fr_0.8fr] md:items-end">
+      <div>
+        <p class="mono-label">Ready when your ssh is</p>
+        <h2 class="mt-3 max-w-lg text-2xl font-semibold tracking-tight sm:text-3xl">
+          Ship the next revision without touching the platform.
+        </h2>
+      </div>
+      <div class="grid gap-2.5 sm:flex sm:flex-wrap md:justify-end">
+        <a href={withBase('docs/deploy-yml/')} class={buttonVariants({ className: 'w-full sm:w-auto' })}>Read the docs</a>
+        <a href="https://github.com/gjuoun/bundant" target="_blank" rel="noreferrer" class={buttonVariants({ variant: 'outline', className: 'w-full sm:w-auto' })}>
+          <Github className="size-4" /> GitHub
+        </a>
+      </div>
+    </div>
+
+    <div class="flex flex-col gap-4 py-7 text-[0.8125rem] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex items-center gap-2.5">
+        <span class="grid size-6 place-items-center rounded bg-primary font-mono text-xs font-bold text-primary-foreground">b</span>
+        <span>bundant — zero-downtime single-host deploys.</span>
+      </div>
+      <div class="flex flex-wrap items-center gap-x-5 gap-y-2">
+        <a href={withBase('docs/')} class="inline-flex min-h-11 items-center hover:text-foreground sm:min-h-0">Docs</a>
+        <a href="https://github.com/gjuoun/bundant" class="inline-flex min-h-11 items-center hover:text-foreground sm:min-h-0">GitHub</a>
+        <a href="https://github.com/gjuoun/bundant/blob/main/LICENSE" class="inline-flex min-h-11 items-center hover:text-foreground sm:min-h-0">MIT License</a>
+        <span class="font-mono text-[11px] text-muted-foreground/70">{year}</span>
+      </div>
+    </div>
+  </div>
+</footer>

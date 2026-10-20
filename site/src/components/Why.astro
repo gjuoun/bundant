@@ -1,0 +1,29 @@
+---
+import { whyCards } from '@/lib/features';
+---
+
+<section id="why" class="border-b border-border py-16 md:py-24">
+  <div class="container-page">
+    <div class="max-w-2xl">
+      <p class="mono-label">Why bundant</p>
+      <h2 class="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
+        The platform is the overhead.
+      </h2>
+      <p class="mt-4 text-muted-foreground">
+        A single host already gives you a network, a proxy and a restart policy. bundant adds
+        the deploy discipline without asking you to run a cluster to get it.
+      </p>
+    </div>
+
+    <div class="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {whyCards.map((card, index) => (
+        <article class="rounded-xl border border-border bg-card p-6">
+          <span class="font-mono text-[11px] text-accent-foreground">{String(index + 1).padStart(2, '0')}</span>
+          <h3 class="mt-4 text-lg font-semibold tracking-tight">{card.title}</h3>
+          <p class="mt-2 text-[0.9375rem] font-medium text-foreground">{card.body}</p>
+          <p class="mt-3 text-sm leading-relaxed text-muted-foreground">{card.detail}</p>
+        </article>
+      ))}
+    </div>
+  </div>
+</section>

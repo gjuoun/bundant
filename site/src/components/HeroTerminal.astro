@@ -1,0 +1,48 @@
+---
+import { ArrowRight, Check, FileCode, GitBranch } from 'lucide-react';
+---
+
+<div class="overflow-hidden rounded-xl border border-border bg-card">
+  <div class="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
+    <div class="flex items-center gap-2 font-mono text-[11px] text-muted-foreground">
+      <FileCode className="size-3.5" />
+      deploy.yml
+    </div>
+    <span class="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+      the contract
+    </span>
+  </div>
+
+  <pre class="overflow-x-auto border-b border-border px-4 py-4 font-mono text-[11.5px] leading-6 text-muted-foreground"><code><span class="text-foreground">service</span>: hello
+<span class="text-foreground">image</span>: traefik/whoami:v1.10
+<span class="text-foreground">hosts</span>: [root@box.example.com]
+<span class="text-foreground">healthcheck</span>:
+  path: /
+<span class="text-foreground">proxy</span>:
+  host: hello.example.com</code></pre>
+
+  <div class="space-y-3 px-4 py-4">
+    <div class="flex items-center gap-2 font-mono text-[11.5px]">
+      <span class="text-accent-foreground">$</span>
+      <span class="text-foreground">bundant deploy -f deploy.yml</span>
+    </div>
+    <ul class="space-y-2.5 font-mono text-[11px]">
+      <li class="flex items-start gap-2 text-muted-foreground">
+        <Check className="mt-px size-3.5 shrink-0 text-primary" />
+        <span>revision <span class="text-foreground">hello-web-59ceb8d</span> started unpublished</span>
+      </li>
+      <li class="flex items-start gap-2 text-muted-foreground">
+        <Check className="mt-px size-3.5 shrink-0 text-primary" />
+        <span>health gate passed</span>
+      </li>
+      <li class="flex items-start gap-2 text-muted-foreground">
+        <ArrowRight className="mt-px size-3.5 shrink-0 text-primary" />
+        <span>proxy target set swapped in one call</span>
+      </li>
+      <li class="flex items-start gap-2 text-muted-foreground">
+        <GitBranch className="mt-px size-3.5 shrink-0 text-primary" />
+        <span>old revision kept for rollback</span>
+      </li>
+    </ul>
+  </div>
+</div>
