@@ -1,3 +1,4 @@
+import { dirname, join } from "node:path";
 import { openAdapter, type OpenedAdapter } from "../adapters/index.ts";
 import { defaultForwardDir, SshSocketForward } from "../adapters/transport.ts";
 import type { RuntimeAdapter } from "../adapters/types.ts";
@@ -12,6 +13,10 @@ export interface SessionForward {
   close(): Promise<void>;
 }
 
+export function defaultControlDir(): string {
+  return join(dirname(defaultForwardDir()), "ssh");
+}
+
 export type ForwardFactory = (
   connection: HostConnection,
   remoteSocket: string,
@@ -24,6 +29,10 @@ export interface HostSessionOptions {
   openAdapterFn?: typeof openAdapter;
   /** Test seam: replace the ssh executor. */
   executor?: SshExecutor;
+  /** Control socket directory (default ~/.cache/bundant/ssh). */
+  controlDir?: string;
+  /** Leave the master alive for ControlPersist (default false). */
+  persistControl?: boolean;
 }
 
 export class HostSession {
@@ -52,7 +61,15 @@ export class HostSession {
         };
       });
     this.openAdapterFn = opts.openAdapterFn ?? openAdapter;
-    this.ssh = opts.executor ?? new SshExecutor(connectOptionsFor(this.connection));
+    const controlDir = opts.controlDir ?? defaultControlDir();
+    this.ssh =
+      opts.executor ??
+      new SshExecutor({
+        ...connectOptionsFor(this.connection),
+        controlDir,
+        controlPersistSec: 60,
+        persist: opts.persistControl === true,
+      });
   }
 
   get executor(): SshExecutor {
@@ -116,6 +133,7 @@ export class HostSession {
   async open(engine: "docker" | "podman"): Promise<RuntimeAdapter> {
     const opened = await this.openAdapterFn(this.connection, engine, {
       cacheDir: this.forwardDir,
+      exec: this.ssh,
     });
     this.opened.push(opened);
     return opened.adapter;

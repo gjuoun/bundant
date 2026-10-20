@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { LocalExecutor } from "./local.ts";
-import { buildSshArgs, CONTROL_DIR } from "./ssh.ts";
+import { buildSshArgs, controlPath } from "./ssh.ts";
 
 describe("buildSshArgs", () => {
   test("multiplexing and safety options are always present", () => {
@@ -11,7 +11,7 @@ describe("buildSshArgs", () => {
     expect(args).toContain("BatchMode=yes");
     expect(args).toContain("StrictHostKeyChecking=accept-new");
     expect(args).toContain("ControlMaster=auto");
-    expect(args).toContain("ControlPath=" + CONTROL_DIR + "/cm-%r@%h-%p");
+    expect(args).toContain("ControlPath=" + controlPath({ target: "box.ts.net" }));
     expect(args).toContain("ControlPersist=60");
   });
 

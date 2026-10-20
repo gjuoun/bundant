@@ -88,6 +88,10 @@ export class ApiOps implements RuntimeOps {
     this.steps.push("env:" + count);
   }
 
+  async imagePresent(image: string): Promise<boolean> {
+    return await this.adapter.imagePresent(image);
+  }
+
   async pull(image: string): Promise<void> {
     this.steps.push("pull:" + image);
     await this.adapter.pull(image);
@@ -192,7 +196,7 @@ export class ApiOps implements RuntimeOps {
       const until = Date.now() + 5000;
       let info = await this.adapter.inspect(id);
       while (info.state.running && Date.now() < until) {
-        await sleep(100);
+        await sleep(25);
         info = await this.adapter.inspect(id);
       }
       let body = "";
@@ -354,7 +358,7 @@ export class ApiOps implements RuntimeOps {
       const until = Date.now() + 5000;
       let info = await this.adapter.inspect(id);
       while (info.state.running && Date.now() < until) {
-        await sleep(100);
+        await sleep(25);
         info = await this.adapter.inspect(id);
       }
       return info.state.exitCode;

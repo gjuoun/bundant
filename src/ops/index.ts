@@ -6,7 +6,13 @@ import { ApiOps } from "./adapter.ts";
 import { LegacyOps } from "./legacy.ts";
 import type { OpsVia, RuntimeOps } from "./types.ts";
 
-export type { HealthGateOptions, OpsVia, ProxyDeployOptions, RuntimeOps } from "./types.ts";
+export type {
+  HealthGateOptions,
+  OpsVia,
+  ProxyDeployOptions,
+  PullPolicy,
+  RuntimeOps,
+} from "./types.ts";
 export { ApiOps } from "./adapter.ts";
 export { LegacyOps } from "./legacy.ts";
 
@@ -26,7 +32,7 @@ export async function openOps(
   opts: OpenOpsOptions = {},
 ): Promise<RuntimeOps> {
   const rt = runtimeFor(config.runtime);
-  const session = new HostSession(connection);
+  const session = new HostSession(connection, { persistControl: true });
   if (via === "cli") {
     return new LegacyOps(session.executor, rt, {
       envRemotePath: opts.envRemotePath,

@@ -5,6 +5,7 @@ import { ApiClient } from "./api.ts";
 import {
   detectRuntime,
   formatCandidates,
+  parseEngineVersion,
   socketCandidates,
   type RuntimeDetection,
   type SocketProbe,
@@ -58,6 +59,8 @@ export function enableSocketHint(
 export interface OpenAdapterOptions {
   /** Forward-socket directory (defaults to the profile cache dir). */
   cacheDir?: string;
+  /** Reuse an existing ssh executor (shares its ControlMaster). */
+  exec?: SshExecutor;
 }
 
 export interface OpenedAdapter {
@@ -139,7 +142,64 @@ export async function openAdapter(
   opts: OpenAdapterOptions = {},
 ): Promise<OpenedAdapter> {
   const localDir = opts.cacheDir ?? defaultForwardDir();
-  const exec = new SshExecutor(connectOptionsFor(connection));
+  const exec = opts.exec ?? new SshExecutor(connectOptionsFor(connection));
+
+  // Fast path: deploy.yml already says which engine this host runs. Try its
+  // canonical socket once and reuse that same forward for the adapter, instead
+  // of probing every candidate and opening a second forward.
+  const preferred =
+    expected === "docker" ? "/var/run/docker.sock" : "/run/podman/podman.sock";
+  {
+    const forward = new SshSocketForward({
+      connection,
+      remoteSocket: preferred,
+      localDir,
+      startTimeoutMs: 1_500,
+    });
+    try {
+      await forward.start();
+      const client = await ApiClient.create({ socketPath: forward.localSocket });
+      try {
+        const res = await client.request("GET", "/version");
+        const payload = parseOrDrift(versionSchema, res.json, {
+          engine: expected,
+          method: "GET",
+          path: "/version",
+        });
+        const engine = parseEngineVersion(payload);
+        if (engine.kind === expected) {
+          const detection: RuntimeDetection = {
+            found: true,
+            kind: engine.kind,
+            engineVersion: engine.version,
+            apiVersion: engine.apiVersion,
+            socketPath: preferred,
+            state: "active",
+            candidates: [{ socketPath: preferred, state: "active", engine }],
+          };
+          const adapter: RuntimeAdapter =
+            engine.kind === "podman"
+              ? new PodmanAdapter(client, engine.version, engine.apiVersion)
+              : new DockerAdapter(client, engine.version, engine.apiVersion);
+          return {
+            adapter,
+            detection,
+            client,
+            forward,
+            close: async () => {
+              await client.close();
+              await forward.close();
+            },
+          };
+        }
+      } finally {
+        await client.close();
+      }
+    } catch {
+      // fall back to the full candidate probe below
+    }
+    await forward.close();
+  }
 
   const uidResult = await exec.run("id -u");
   if (uidResult.code !== 0) {

@@ -11,7 +11,7 @@ import type { BundantConfig, LoadedConfig } from "../config.ts";
 import { buildDeployPlan } from "../planner.ts";
 import { runtimeFor } from "../runtime.ts";
 import type { Executor } from "../types.ts";
-import { deployOnHost } from "../deploy.ts";
+import { deployOnHost, pullForPolicy } from "../deploy.ts";
 import { ApiOps } from "./adapter.ts";
 import { LegacyOps } from "./legacy.ts";
 
@@ -68,7 +68,12 @@ class FakeAdapter implements RuntimeAdapter {
   probeBody = "200";
   /** Containers the host already has (case-collision guard tests). */
   existing: ContainerSummary[] = [];
+  /** Whether the image is already present (pull-policy tests). */
+  imageAvailable = false;
 
+  async imagePresent(): Promise<boolean> {
+    return this.imageAvailable;
+  }
   async pull(ref: string): Promise<void> {
     this.steps.push("pull:" + ref);
   }
@@ -171,6 +176,7 @@ describe("RuntimeOps equivalence", () => {
     const config = cfg();
     const plan = buildDeployPlan(config, "abc1234");
     const adapter = new FakeAdapter();
+    adapter.imageAvailable = true;
     const { legacy, api } = opsPair(adapter);
 
     await deployOnHost(legacy, plan, loadedFor(config), { host: "box.test" });
@@ -179,9 +185,7 @@ describe("RuntimeOps equivalence", () => {
     expect(api.steps).toEqual(legacy.steps);
     expect(legacy.steps).toEqual([
       "prereqs",
-      "pull:traefik/whoami:v1.10",
       "network",
-      "remove:hello-web-abc1234",
       "create:hello-web-abc1234",
       "start:hello-web-abc1234",
       "health:hello-web-abc1234",
@@ -204,6 +208,35 @@ describe("RuntimeOps equivalence", () => {
     expect(exec.commands.some((c) => c.includes("putFile"))).toBe(false);
     expect(adapter.steps).not.toContain("env:1");
   });
+});
+
+describe("pull policy", () => {
+  const table: Array<{
+    present: boolean;
+    policy: "missing" | "always" | "never";
+    pulls: number;
+    error: boolean;
+  }> = [
+    { present: true, policy: "missing", pulls: 0, error: false },
+    { present: true, policy: "always", pulls: 1, error: false },
+    { present: true, policy: "never", pulls: 0, error: false },
+    { present: false, policy: "missing", pulls: 1, error: false },
+    { present: false, policy: "always", pulls: 1, error: false },
+    { present: false, policy: "never", pulls: 0, error: true },
+  ];
+
+  for (const row of table) {
+    test("present=" + row.present + " policy=" + row.policy, async () => {
+      const adapter = new FakeAdapter();
+      adapter.imageAvailable = row.present;
+      if (row.error) {
+        await expect(pullForPolicy(adapter, "x:1", row.policy)).rejects.toThrow(/--pull never/);
+      } else {
+        await pullForPolicy(adapter, "x:1", row.policy);
+      }
+      expect(adapter.steps.filter((s) => s.startsWith("pull:")).length).toBe(row.pulls);
+    });
+  }
 });
 
 describe("case-collision guard on the real deploy path", () => {
@@ -273,9 +306,9 @@ describe("zero-downtime contract on the ops layer", () => {
     await expect(deployOnHost(ops, plan, loadedFor(config), { host: "box.test" })).rejects.toThrow(
       /health gate failed/,
     );
-    // Once before create (rm -f) and once by the failure cleanup: a single
-    // removal would mean the cleanup loop never ran.
-    expect(adapter.removed.filter((n) => n === "hello-web-abc1234")).toHaveLength(2);
+    // A new revision skips the pre-create rm; exactly one removal proves the
+    // failure cleanup ran.
+    expect(adapter.removed.filter((n) => n === "hello-web-abc1234")).toHaveLength(1);
     expect(adapter.execCalls).toHaveLength(0);
   });
 

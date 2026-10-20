@@ -94,6 +94,8 @@ export interface RuntimeAdapter {
   readonly apiVersion: string;
   // images
   pull(ref: string): Promise<void>;
+  /** True when the image ref is present locally (GET /images/{ref}/json). */
+  imagePresent(ref: string): Promise<boolean>;
   loadImage(stream: NodeJS.ReadableStream): Promise<void>;
   removeImage(ref: string): Promise<void>;
   /** Remove dangling image layers (the old `image prune -f`). */

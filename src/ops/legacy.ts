@@ -57,6 +57,13 @@ export class LegacyOps implements RuntimeOps {
     await this.exec.putFile(localFile, remotePath, "600");
   }
 
+  async imagePresent(image: string): Promise<boolean> {
+    const r = await this.exec.run(
+      this.rt.bin + " image inspect " + image + " >/dev/null 2>&1",
+    );
+    return r.code === 0;
+  }
+
   async pull(image: string): Promise<void> {
     this.steps.push("pull:" + image);
     await this.run("pull", docker.pull(this.rt, image));
