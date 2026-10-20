@@ -15,6 +15,7 @@
  * and /docs/design/ must be gone.
  */
 import { access, readdir, readFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { dirname, extname, join, resolve } from 'node:path';
@@ -234,6 +235,14 @@ async function main() {
   }
 
   await checkMermaidRuntime();
+
+  // No colour may exist in the site that is not in the vendored palette.
+  const audit = spawnSync(process.execPath, [join(repoRoot, 'scripts', 'hex-audit.mjs'), repoRoot], {
+    encoding: 'utf8',
+  });
+  if (audit.status !== 0) {
+    failures.push('hex-audit: ' + ((audit.stderr || '').trim().split('\n')[0] || 'off-palette colour'));
+  }
 
   if (failures.length) {
     console.error('\n' + failures.map((failure) => 'FAIL ' + failure).join('\n'));
