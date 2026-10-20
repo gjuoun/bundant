@@ -1,5 +1,5 @@
-import { ConfigError as LegacyConfigError } from "../config/errors.ts";
-import { ConfigVersionError as LegacyConfigVersionError } from "../config/registry.ts";
+import { ConfigError as PlainConfigError } from "../config/errors.ts";
+import { ConfigVersionError as PlainConfigVersionError } from "../config/registry.ts";
 import { PreflightError } from "../validation.ts";
 import { LockHeldError } from "../lock.ts";
 import { HealthGateError } from "../health.ts";
@@ -7,7 +7,7 @@ import { ApiError } from "../adapters/api.ts";
 import { ApiSchemaDriftError } from "../adapters/schemas/drift.ts";
 import { DetectionError } from "../adapters/detect.ts";
 import { NoRuntimeSocketError } from "../adapters/index.ts";
-import { NoMatchError as LegacyNoMatchError, SelectorError } from "../select/selector.ts";
+import { NoMatchError as PlainNoMatchError, SelectorError } from "../select/selector.ts";
 import { RevisionNotFoundError } from "../revisions.ts";
 import { GroupError } from "../group.ts";
 import { AccessoryError } from "../accessory.ts";
@@ -61,10 +61,10 @@ export function toAppError(error: unknown): AppError {
   if (isTagged(error)) return error;
   const message = error instanceof Error ? error.message : String(error);
 
-  if (error instanceof LegacyConfigVersionError) {
+  if (error instanceof PlainConfigVersionError) {
     return new ConfigVersionError({ message });
   }
-  if (error instanceof LegacyConfigError) {
+  if (error instanceof PlainConfigError) {
     return new ConfigError({ message });
   }
   if (error instanceof PreflightError) {
@@ -73,7 +73,7 @@ export function toAppError(error: unknown): AppError {
   if (error instanceof SelectorError) {
     return new UsageError({ message });
   }
-  if (error instanceof LegacyNoMatchError) {
+  if (error instanceof PlainNoMatchError) {
     return new NoMatchError({ message, pattern: error.pattern });
   }
   if (error instanceof LockHeldError) {

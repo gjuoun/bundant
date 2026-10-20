@@ -45,7 +45,6 @@ function sleep(ms: number): Promise<void> {
  * facts the API cannot express (systemd units, sysctls) stay on ssh.
  */
 export class ApiOps implements RuntimeOps {
-  readonly via = "api" as const;
   readonly steps: string[] = [];
   private readonly adapter: RuntimeAdapter;
   private readonly exec: Executor;
@@ -82,7 +81,7 @@ export class ApiOps implements RuntimeOps {
     for (const cmd of cmds) await this.hostRun("host prereq", cmd);
   }
 
-  async putEnv(_localFile: string | null, remotePath: string | undefined, count: number): Promise<void> {
+  async putEnv(remotePath: string | undefined, count: number): Promise<void> {
     // No remote env file: ContainerSpec.env carries the values, so there is
     // nothing to write (and nothing for delete to clean up any more).
     if (remotePath === undefined) return;

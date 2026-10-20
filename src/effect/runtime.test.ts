@@ -3,7 +3,7 @@ import { Effect, Exit, Fiber, Layer, Schedule } from "effect";
 import { z } from "zod";
 import { TestClock } from "effect/testing";
 import { ApiSchemaDriftError } from "../adapters/schemas/drift.ts";
-import { ConfigError as LegacyConfigError } from "../config/errors.ts";
+import { ConfigError as PlainConfigError } from "../config/errors.ts";
 import { LockHeldError } from "../lock.ts";
 import {
   ConfigError,
@@ -55,15 +55,15 @@ describe("runMain", () => {
     expect(built).toBe(1);
   });
 
-  test("legacy ConfigError and LockHeldError become their typed cases", async () => {
-    expect(toAppError(new LegacyConfigError("invalid"))._tag).toBe("ConfigError");
-    const legacyLock = new LockHeldError("api", "owner", 5);
-    expect(toAppError(legacyLock)._tag).toBe("LockError");
+  test("plain ConfigError and LockHeldError become their typed cases", async () => {
+    expect(toAppError(new PlainConfigError("invalid"))._tag).toBe("ConfigError");
+    const plainLock = new LockHeldError("api", "owner", 5);
+    expect(toAppError(plainLock)._tag).toBe("LockError");
     const result = await capture(() =>
-      runMain(Effect.fail(toAppError(legacyLock))),
+      runMain(Effect.fail(toAppError(plainLock))),
     );
     expect(result.code).toBe(2);
-    expect(result.lines[0]).toContain(legacyLock.message);
+    expect(result.lines[0]).toContain(plainLock.message);
   });
 
   test("adapter drift becomes ApiDriftError with the same wording", () => {

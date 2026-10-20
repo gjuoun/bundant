@@ -3,7 +3,7 @@ import { Argument, Command } from "effect/cli";
 import { monitorFor } from "../../monitor.ts";
 import { UsageError } from "../../agent/errors.ts";
 import { rootCommand } from "../root.ts";
-import { finish, opsVia, runPromise } from "./common.ts";
+import { finish, runPromise } from "./common.ts";
 import { flatLoadedFor, opsFor, resolutionOptions, selectorFor, withFlatUnits } from "./flat-common.ts";
 
 export const logs = Command.make(
@@ -16,8 +16,6 @@ export const logs = Command.make(
       if (!Number.isInteger(tail) || tail <= 0) {
         throw new UsageError({ message: "--tail must be a positive integer" });
       }
-      const via = opsVia(g.via);
-      if (via === null) return yield* finish(2);
       const loaded = yield* runPromise(async () => flatLoadedFor(g));
       const pattern = selectorFor(g, loaded, path._tag === "Some" ? path.value : undefined);
       if (g.follow) {
@@ -29,7 +27,7 @@ export const logs = Command.make(
         process.once("SIGTERM", onSignal);
         try {
           const code = yield* runPromise(() =>
-            withFlatUnits(loaded, via, pattern, resolutionOptions(g), async (ctx) => {
+            withFlatUnits(loaded, pattern, resolutionOptions(g), async (ctx) => {
               const first = ctx.units[0]?.containers[0];
               if (first === undefined) return 1;
               return await monitor.followLogs({
@@ -49,7 +47,7 @@ export const logs = Command.make(
       }
       const entries: { host: string; container: string; lines: string[] }[] = [];
       yield* runPromise(() =>
-        withFlatUnits(loaded, via, pattern, resolutionOptions(g), async (ctx) => {
+        withFlatUnits(loaded, pattern, resolutionOptions(g), async (ctx) => {
           for (const unit of ctx.units) {
             for (const container of unit.containers) {
               const text = await opsFor(ctx, container.host).logs(container.name, tail);

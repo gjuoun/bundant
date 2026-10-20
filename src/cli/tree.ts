@@ -13,7 +13,6 @@ import { scale } from "./commands/scale.ts";
 import { prune } from "./commands/prune.ts";
 import { del } from "./commands/delete.ts";
 import { group } from "./commands/group.ts";
-import { accessory } from "./commands/accessory.ts";
 import { bootstrap } from "./commands/bootstrap.ts";
 import { runtime } from "./commands/runtime.ts";
 import { ui } from "./commands/ui.ts";
@@ -41,7 +40,6 @@ export const command = rootCommand.pipe(
     del,
     prune,
     group,
-    accessory,
     bootstrap,
     runtime,
     ui,

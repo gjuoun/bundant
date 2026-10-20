@@ -10,7 +10,7 @@ import { buildOciDelta, type DeltaStats } from "./oci.ts";
 /**
  * `--local-image` over the engine API: send only the layers the host lacks as
  * an OCI-layout delta. If the engine cannot resolve an omitted blob, fall back
- * to the complete OCI archive exactly once. The legacy `--via cli` pipeline
+ * to the complete OCI archive exactly once. The full-archive pipeline
  * never enters this module.
  */
 

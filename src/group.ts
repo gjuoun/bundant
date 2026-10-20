@@ -12,7 +12,7 @@ import { rollback } from "./rollback.ts";
 import { runtimeFor } from "./runtime.ts";
 import { status as serviceStatus } from "./status.ts";
 import { accessoryContainerName, serviceLabels } from "./naming.ts";
-import { openOps, type OpsVia } from "./ops/index.ts";
+import { openOps } from "./ops/index.ts";
 import { assertGroupPreflight } from "./validation.ts";
 import { UsageError } from "./agent/errors.ts";
 
@@ -73,8 +73,6 @@ export interface GroupRunOptions {
   toRevision?: string;
   /** install: testing hook for the revision id. */
   rev?: string;
-  /** Mutations through the engine API (default) or the legacy CLI strings. */
-  via?: OpsVia;
 }
 
 export function memberLabels(group: string, name: string): Record<string, string> {
@@ -101,7 +99,6 @@ export class GroupRunner {
   /** install: group lock once, then accessory verification + ordered service deploys. */
   async install(opts: GroupRunOptions): Promise<number> {
     assertGroupPreflight(this.loaded);
-    const via: OpsVia = opts.via ?? "api";
     const order = topoSortMembers(this.loaded.members);
     const revision = opts.rev
       ? sanitizeRevision(opts.rev)
@@ -115,7 +112,7 @@ export class GroupRunner {
       for (const m of order) {
         if (isAccessory(m)) {
           console.log("  [accessory] verify " + m.name + " is ready (" + this.probeLabel(m) + ")");
-          console.log("     if absent: bundant accessory boot -f " + m.file);
+          console.log("     if absent: bundant start -f " + m.file);
         } else {
           console.log("");
           console.log(renderPlan(buildDeployPlan(m.loaded.config, revision)));
@@ -135,10 +132,10 @@ export class GroupRunner {
 
       for (const m of order) {
         if (isAccessory(m)) {
-          if (!(await this.accessoryReady(m, via))) {
+          if (!(await this.accessoryReady(m, ))) {
             console.error(
               "bundant: accessory '" + m.name + "' is not ready - start it first:\n" +
-                "  bundant accessory boot -f " + m.file,
+                "  bundant start -f " + m.file,
             );
             failed = m.name;
             break;
@@ -146,7 +143,7 @@ export class GroupRunner {
           applied.push(m.name);
           continue;
         }
-        const rc = await deploy(buildDeployPlan(m.loaded.config, revision), m.loaded, { via });
+        const rc = await deploy(buildDeployPlan(m.loaded.config, revision), m.loaded, {});
         if (rc !== 0) {
           failed = m.name;
           break;
@@ -170,7 +167,6 @@ export class GroupRunner {
   /** uninstall: labelled sweep over service members; accessories are never selected. */
   async uninstall(opts: GroupRunOptions): Promise<number> {
     assertGroupPreflight(this.loaded);
-    const via: OpsVia = opts.via ?? "api";
     const members = this.loaded.members.filter((m) => !isAccessory(m));
     console.log(
       "bundant group uninstall - " + this.loaded.group + " (accessories untouched: " +
@@ -196,7 +192,6 @@ export class GroupRunner {
         yes: opts.yes,
         images: false,
         dryRun: false,
-        via,
       });
       if (rc !== 0) return rc;
     }
@@ -225,11 +220,9 @@ export class GroupRunner {
     assertGroupPreflight(this.loaded);
     if (opts.toRevision === undefined || opts.toRevision === "") {
       throw new UsageError({ message: "group rollback needs --to-revision <sha>" });
-    }
-    const via: OpsVia = opts.via ?? "api";
-    const plan = groupRollbackPlan(this.loaded.members, opts.toRevision);
+    }    const plan = groupRollbackPlan(this.loaded.members, opts.toRevision);
     for (const { member, revision } of plan) {
-      const rc = await rollback(member.loaded, { toRevision: revision, via });
+      const rc = await rollback(member.loaded, { toRevision: revision });
       if (rc !== 0) return rc;
     }
     return 0;
@@ -241,11 +234,11 @@ export class GroupRunner {
   }
 
   /** Accessory readiness: container present and its declared TCP probe answers. */
-  private async accessoryReady(member: GroupMember, via: OpsVia): Promise<boolean> {
+  private async accessoryReady(member: GroupMember, ): Promise<boolean> {
     const config = member.loaded.config;
     const name = accessoryContainerName(config);
     for (const host of hostTargets(config)) {
-      const ops = await openOps(via, connectionForTarget(config, host), config);
+      const ops = await openOps(connectionForTarget(config, host), config);
       try {
         const rows = await ops.listContainers({ all: true, namePrefix: name });
         if (!rows.some((row) => row.name === name)) {

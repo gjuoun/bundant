@@ -62,7 +62,7 @@ const redactedEnv = (count: number): string =>
   count === 0 ? "[]" : "<" + count + " value(s) redacted>";
 
 /**
- * Dry-run for \`--via api\`: the complete engine-API call plan, not shell
+ * Dry-run: the complete engine-API call plan, not shell
  * strings. Nothing is sent; env values are rendered as a redacted count. The
  * two ssh-level steps that remain are shown as such (lock and runtime checks).
  */
@@ -70,7 +70,7 @@ export function renderApiPlan(plan: DeployPlan, opts: ApiPlanOptions): string {
   const m = plan.meta;
   const lines: string[] = [];
   lines.push(
-    "bundant deploy plan (via api) - " + m.service + "/" + m.role + " rev=" + m.revision +
+    "bundant deploy plan - " + m.service + "/" + m.role + " rev=" + m.revision +
     " runtime=" + m.runtime + " image=" + m.image,
   );
   lines.push(

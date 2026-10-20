@@ -3,7 +3,7 @@ import { Command } from "effect/cli";
 import { loadGroup } from "../../config.ts";
 import { GroupRunner } from "../../group.ts";
 import { rootCommand } from "../root.ts";
-import { finish, opsVia, runPromise, value } from "./common.ts";
+import { finish, runPromise, value } from "./common.ts";
 
 type Action = "install" | "uninstall" | "status" | "rollback";
 export const GROUP_DEFAULT_ACTION: Action = "install";
@@ -18,18 +18,14 @@ function actionCommand(action: Action) {
       );
       const runner = new GroupRunner(loadedGroup);
       if (action === "status") {
-        console.error("deprecated: use bundant " + GROUP_STATUS_ALIAS);
         yield* finish(yield* runPromise(() => runner.status()));
         return;
       }
-      const via = opsVia(g.via);
-      if (via === null) return yield* finish(2);
       const opts = {
         dryRun: g["dry-run"],
         yes: g.yes,
         toRevision: value(g["to-revision"]),
         rev: value(g.rev),
-        via,
       };
       const code =
         action === "install"
@@ -48,15 +44,12 @@ export const group = Command.make("group", {}, () =>
     const loadedGroup = yield* runPromise(async () =>
       loadGroup(value(g.file) ?? "group.yml"),
     );
-    const via = opsVia(g.via);
-    if (via === null) return yield* finish(2);
     const runner = new GroupRunner(loadedGroup);
     const code = yield* runPromise(() =>
       runner.install({
         dryRun: g["dry-run"],
         yes: g.yes,
         rev: value(g.rev),
-        via,
       }),
     );
     yield* finish(code);

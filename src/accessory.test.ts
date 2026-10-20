@@ -5,6 +5,7 @@ import { runtimeFor } from "./runtime.ts";
 
 function cfg(over: Partial<BundantConfig> = {}): BundantConfig {
   return {
+    version: 2,
     service: "db",
     image: "docker.io/library/postgres:16-alpine",
     role: "web",
@@ -24,9 +25,9 @@ function cfg(over: Partial<BundantConfig> = {}): BundantConfig {
 const rt = runtimeFor("docker");
 
 describe("accessory naming + volumes", () => {
-  test("grouped accessory is <group>-<service>; standalone keeps <service>", () => {
-    expect(accessoryContainer(cfg())).toBe("shop-db");
-    expect(accessoryContainer(cfg({ group: undefined }))).toBe("db");
+  test("grouped accessory is <group>.<service>; standalone carries the default group", () => {
+    expect(accessoryContainer(cfg())).toBe("shop.db");
+    expect(accessoryContainer(cfg({ group: undefined }))).toBe("default.db");
     expect(accessoryContainer(cfg())).not.toContain("web");
   });
 
@@ -39,7 +40,7 @@ describe("accessory naming + volumes", () => {
 describe("buildAccessoryRun", () => {
   test("carries exact labels and named volumes, and no revision in the name", () => {
     const cmd = buildAccessoryRun(cfg(), rt);
-    expect(cmd).toContain("--name shop-db ");
+    expect(cmd).toContain("--name shop.db ");
     expect(cmd).toContain("--label bundant.service=db");
     expect(cmd).toContain("--label bundant.group=shop");
     expect(cmd).toContain("--volume pgdata:/var/lib/postgresql/data");
@@ -58,7 +59,7 @@ describe("tcp readiness probe", () => {
   test("runs busybox nc against the accessory container and port", () => {
     const cmd = tcpReadinessProbe(cfg(), rt);
     expect(cmd).toContain("docker run --rm --network bundant docker.io/library/busybox");
-    expect(cmd).toContain("nc -z -w 3 shop-db 5432");
+    expect(cmd).toContain("nc -z -w 3 shop.db 5432");
   });
 
   test("a missing healthcheck.tcp is a clear error", () => {

@@ -1,6 +1,4 @@
 import { existsSync } from "node:fs";
-import { chmod, unlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { DEFAULT_GROUP, loadGroup, type BundantConfig, type LoadedConfig } from "./config.ts";
 import * as docker from "./commands/docker.ts";
@@ -12,7 +10,7 @@ import { envRemotePath, groupLabels, volumeLabels, LABEL_OWNER } from "./planner
 import { runtimeFor, type Runtime } from "./runtime.ts";
 import { accessoryContainerName, serviceLabels } from "./naming.ts";
 import { envArray } from "./deploy.ts";
-import { openOps, type OpsVia } from "./ops/index.ts";
+import { openOps } from "./ops/index.ts";
 import { assertPreflight, preflightGate } from "./validation.ts";
 
 /**
@@ -32,16 +30,14 @@ export interface AccessoryOptions {
   tail: number;
   /** Print the commands without touching a host. */
   dryRun: boolean;
-  /** Mutations through the engine API (default) or the legacy CLI strings. */
-  via?: OpsVia;
 }
 
 export class AccessoryError extends Error {}
 
 /**
  * An accessory file lives inside its group directory, so when it is addressed
- * directly (\`bundant accessory boot -f shop/db/accessory.yml\`) the sibling
- * \`../group.yml\` names its namespace. This keeps \`bundant accessory\` and
+ * directly (\`bundant start -f shop/db/accessory.yml\`) the sibling
+ * \`../group.yml\` names its namespace. This keeps \`bundant start\` and
  * \`bundant group\` agreeing on labels and the env path.
  */
 export function inferAccessoryGroup(path: string): string | undefined {
@@ -155,11 +151,10 @@ export class Accessory {
     const config = this.config;
     const name = accessoryContainer(config);
     const targets = hostTargets(config);
-    const via: OpsVia = opts.via ?? "api";
     const verb = force ? "reboot" : "boot";
     console.log(
       "bundant accessory " + verb + " - " + name + " on " + targets.join(", ") +
-      " (image " + config.image + ", runtime " + config.runtime + ", via " + via + ")",
+      " (image " + config.image + ", runtime " + config.runtime + ")",
     );
     if (opts.dryRun) {
       console.log("  " + docker.ensureNetwork(this.rt));
@@ -170,13 +165,6 @@ export class Accessory {
       return 0;
     }
 
-    const hasEnv = Object.keys(config.env.vars).length > 0 || config.env.file !== undefined;
-    let envLocalFile: string | null = null;
-    if (via === "cli" && this.loaded.envContent && envRemotePath(config)) {
-      envLocalFile = tmpdir() + "/bundant-accessory-" + name + ".env";
-      await writeFile(envLocalFile, this.loaded.envContent, { mode: 0o600 });
-      await chmod(envLocalFile, 0o600);
-    }
     const env = envArray(this.loaded.envContent);
 
     const primary = preflightGate(this.loaded, () =>
@@ -189,21 +177,19 @@ export class Accessory {
 
       for (const host of targets) {
         console.log("== " + host + " ==");
-        const ops = await openOps(via, connectionForTarget(config, host), config, {
-          envRemotePath: hasEnv ? envRemotePath(config) : undefined,
-        });
+        const ops = await openOps(connectionForTarget(config, host), config);
         try {
           const rows = await ops.listContainers({ all: true, namePrefix: name });
           const present = rows.some((row) => row.name === name);
           if (present && !force) {
-            console.log("  already exists - " + name + " (use \`accessory reboot\` to recreate)");
+            console.log("  already exists - " + name + " (use \`bundant restart -f <file>\` to recreate)");
           } else {
             await ops.ensureNetwork();
             if (present) {
               await ops.removeContainer(name, { force: true });
               console.log("  removed old " + name + " (volumes kept)");
             }
-            await ops.putEnv(envLocalFile, envRemotePath(config), this.loaded.envCount);
+            await ops.putEnv(envRemotePath(config), this.loaded.envCount);
             for (const volume of accessoryVolumeNames(config)) {
               await ops.createVolume(volume, volumeLabels(config));
             }
@@ -241,21 +227,19 @@ export class Accessory {
     } finally {
       if (locked) await releaseLock(primary, lockKey(config.group, config.service));
       await primary.close();
-      if (envLocalFile !== null) await unlink(envLocalFile).catch(() => {});
     }
   }
 
   private async stopAccessory(opts: AccessoryOptions): Promise<number> {
     const config = this.config;
     const name = accessoryContainer(config);
-    const via: OpsVia = opts.via ?? "api";
     for (const host of hostTargets(config)) {
       if (opts.dryRun) {
         console.log("== " + host + " == (dry-run) " + docker.stop(this.rt, name));
         continue;
       }
       console.log("== " + host + " ==");
-      const ops = await openOps(via, connectionForTarget(config, host), config);
+      const ops = await openOps(connectionForTarget(config, host), config);
       try {
         await ops.stopContainers([name]);
         console.log("  stopped " + name);
@@ -272,11 +256,10 @@ export class Accessory {
   private async logs(opts: AccessoryOptions): Promise<number> {
     const config = this.config;
     const name = accessoryContainer(config);
-    const via: OpsVia = opts.via ?? "api";
     for (const host of hostTargets(config)) {
       console.log("== " + host + " ==");
       if (opts.dryRun) continue;
-      const ops = await openOps(via, connectionForTarget(config, host), config);
+      const ops = await openOps(connectionForTarget(config, host), config);
       try {
         process.stdout.write(await ops.logs(name, opts.tail));
       } finally {
@@ -289,7 +272,6 @@ export class Accessory {
   private async status(opts: AccessoryOptions): Promise<number> {
     const config = this.config;
     const name = accessoryContainer(config);
-    const via: OpsVia = opts.via ?? "api";
     let exit = 0;
     for (const host of hostTargets(config)) {
       console.log("== " + host + " ==");
@@ -297,7 +279,7 @@ export class Accessory {
         console.log("  (dry-run) " + statusCmd(this.rt, name));
         continue;
       }
-      const ops = await openOps(via, connectionForTarget(config, host), config);
+      const ops = await openOps(connectionForTarget(config, host), config);
       try {
         const rows = await ops.listContainers({ all: true, namePrefix: name });
         const row = rows.find((r) => r.name === name);
@@ -322,13 +304,12 @@ export class Accessory {
   private async remove(opts: AccessoryOptions): Promise<number> {
     const config = this.config;
     const name = accessoryContainer(config);
-    const via: OpsVia = opts.via ?? "api";
     console.log(
-      "bundant accessory remove - " + name +
-      " (volumes: " + (opts.volumes ? "delete" : "keep") + ", via " + via + ")",
+      "bundant rm " + name +
+      " (volumes: " + (opts.volumes ? "delete" : "keep") + ")",
     );
     if (!opts.yes) {
-      console.error("bundant: accessory remove is destructive: pass --yes" +
+      console.error("bundant: rm is destructive: pass --yes" +
         (opts.volumes ? " (and --volumes to also delete the named volumes)" : ""));
       return 2;
     }
@@ -345,7 +326,7 @@ export class Accessory {
     const owner = (config.group ?? DEFAULT_GROUP) + "/" + config.service;
     for (const host of hostTargets(config)) {
       console.log("== " + host + " ==");
-      const ops = await openOps(via, connectionForTarget(config, host), config);
+      const ops = await openOps(connectionForTarget(config, host), config);
       try {
         await ops.removeContainer(name, { force: true });
         console.log("  removed container " + name);

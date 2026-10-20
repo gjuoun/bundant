@@ -4,7 +4,7 @@ import { ServiceIdentity } from "../../domain/identity.ts";
 import { unitPath } from "../../select/selector.ts";
 import { recordData } from "../../agent/emit.ts";
 import { rootCommand } from "../root.ts";
-import { finish, opsVia, runPromise } from "./common.ts";
+import { finish, runPromise } from "./common.ts";
 import { flatLoadedFor, resolutionOptions, selectorFor, withFlatUnits } from "./flat-common.ts";
 
 export const status = Command.make(
@@ -13,8 +13,6 @@ export const status = Command.make(
   ({ path }) =>
     Effect.gen(function* () {
       const g = yield* rootCommand;
-      const via = opsVia(g.via);
-      if (via === null) return yield* finish(2);
       const loaded = yield* runPromise(async () => flatLoadedFor(g));
       const pattern = selectorFor(
         g,
@@ -22,7 +20,7 @@ export const status = Command.make(
         path._tag === "Some" ? path.value : undefined,
       );
       const units = yield* runPromise(() =>
-        withFlatUnits(loaded, via, pattern, resolutionOptions(g), async (ctx) =>
+        withFlatUnits(loaded, pattern, resolutionOptions(g), async (ctx) =>
           ctx.units.map((unit) => {
             const live = unit.containers.filter((c) => c.state === "running").length;
             const identity = ServiceIdentity.from(loaded.config);

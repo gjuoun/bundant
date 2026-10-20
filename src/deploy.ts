@@ -1,17 +1,14 @@
-import { chmod, unlink, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import type { LoadedConfig } from "./config.ts";
 import type { DeployPlan } from "./planner.ts";
 import type { ContainerSpec } from "./adapters/types.ts";
 import { groupLabels } from "./planner.ts";
 import { NETWORK } from "./commands/docker.ts";
-import { serviceId as legacyServiceId } from "./commands/proxy.ts";
 import { defaultControlDir } from "./host/session.ts";
 import { LocalExecutor } from "./exec/local.ts";
 import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
 import { connectionForTarget } from "./hosts.ts";
 import { acquireLock, releaseLock } from "./lock.ts";
-import { openOps, type OpsVia, type PullPolicy, type RuntimeOps } from "./ops/index.ts";
+import { openOps, type PullPolicy, type RuntimeOps } from "./ops/index.ts";
 import { preflightGate } from "./validation.ts";
 import { runtimeFor } from "./runtime.ts";
 import {
@@ -21,8 +18,6 @@ import {
 } from "./transfer/transfer.ts";
 
 export interface DeployOptions {
-  /** Execution path for mutations: API (default) or the legacy CLI strings. */
-  via?: OpsVia;
   /** Test seam: the factory runs only after preflight passes. */
   openPrimary?: () => SshExecutor;
   /** v2: allow two units that differ only by case. */
@@ -37,10 +32,6 @@ export interface DeployOptions {
 
 export interface DeployOnHostOptions {
   host: string;
-  /** Local merged env file (legacy uploads it; the API path does not). */
-  envLocalFile?: string | null;
-  /** Legacy --local-image pipeline, when the CLI path is forced. */
-  localPushPipeline?: string;
   allowCaseCollision?: boolean;
   pullPolicy?: PullPolicy;
   phases?: Record<string, number>;
@@ -140,27 +131,13 @@ export async function deployOnHost(
   }
   const existingNames = new Set(rows.map((row) => row.name));
 
-  await ops.putEnv(opts.envLocalFile ?? null, m.envRemotePath, loaded.envCount);
-  if (
-    ops.via === "cli" &&
-    opts.envLocalFile !== undefined &&
-    opts.envLocalFile !== null &&
-    m.envRemotePath !== undefined
-  ) {
-    console.log("[" + host + "] env uploaded (" + loaded.envCount + " vars, redacted)");
-  }
+  await ops.putEnv(m.envRemotePath, loaded.envCount);
 
   const prereqStart = performance.now();
   await ops.hostPrereqs();
   timed(opts.phases, "connect", prereqStart);
   let imageForSpec = m.image;
-  if (opts.localPushPipeline !== undefined) {
-    const r = await new LocalExecutor().run(opts.localPushPipeline.replaceAll("{HOST}", host));
-    if (r.code !== 0) {
-      throw new Error("[" + host + "] push-image failed: " + (r.stderr.trim() || r.stdout.trim()));
-    }
-    console.log("[" + host + "] push-image ok: " + r.stdout.trim());
-  } else if (opts.localImageTransfer !== undefined) {
+  if (opts.localImageTransfer !== undefined) {
     const transferStart = performance.now();
     const report = await opts.localImageTransfer(ops);
     timed(opts.phases, "transfer", transferStart);
@@ -236,23 +213,8 @@ export async function deployOnHost(
             ? undefined
             : loaded.config.healthcheck.port,
       };
-      const legacyId = legacyServiceId(
-        loaded.config.service,
-        loaded.config.role,
-        loaded.config.group,
-      );
-      const routes = legacyId !== m.serviceId ? await ops.proxyList() : [];
-      if (routes.includes(legacyId)) {
-        // v1 -> v2 route id change. The proxy refuses two services on one host,
-        // so serve the new id as a wildcard first, then drop the old id.
-        await ops.proxyDeploy(m.serviceId, targets, { ...proxyOpts, host: undefined });
-        await ops.proxyRemove(legacyId);
-        await ops.proxyDeploy(m.serviceId, targets, proxyOpts);
-        console.log("[" + host + "] proxy-swap ok (migrated " + legacyId + " -> " + m.serviceId + ")");
-      } else {
-        await ops.proxyDeploy(m.serviceId, targets, proxyOpts);
-        console.log("[" + host + "] proxy-swap ok");
-      }
+      await ops.proxyDeploy(m.serviceId, targets, proxyOpts);
+      console.log("[" + host + "] proxy-swap ok");
       timed(opts.phases, "proxy", proxyStart);
     }
 
@@ -283,10 +245,6 @@ export async function deploy(
   opts: DeployOptions = {},
 ): Promise<number> {
   const m = plan.meta;
-  const via: OpsVia = opts.via ?? "api";
-  if (m.localImage !== undefined && via === "cli") {
-    console.log("note: --local-image with --via cli uses the legacy full save|gzip|ssh|load path");
-  }
 
   // Preflight first: an invalid config must never create a connection or a lock.
   const preflightStart = performance.now();
@@ -304,17 +262,7 @@ export async function deploy(
   const execs = new Set<SshExecutor>([primary]);
   let locked = false;
 
-  let envLocalFile: string | null = null;
-  // The API path sends Env in the create request; only the legacy path needs a
-  // local staging file (and therefore a host-side upload).
-  if (via === "cli" && loaded.envContent && m.envRemotePath) {
-    envLocalFile = tmpdir() + "/bundant-" + m.service + "-" + m.role + ".env";
-    await writeFile(envLocalFile, loaded.envContent, { mode: 0o600 });
-    await chmod(envLocalFile, 0o600);
-  }
-
   const local = m.localImage ? new LocalExecutor() : null;
-  const pushStep = plan.hostSteps.find((s) => s.phase === "push-image");
 
   try {
     if (m.localImage && local) {
@@ -340,22 +288,18 @@ export async function deploy(
     locked = true;
     console.log(
       "deploy " + m.service + "/" + m.role + " rev=" + m.revision + " -> " +
-        m.hosts.join(", ") + " (via " + via + ")",
+        m.hosts.join(", "),
     );
 
     for (const host of m.hosts) {
       console.log("[" + host + "] deploying " + m.containerNames.join(", "));
       const connectStart = performance.now();
-      const ops = await openOps(via, connectionForTarget(loaded.config, host), loaded.config, {
-        envRemotePath: m.envRemotePath,
-      });
+      const ops = await openOps(connectionForTarget(loaded.config, host), loaded.config);
       timed(opts.phases, "connect", connectStart);
       try {
         await deployOnHost(ops, plan, loaded, {
           host,
-          envLocalFile,
-          localPushPipeline: via === "cli" ? pushStep?.cmds[0] : undefined,
-          localImageTransfer: via === "api" && m.localImage !== undefined
+          localImageTransfer: m.localImage !== undefined
             ? (hosterOps) =>
                 transferLocalImage(hosterOps, m.localImage!, {
                   rt: runtimeFor(loaded.config.runtime),
@@ -382,6 +326,5 @@ export async function deploy(
     if (locked) await releaseLock(primary, m.lockKey);
     for (const e of execs) await e.close();
     timed(opts.phases, "release", releaseStart);
-    if (envLocalFile !== null) await unlink(envLocalFile).catch(() => {});
   }
 }
