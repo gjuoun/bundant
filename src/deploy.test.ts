@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { ContainerSpec } from "./adapters/types.ts";
+import { ArchMismatchError } from "./agent/errors.ts";
 import { DEFAULT_GROUP, type BundantConfig, type LoadedConfig } from "./config.ts";
-import { deployOnHost } from "./deploy.ts";
+import { deploy, deployOnHost } from "./deploy.ts";
 import { LABEL_EMULATED } from "./labels.ts";
 import type { RuntimeOps } from "./ops/types.ts";
 import { buildDeployPlan } from "./planner.ts";
@@ -74,6 +75,34 @@ function fakeOps(input: {
 
 const plan = buildDeployPlan(cfg(), "r0");
 
+/**
+ * The real local-image path: local inspect answers arm64, ssh uname answers
+ * amd64, and the transfer hook must never run. This is the regression the
+ * injected-probe test could not see.
+ */
+function localImageExec(calls: string[]): {
+  kind: "local";
+  run(cmd: string): Promise<{ code: number; stdout: string; stderr: string }>;
+  putFile(): Promise<void>;
+  close(): Promise<void>;
+} {
+  return {
+    kind: "local",
+    async run(cmd: string) {
+      calls.push(cmd);
+      if (cmd.includes("RootFS.Layers")) {
+        return { code: 0, stdout: JSON.stringify(["sha256:" + "a".repeat(64)]), stderr: "" };
+      }
+      if (cmd.includes("Architecture")) {
+        return { code: 0, stdout: "arm64 linux\n", stderr: "" };
+      }
+      return { code: 0, stdout: "", stderr: "" };
+    },
+    async putFile() {},
+    async close() {},
+  };
+}
+
 describe("emulated deploys", () => {
   test("a native deploy carries no emulated label", async () => {
     const { ops, created } = fakeOps({ imageArch: "amd64", hostArch: "amd64", binfmt: false });
@@ -91,6 +120,44 @@ describe("emulated deploys", () => {
     });
     expect(created[0]!.labels[LABEL_EMULATED]).toBe("true");
     expect(seen).toEqual(["arm64:amd64"]);
+  });
+
+  test("the real local-image path refuses before any transfer", async () => {
+    const localCalls: string[] = [];
+    const sshCalls: string[] = [];
+    let transfers = 0;
+    const ssh = {
+      kind: "local" as const,
+      async run(cmd: string) {
+        sshCalls.push(cmd);
+        if (cmd === "uname -s -m") return { code: 0, stdout: "Linux x86_64\n", stderr: "" };
+        return { code: 0, stdout: "", stderr: "" };
+      },
+      async putFile() {},
+      async close() {},
+    };
+    const localPlan = buildDeployPlan(cfg({ runtime: "podman" }), "r0", {
+      localImage: "app:arm",
+    });
+    await expect(
+      deploy(localPlan, loadedFor(cfg({ runtime: "podman" })), {
+        openPrimary: () => ssh as never,
+        localExec: localImageExec(localCalls),
+        localImageTransfer: async () => {
+          transfers += 1;
+          return {
+            mode: "delta" as const,
+            bytesSent: 0,
+            layersReused: 0,
+            layersTotal: 0,
+            missingLayers: 0,
+          };
+        },
+      }),
+    ).rejects.toBeInstanceOf(ArchMismatchError);
+    expect(transfers).toBe(0);
+    expect(sshCalls).toEqual(["uname -s -m"]);
+    expect(localCalls.some((cmd) => cmd.includes("Architecture"))).toBe(true);
   });
 
   test("a foreign image without --allow-emulation fails before create", async () => {

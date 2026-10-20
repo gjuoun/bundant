@@ -119,7 +119,7 @@ describe("checkArch", () => {
 });
 
 describe("arch preflight in the deploy path", () => {
-  test("a local image mismatch stops before lock and before any engine/ssh call", async () => {
+  test("an injected probe mismatch stops before lock and before any deploy ssh call", async () => {
     const calls: string[] = [];
     const exec = {
       kind: "local" as const,
@@ -130,7 +130,7 @@ describe("arch preflight in the deploy path", () => {
       async putFile() {},
       async close() {},
     };
-    const plan = buildDeployPlan(cfg(), "r0", { localImage: IMAGE });
+    const plan = buildDeployPlan(cfg(), "r0");
     await expect(
       deploy(plan, loadedFor(cfg()), {
         openPrimary: () => exec as never,
