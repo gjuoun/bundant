@@ -13,6 +13,8 @@ import { status } from "./commands/status.ts";
 import { scale } from "./commands/scale.ts";
 import { prune } from "./commands/prune.ts";
 import { del } from "./commands/delete.ts";
+import { group } from "./commands/group.ts";
+import { accessory } from "./commands/accessory.ts";
 
 export const command = rootCommand.pipe(
   Command.withSubcommands([
@@ -24,6 +26,8 @@ export const command = rootCommand.pipe(
     status,
     del,
     prune,
+    group,
+    accessory,
   ]),
 );
 

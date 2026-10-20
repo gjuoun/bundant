@@ -9,6 +9,8 @@ import { rootCommand } from "./cli/root.ts";
 import { command } from "./cli/index.ts";
 import { LockError } from "./effect/errors.ts";
 import { runMain } from "./effect/runtime.ts";
+import { ACCESSORY_DEFAULT_ACTION } from "./cli/commands/accessory.ts";
+import { GROUP_DEFAULT_ACTION } from "./cli/commands/group.ts";
 
 const TestLayer = Layer.mergeAll(
   Stdio.layerTest({}),
@@ -133,6 +135,15 @@ describe("effect/cli parsing", () => {
     } finally {
       console.error = original;
     }
+  });
+
+  test("group defaults to install and accessory defaults to status", () => {
+    expect(GROUP_DEFAULT_ACTION).toBe("install");
+    expect(ACCESSORY_DEFAULT_ACTION).toBe("status");
+  });
+
+  test("an invalid accessory action is a parse error", async () => {
+    await expect(run(["accessory", "bogus"])).rejects.toBeDefined();
   });
 
   test("validate accepts the example file", async () => {
