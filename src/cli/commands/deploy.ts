@@ -3,6 +3,7 @@ import { Command } from "effect/cli";
 import { dirname } from "node:path";
 import { buildDeployPlan, renderPlan } from "../../planner.ts";
 import { renderApiPlan } from "../../plan-render.ts";
+import type { PullPolicy } from "../../ops/index.ts";
 import { resolveRevision, sanitizeRevision } from "../../revision.ts";
 import { deploy as runDeploy } from "../../deploy.ts";
 import { rootCommand } from "../root.ts";
@@ -37,8 +38,16 @@ export const deploy = Command.make("deploy", {}, () =>
       );
       return yield* finish(0);
     }
+    if (!["missing", "always", "never"].includes(g.pull)) {
+      console.error("bundant: --pull must be 'missing', 'always' or 'never'");
+      return yield* finish(2);
+    }
     const code = yield* runPromise(() =>
-      runDeploy(plan, loaded, { via, allowCaseCollision: g["allow-case-collision"] }),
+      runDeploy(plan, loaded, {
+        via,
+        allowCaseCollision: g["allow-case-collision"],
+        pullPolicy: g.pull as PullPolicy,
+      }),
     );
     yield* finish(code);
   }),

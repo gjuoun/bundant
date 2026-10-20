@@ -10,7 +10,7 @@ import { LocalExecutor } from "./exec/local.ts";
 import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
 import { connectionForTarget } from "./hosts.ts";
 import { acquireLock, releaseLock } from "./lock.ts";
-import { openOps, type OpsVia, type RuntimeOps } from "./ops/index.ts";
+import { openOps, type OpsVia, type PullPolicy, type RuntimeOps } from "./ops/index.ts";
 import { preflightGate } from "./validation.ts";
 
 export interface DeployOptions {
@@ -20,6 +20,8 @@ export interface DeployOptions {
   openPrimary?: () => SshExecutor;
   /** v2: allow two units that differ only by case. */
   allowCaseCollision?: boolean;
+  /** missing (default) skips a pull when the image is present. */
+  pullPolicy?: PullPolicy;
 }
 
 export interface DeployOnHostOptions {
@@ -29,6 +31,25 @@ export interface DeployOnHostOptions {
   /** Legacy --local-image pipeline, when the CLI path is forced. */
   localPushPipeline?: string;
   allowCaseCollision?: boolean;
+  pullPolicy?: PullPolicy;
+}
+
+/** Apply the image pull policy through RuntimeOps. */
+export async function pullForPolicy(
+  ops: Pick<RuntimeOps, "imagePresent" | "pull">,
+  image: string,
+  policy: PullPolicy,
+): Promise<"pulled" | "present"> {
+  const present = await ops.imagePresent(image);
+  if (policy === "never") {
+    if (!present) throw new Error("image not present on host: " + image + " (--pull never)");
+    return "present";
+  }
+  if (policy === "always" || !present) {
+    await ops.pull(image);
+    return "pulled";
+  }
+  return "present";
 }
 
 export interface ExistingUnit {
@@ -117,8 +138,12 @@ export async function deployOnHost(
     }
     console.log("[" + host + "] push-image ok: " + r.stdout.trim());
   } else {
-    await ops.pull(m.image);
-    console.log("[" + host + "] pull ok");
+    const policy = opts.pullPolicy ?? "missing";
+    const pull = await pullForPolicy(ops, m.image, policy);
+    console.log(
+      "[" + host + "] " +
+        (pull === "pulled" ? "pull ok (policy=" + policy + ")" : "pull skipped (present, policy=" + policy + ")"),
+    );
   }
 
   await ops.ensureNetwork();
@@ -265,6 +290,7 @@ export async function deploy(
           envLocalFile,
           localPushPipeline: pushStep?.cmds[0],
           allowCaseCollision: opts.allowCaseCollision,
+          pullPolicy: opts.pullPolicy,
         });
       } finally {
         await ops.close();

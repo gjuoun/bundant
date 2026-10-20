@@ -88,6 +88,10 @@ export class ApiOps implements RuntimeOps {
     this.steps.push("env:" + count);
   }
 
+  async imagePresent(image: string): Promise<boolean> {
+    return await this.adapter.imagePresent(image);
+  }
+
   async pull(image: string): Promise<void> {
     this.steps.push("pull:" + image);
     await this.adapter.pull(image);

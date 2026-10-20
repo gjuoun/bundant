@@ -70,6 +70,16 @@ export class DockerAdapter implements RuntimeAdapter {
     }
   }
 
+  async imagePresent(ref: string): Promise<boolean> {
+    try {
+      await this.client.request("GET", "/images/" + encodeURIComponent(ref) + "/json");
+      return true;
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) return false;
+      throw err;
+    }
+  }
+
   async loadImage(_stream: NodeJS.ReadableStream): Promise<void> {
     throw new NotImplementedInStage1("loadImage");
   }

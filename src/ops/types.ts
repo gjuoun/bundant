@@ -5,6 +5,9 @@ import type { RevisionEntry } from "../revisions.ts";
 /** Execution backend for a mutating command: the engine API (default) or the legacy CLI strings. */
 export type OpsVia = "api" | "cli";
 
+/** Image pull policy: missing (default), always, never. */
+export type PullPolicy = "missing" | "always" | "never";
+
 export interface HealthGateOptions {
   /** HTTP path the gate probes. */
   path: string;
@@ -41,6 +44,8 @@ export interface RuntimeOps {
   /** Upload the merged env file (legacy) or note that Env rides the API call. */
   putEnv(localFile: string | null, remotePath: string | undefined, count: number): Promise<void>;
 
+  /** Whether the image ref is already on the host. */
+  imagePresent(image: string): Promise<boolean>;
   pull(image: string): Promise<void>;
   ensureNetwork(): Promise<void>;
 

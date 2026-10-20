@@ -7,6 +7,7 @@ export const globalFlags = {
   "dry-run": Flag.Boolean("dry-run").pipe(Flag.withDefault(false)),
   rev: Flag.String("rev").pipe(Flag.optional),
   "local-image": Flag.String("local-image").pipe(Flag.optional),
+  pull: Flag.String("pull").pipe(Flag.withDefault("missing")),
   keep: Flag.String("keep").pipe(Flag.withDefault("3")),
   replicas: Flag.String("replicas").pipe(Flag.optional),
   yes: Flag.Boolean("yes").pipe(Flag.withDefault(false)),

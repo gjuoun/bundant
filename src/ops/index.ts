@@ -6,7 +6,13 @@ import { ApiOps } from "./adapter.ts";
 import { LegacyOps } from "./legacy.ts";
 import type { OpsVia, RuntimeOps } from "./types.ts";
 
-export type { HealthGateOptions, OpsVia, ProxyDeployOptions, RuntimeOps } from "./types.ts";
+export type {
+  HealthGateOptions,
+  OpsVia,
+  ProxyDeployOptions,
+  PullPolicy,
+  RuntimeOps,
+} from "./types.ts";
 export { ApiOps } from "./adapter.ts";
 export { LegacyOps } from "./legacy.ts";
 
