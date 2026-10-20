@@ -133,7 +133,7 @@ export default function TerminalDemo({ demo, layout = 'side' }: Props) {
     <div
       className={
         layout === 'compact'
-          ? 'grid min-w-0 gap-4'
+          ? 'grid min-w-0 gap-2'
           : 'grid min-w-0 gap-6 md:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] md:items-start'
       }
     >
@@ -143,16 +143,11 @@ export default function TerminalDemo({ demo, layout = 'side' }: Props) {
         role="region"
         aria-label="terminal demo"
       >
-        <div className="flex items-center justify-between gap-3 border-b border-border-muted bg-code-surface px-4 py-2.5">
-          <div className="flex items-center gap-2">
-            <span className="size-2.5 rounded-full bg-destructive" aria-hidden="true" />
-            <span className="size-2.5 rounded-full bg-warning" aria-hidden="true" />
-            <span className="size-2.5 rounded-full bg-success" aria-hidden="true" />
-            <span className="ml-2 font-mono text-[11px] text-muted-foreground">bundant · demo</span>
-          </div>
-          <span className="rounded border border-border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            recorded run
-          </span>
+        <div className="flex items-center gap-2 border-b border-border-muted bg-code-surface px-4 py-2.5">
+          <span className="size-2.5 rounded-full bg-destructive" aria-hidden="true" />
+          <span className="size-2.5 rounded-full bg-warning" aria-hidden="true" />
+          <span className="size-2.5 rounded-full bg-success" aria-hidden="true" />
+          <span className="ml-2 font-mono text-[11px] text-muted-foreground">bundant · demo</span>
         </div>
 
         <div
@@ -194,12 +189,12 @@ export default function TerminalDemo({ demo, layout = 'side' }: Props) {
 
         <form
           onSubmit={onSubmit}
-          className="flex flex-wrap items-center gap-2 border-t border-border-muted bg-card px-4 py-3"
+          className="flex flex-wrap items-center gap-2 border-t border-border-muted bg-card px-4 py-1.5"
         >
           <label htmlFor="terminal-demo-input" className="sr-only">
             Terminal command
           </label>
-          <span className="font-mono text-[11.5px] text-primary" aria-hidden="true">
+          <span className="shrink-0 font-mono text-[11.5px] font-semibold text-primary" aria-hidden="true">
             {prompt}
           </span>
           <input
@@ -214,9 +209,9 @@ export default function TerminalDemo({ demo, layout = 'side' }: Props) {
             placeholder={
               running
                 ? 'running…'
-                : 'next: ' + (commands[nextIndex]?.cmd.replace(/^bundant\s+/, '') ?? 'a command')
+                : 'type validate, deploy, status or rollback - Enter to run'
             }
-            className="min-w-0 flex-1 bg-transparent font-mono text-[11.5px] text-foreground outline-none placeholder:text-muted-foreground"
+            className="h-11 min-w-0 flex-1 bg-transparent font-mono text-[11.5px] text-foreground caret-primary outline-none placeholder:text-muted-foreground"
           />
           <span className="terminal-demo-cursor" aria-hidden="true" />
           <button
@@ -224,7 +219,7 @@ export default function TerminalDemo({ demo, layout = 'side' }: Props) {
             onClick={() => void run(nextIndex)}
             disabled={running}
             aria-label={'Run next command: ' + (commands[nextIndex]?.cmd ?? '')}
-            className="rounded-md border border-border bg-muted px-2.5 py-1 font-mono text-[10.5px] text-foreground transition-colors hover:border-primary hover:text-primary disabled:cursor-not-allowed disabled:opacity-50"
+            className="rounded-md px-2 py-1 font-mono text-[10.5px] text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
           >
             Run next
           </button>
@@ -236,8 +231,8 @@ export default function TerminalDemo({ demo, layout = 'side' }: Props) {
       </div>
 
       <div className="min-w-0">
-        <p className="mono-label">Commands in this transcript</p>
-        <div className={layout === 'compact' ? 'mt-2 grid grid-cols-2 gap-2' : 'mt-3 grid gap-2'}>
+        {layout === 'side' ? <p className="mono-label">Commands in this transcript</p> : null}
+        <div className={layout === 'compact' ? 'grid grid-cols-2 gap-2' : 'mt-3 grid gap-2'}>
           {commands.map((command, index) => {
             const name = command.cmd.replace(/^bundant\s+/, '');
             const active = index === lastIndex && running;
@@ -271,8 +266,8 @@ export default function TerminalDemo({ demo, layout = 'side' }: Props) {
             );
           })}
         </div>
-        <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-          Recorded on a real docker host, then redacted; nothing runs in your browser.
+        <p className="mt-2 text-[10.5px] leading-relaxed text-muted-foreground">
+          output recorded from a real docker host; nothing runs in your browser
         </p>
       </div>
     </div>

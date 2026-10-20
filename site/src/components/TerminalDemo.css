@@ -17,7 +17,7 @@
 /* Inside the hero the transcript stays shorter so the prompt and input fit the
    first screen on a phone; output scrolls inside. */
 .terminal-demo-screen--compact {
-  height: 9.25rem;
+  height: 8rem;
 }
 
 @media (min-width: 768px) {
