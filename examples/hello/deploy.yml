@@ -1,7 +1,8 @@
-# yaml-language-server: $schema=../../schema/deploy.schema.json
+# yaml-language-server: $schema=../../schema/v2/deploy.schema.json
 # bundant example: zero-downtime hello service.
 # traefik/whoami echoes its container hostname — deploy twice and watch the
 # backend id change while curl keeps getting 200s.
+version: 2
 service: hello
 runtime: podman
 image: traefik/whoami:v1.10

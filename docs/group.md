@@ -17,6 +17,7 @@ shop/                          # the directory *is* the group
 ## group.yml
 
 ```yaml
+version: 2
 group: shop
 services:                       # order breaks ties; needs: decides the real order
   - name: db
@@ -41,47 +42,41 @@ special case: it loads with `group: default`, so the same shape applies everywhe
 
 | item | in `default` (no group directory) | in a group |
 |---|---|---|
-| container | `<service>-<role>-<rev>` | `<group>-<service>-<role>-<rev>` (groups and roles take no hyphens) |
-| replicas | `<service>-<role>-<rev>-<i>` | `<group>-<service>-<role>-<rev>-<i>` |
-| proxy id | `<service>-<role>` | `<group>-<service>-<role>` |
-| accessory container | `<service>` | `<group>-<service>` |
+| container | `default.<service>.<role>.<rev>` | `<group>.<service>.<role>.<rev>` |
+| replicas | `default.<service>.<role>.<rev>.<i>` | `<group>.<service>.<role>.<rev>.<i>` |
+| proxy id | `default.<service>.<role>` | `<group>.<service>.<role>` |
+| accessory container | `default.<service>` | `<group>.<service>` |
 | env file | `~/.bundant/env/default/<service>-<role>.env` | `~/.bundant/env/<group>/<service>-<role>.env` |
 | lock key | `default/<service>` | `<group>/<service>` (one outer `<group>` lock per group run) |
 | labels | `bundant.service=<service>`, `bundant.group=default` | `bundant.service=<service>`, `bundant.group=<group>` |
 
 ### Name grammar (collision-proof)
 
-Only the service segment may contain a hyphen; every other segment is
-lowercase alphanumeric. That is what makes the composition injective and the
-parse deterministic:
+Identifiers may contain letters, digits, `-` and `_`; dots are the separators
+between segments. That is what makes the composition injective and the parse
+deterministic:
 
 | segment | pattern | why |
 |---|---|---|
-| group | `[a-z0-9]+` | first segment; no hyphen |
-| service | `[a-z0-9]+(-[a-z0-9]+)*` | the only multi-word segment; single hyphens between segments only |
-| role | `[a-z0-9]+` | split before the revision; no hyphen |
-| revision | `[a-z0-9]+` | right-most segment before an optional replica index |
+| group | `[A-Za-z0-9]([A-Za-z0-9]|[-_][A-Za-z0-9])*` | first segment |
+| service | `[A-Za-z0-9]([A-Za-z0-9]|[-_][A-Za-z0-9])*` | second segment |
+| role | `[A-Za-z0-9]([A-Za-z0-9]|[-_][A-Za-z0-9])*` | third segment |
+| revision | `[A-Za-z0-9]+` | fourth segment, before an optional replica index |
 | replica | `\d+` | optional last segment |
 
-So `a-b-c-web-1234` can only be group `a`, service `b-c`; a group named
-`a-b` is rejected rather than silently colliding. Uppercase, underscores and
-dots are rejected too (`CamelCase`, `snake_case`, `dot.case` are all
-configuration errors that name the field and the rule).
+Dots are never part of an identifier, so `shop.api.web.1234` can only be group
+`shop`, service `api`, role `web`, revision `1234`. A service named `api.web`
+is rejected rather than silently colliding.
 
-**The default group never prefixes.** Ungrouped names are byte-for-byte what they were,
-so existing deployments need no migration. A real group puts its name in front of the
-container and the proxy id, which is what lets two groups both contain a service called
-`api`: they stay `alpha-api-web-<rev>` and `beta-api-web-<rev>`, with proxy ids
-`alpha-api-web` and `beta-api-web`. The role segment stays in the proxy id, so two roles
-of one service do not fight over a route.
+**The default group is always present.** An ungrouped service is
+`default.<service>.<role>.<rev>`; a real group replaces `default` with its own
+name. That is what lets two groups both contain a service called `api`: they
+stay `alpha.api.web.<rev>` and `beta.api.web.<rev>`, with proxy ids
+`alpha.api.web` and `beta.api.web`. The role segment stays in the proxy id, so
+two roles of one service do not fight over a route.
 
-The git sha of the group repo is still the release id for the whole set. Env paths, lock
-keys and labels are unchanged — only names change.
-
-Selection understands both shapes: `stop-old`, `prune`, `rollback`, `delete` and the
-`group uninstall` sweep also find pre-grouping containers (`<service>-<role>-<rev>` with
-`bundant.group=<group>`), so an in-place upgrade leaves no orphans. Where an old prefix is
-ambiguous, `bundant.group` is checked before anything is removed.
+The git sha of the group repo is still the release id for the whole set. Env paths,
+lock keys and labels are unchanged — only names change.
 
 ## Accessories
 
@@ -113,6 +108,7 @@ That metadata is what the safety rules are built on, not a name convention:
 
 ```yaml
 # shop/db/accessory.yml
+version: 2
 kind: accessory
 service: db
 image: docker.io/library/postgres:16-alpine
@@ -132,7 +128,7 @@ Rules enforced by bundant:
 - **`group uninstall` never touches an accessory.** The labelled sweep selects
   service members only; accessories keep their data.
 - **`deploy` / `rollback` / `prune` never match an accessory** — its container
-  name has no `-<role>-<rev>` suffix.
+  name has exactly two segments (`<group>.<service>`), with no role or revision.
 
 Lifecycle (explicit only):
 

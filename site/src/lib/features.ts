@@ -1,12 +1,10 @@
 export type FeatureIcon =
+  | 'route'
   | 'boxes'
   | 'layers'
-  | 'route'
   | 'shield-check'
   | 'container'
-  | 'activity'
-  | 'wand'
-  | 'terminal';
+  | 'activity';
 
 export type Feature = {
   title: string;
@@ -14,55 +12,43 @@ export type Feature = {
   icon: FeatureIcon;
 };
 
-/** Every one of these maps to behaviour that ships in bundant 0.1.0. */
+/** Exactly the shipped capabilities the homepage claims. */
 export const features: Feature[] = [
   {
-    title: 'Groups and accessories',
+    title: 'Zero-downtime deploy',
     description:
-      'A group is a namespace: install services in dependency order with needs:, aggregate their status, roll the whole set back to one sha. Databases and queues live as accessories with stable names and named volumes.',
+      'The new revision starts unpublished and passes a health gate. One atomic proxy swap moves traffic and drains old connections; the previous revision stays for rollback.',
+    icon: 'route',
+  },
+  {
+    title: 'Groups and protected accessories',
+    description:
+      'A group is a namespace: install services in needs: order, aggregate status, roll back to one sha. Stateful accessories keep stable names and named volumes and are never touched by deploy, rollback or prune.',
     icon: 'boxes',
   },
   {
-    title: 'Replicas and scale',
+    title: 'Replicas with manual scale',
     description:
-      'Run N copies of one service on one host and let kamal-proxy round-robin between them. scale adds or removes targets before containers are drained, so no request is dropped.',
+      'Run N copies of one service per host and scale up or down on demand. New targets are gated before the proxy swap, and scale-down drains before containers stop.',
     icon: 'layers',
-  },
-  {
-    title: 'Config v2 naming',
-    description:
-      'v1 keeps the historical hyphen names; v2 uses dots as structural separators. Validate, migrate and keep the naming scheme that matches your fleet.',
-    icon: 'route',
   },
   {
     title: 'Preflight validation',
     description:
-      'bundant validate parses deploy.yml, group.yml or accessory.yml and prints the resolved identity plus the full error list. It never contacts a host.',
+      'validate parses deploy.yml, group.yml or accessory.yml and prints the resolved identity plus the full error list. An invalid config never contacts a host.',
     icon: 'shield-check',
   },
   {
-    title: 'Docker and Podman adapters',
+    title: 'Docker and Podman',
     description:
-      'One typed engine API, two runtimes. Set runtime: podman and every emitted step switches binary — pull, network, run, exec, ps, save. No docker shim.',
+      'One typed engine API, two runtimes through their native APIs. Set runtime: podman and every step targets Podman directly — no docker shim, no compatibility layer.',
     icon: 'container',
   },
   {
-    title: 'Monitoring and UI',
+    title: 'Read-only observability',
     description:
-      'status, logs, stats, ps, events and inspect over the same multiplexed ssh connection. bundant ui is a local, read-only page on 127.0.0.1 — nothing resident on the host.',
+      'ps, logs, stats, events, status and a local ui page, all pull-on-demand over the same ssh connection. Nothing is installed on the host and nothing stays resident.',
     icon: 'activity',
-  },
-  {
-    title: 'One-command bootstrap',
-    description:
-      'bundant bootstrap installs podman on Debian, Fedora, Alpine, Arch and openSUSE hosts, enables boot-time restart, sets the registry search path and smoke-tests a container.',
-    icon: 'wand',
-  },
-  {
-    title: 'A typed CLI foundation',
-    description:
-      'The command tree is declared with effect/cli, with typed errors all the way down. Shared flags, shell completions and wizard mode come for free.',
-    icon: 'terminal',
   },
 ];
 
@@ -121,20 +107,6 @@ export const howSteps: HowStep[] = [
     body: 'kamal-proxy switches the target set in one call and drains old connections. Previous revisions stay for rollback and prune.',
   },
 ];
-
-/** Real output of `bundant deploy --dry-run -f examples/hello/deploy.yml`, trimmed for the page. */
-export const dryRunExcerpt = `bundant deploy plan (via api)
-  hello/web rev=59ceb8d runtime=podman
-hosts: replace-me.example.ts.net
-
-  1) [ssh] host prerequisites
-  2) [pull] POST /images/create
-  3) [network] POST /networks/create
-  4) [run] POST /containers/create
-  5) [health] probe -> GET /logs
-  6) [proxy-ensure] GET /kamal-proxy
-  7) [proxy-swap] kamal-proxy deploy
-  8) [stop-old] POST /stop?t=10`;
 
 export const installCommands = [
   { label: 'npm', command: 'npm i -g bundant' },

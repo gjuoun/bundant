@@ -22,7 +22,7 @@ deploy.yml (git) + image = truth; hosts are cattle
 1. **image** — `--local-image` streams (`save | gzip | ssh 'gunzip | load'`) or the host
    pulls from its registry
 2. **network** — ensure the `bundant` network exists
-3. **run** — start `<service>-<role>-<rev>` (grouped: `<group>-…`) with `--restart unless-stopped`; no
+3. **run** — start `<group>.<service>.<role>.<rev>` with `--restart unless-stopped`; no
    published ports
 4. **health gate** — throwaway curl sidecar probes the container by name; failure
    aborts, removes the container, never touches traffic
@@ -40,7 +40,7 @@ deploy.yml (git) + image = truth; hosts are cattle
 One [kamal-proxy](https://github.com/basecamp/kamal-proxy) container per host
 (`--restart unless-stopped`, publishes 80/443, internal network only). Control path is
 `docker exec kamal-proxy kamal-proxy <cmd>` — no host socket mounts. Routing is
-service-based with a stable id `<service>-<role>` (`<group>-<service>-<role>` when grouped); each deploy sets
+service-based with a stable id `<group>.<service>.<role>`; each deploy sets
 `--target <container>:<port>` and `--host <proxy.host>`. The proxy health-checks targets
 itself before routing, and its `deploy` blocks until the old target drains — which is
 why stopping the old container immediately after is safe.

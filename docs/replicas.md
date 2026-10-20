@@ -8,8 +8,9 @@ The load balancer is not ours: kamal-proxy v0.10.2 already accepts any number of
 hand the proxy the whole set in one call.
 
 ```yaml
+version: 2
 service: echoes
-image: traefik/whoami:v1.10
+image: traefik/whoami:latest
 replicas: 3            # default 1; > 1 requires proxy.enabled: true
 proxy:
   enabled: true
@@ -20,16 +21,14 @@ proxy:
 
 | replicas | container name |
 |---|---|
-| 1 | `<service>-<role>-<rev>` — identical to a pre-replicas deployment |
-| N > 1 | `<service>-<role>-<rev>-1` … `-<N>` |
+| 1 | `<group>.<service>.<role>.<rev>` — e.g. `default.echoes.web.r2026a` |
+| N > 1 | `<group>.<service>.<role>.<rev>.1` … `.<N>` |
 
-Inside a real group both rows gain the group prefix
-(`<group>-<service>-<role>-<rev>[-<i>]`); the `default` group never prefixes.
-
-A single-replica deployment is byte-identical to what bundant did before the
-feature existed, so no migration is involved. Every service container also
-carries `bundant.revision=<rev>` and `bundant.replica=<i>`; `scale`, `status`
-and `rollback` read the truth from those labels, not from a local file.
+The default group is part of the name, like every other config. The role stays in
+the name and in the proxy id (`default.echoes.web`), so two roles of one service
+do not fight over a route. Every service container also carries
+`bundant.revision=<rev>` and `bundant.replica=<i>`; `scale`, `status` and
+`rollback` read the truth from those labels, not from a local file.
 
 ## Deploying N replicas
 

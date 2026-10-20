@@ -1,12 +1,13 @@
-# yaml-language-server: $schema=../../../schema/deploy.schema.json
+# yaml-language-server: $schema=../../../schema/v2/deploy.schema.json
 # Last member in the group: needs api to pass its health gate first.
+version: 2
 service: web
 image: traefik/whoami:v1.10
 hosts:
   - replace-me.example.ts.net
 env:
   vars:
-    API_URL: http://api:80
+    API_URL: http://api.shop.example.com
 healthcheck:
   path: /
   timeout: 30

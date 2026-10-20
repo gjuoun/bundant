@@ -4,9 +4,10 @@ One file per service. It is the contract: bundant turns it into docker/podman co
 and never stores state of its own on the host.
 
 ```yaml
-service: hello                 # [a-z0-9]+(-[a-z0-9]+)* — the only segment that may contain '-'
-image: traefik/whoami:v1.10    # registry ref, or overridden by --local-image
-role: web                      # default: web; [a-z0-9]+ (no hyphens)
+version: 2                     # required; the only config version in use
+service: hello                 # identifier: letters/digits with single - or _
+image: traefik/whoami:latest   # registry ref, or overridden by --local-image
+role: web                      # identifier; default: web
 replicas: 1                    # copies per host; > 1 needs proxy.enabled: true
 hosts: [box.example.com]       # user@host:port forms allowed; BUNDANT_HOSTS=a,b overrides
 
@@ -53,21 +54,19 @@ pipeline.
   IPv6 literals go in brackets (`root@[2001:db8::1]`); a port goes after the
   host (`root@box.example.com:2222`, `root@[2001:db8::1]:2222`). `IdentityFile`
   and `ProxyJump` still belong in `~/.ssh/config`, which ssh itself reads.
-- **revision** — container names are `<service>-<role>-<rev>` (or
-  `<group>-<service>-<role>-<rev>` inside a real group; the `default` group never
-  prefixes), where `rev` is the git short sha of the repo holding `deploy.yml` (fallback
-  `r<base36>` before the first commit, hyphen-free like every new revision). `--rev ID`
-  overrides it as a testing hook. Legacy `rev-<base36>` containers stay selectable by
-  name. Group, role and revision take no hyphens: those are the separators (see
-  [group.md](group.md#name-grammar-collision-proof)). A `role` such as `Web`,
-  `web_api`, `web.api` or `web-1` is rejected with the exact rule.
+- **revision** — container names are `<group>.<service>.<role>.<rev>` (the
+  default group is always present, so an ungrouped service is
+  `default.hello.web.<rev>`), where `rev` is the git short sha of the repo
+  holding `deploy.yml` (fallback `r<base36>` before the first commit). `--rev ID`
+  overrides it as a testing hook. Identifiers use letters, digits, `-` and `_`;
+  dots separate segments. A `role` such as `web.api` or a service containing a
+  dot is rejected with the exact rule.
 - **replicas** — how many copies of this service run on **each** host (default 1).
-  `replicas: 1` keeps the exact container name above; `N > 1` uses
-  `<prefix>-<rev>-1` … `-<N>` (the same prefix as the single-replica name) and every container carries
-  `bundant.revision` + `bundant.replica`. `N > 1` requires `proxy.enabled: true`
-  (the proxy is what distributes requests) and is rejected on `kind: accessory`
-  (a stateful member is one of one). See [`replicas.md`](replicas.md) and
-  `bundant scale`.
+  `replicas: 1` keeps the exact container name above; `N > 1` appends
+  `.<i>` for `i = 1 … N` and every container carries `bundant.revision` +
+  `bundant.replica`. `N > 1` requires `proxy.enabled: true` (the proxy is what
+  distributes requests) and is rejected on `kind: accessory` (a stateful member
+  is one of one). See [`replicas.md`](replicas.md) and `bundant scale`.
 - **env** — values are never printed; the merged result is uploaded to
   `~/.bundant/env/<group>/<service>-<role>.env` (`default` when the file is in no group) with
   mode 0600 and passed with `--env-file`.
@@ -106,6 +105,7 @@ hosts: [10.0.0.5, 10.0.0.6]     # optional default pool
 
 ```yaml
 # api/deploy.yml          # worker/deploy.yml — same line, same host pool
+version: 2
 service: api
 image: registry.internal/api:1.2.3
 ssh: ./ssh/prod.yaml
