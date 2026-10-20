@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import { Argument, Command } from "effect/cli";
 import { ServiceIdentity } from "../../domain/identity.ts";
 import { unitPath } from "../../select/selector.ts";
+import { recordData } from "../../agent/emit.ts";
 import { rootCommand } from "../root.ts";
 import { finish, opsVia, runPromise } from "./common.ts";
 import { flatLoadedFor, resolutionOptions, selectorFor, withFlatUnits } from "./flat-common.ts";
@@ -45,7 +46,7 @@ export const status = Command.make(
         ),
       );
       if (g.json) {
-        console.log(JSON.stringify(units, null, 2));
+        recordData(units);
       } else {
         for (const unit of units) {
           console.log(

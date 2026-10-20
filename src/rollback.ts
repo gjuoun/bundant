@@ -16,6 +16,9 @@ import { runtimeFor } from "./runtime.ts";
 import { belongsToService, serviceLabels } from "./naming.ts";
 import { openOps, type OpsVia } from "./ops/index.ts";
 import { assertPreflight } from "./validation.ts";
+import { isJsonMode, recordFailure } from "./agent/emit.ts";
+import { NotFoundError } from "./agent/errors.ts";
+import { toAppError } from "./effect/errors.ts";
 
 export interface RollbackOptions {
   /** Exact revision id (the kubectl --to-revision equivalent); omitted = previous revision. */
@@ -63,17 +66,22 @@ export async function rollback(loaded: LoadedConfig, opts: RollbackOptions = {})
             : selectPreviousRevision(summaries);
       } catch (e) {
         if (e instanceof RevisionNotFoundError) {
-          console.error("[" + host + "] " + e.message);
+          if (isJsonMode()) {
+            recordFailure(new NotFoundError({ message: e.message, target: opts.toRevision }));
+          } else {
+            console.error("[" + host + "] " + e.message);
+          }
           return 1;
         }
         throw e;
       }
 
       if (!sel) {
-        console.error(
+        const message =
           "[" + host + "] nothing to roll back to (found " + summaries.length + " revision" +
-            (summaries.length === 1 ? "" : "s") + ")",
-        );
+          (summaries.length === 1 ? "" : "s") + ")";
+        if (isJsonMode()) recordFailure(new NotFoundError({ message, target: opts.toRevision }));
+        else console.error(message);
         return 1;
       }
 
@@ -124,7 +132,8 @@ export async function rollback(loaded: LoadedConfig, opts: RollbackOptions = {})
           targetNames.length + " replica(s))",
       );
     } catch (e) {
-      console.error("[" + host + "] " + (e as Error).message);
+      if (isJsonMode()) recordFailure(toAppError(e));
+      else console.error("[" + host + "] " + (e as Error).message);
       return 1;
     } finally {
       await ops.close();

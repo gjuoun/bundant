@@ -6,6 +6,8 @@ import { renderApiPlan } from "../../plan-render.ts";
 import type { PullPolicy } from "../../ops/index.ts";
 import { resolveRevision, sanitizeRevision } from "../../revision.ts";
 import { deploy as runDeploy } from "../../deploy.ts";
+import { recordData } from "../../agent/emit.ts";
+import { UsageError } from "../../agent/errors.ts";
 import { rootCommand } from "../root.ts";
 import { finish, loadedFor, opsVia, runPromise, value } from "./common.ts";
 
@@ -14,33 +16,31 @@ export const deploy = Command.make("deploy", {}, () =>
     const g = yield* rootCommand;
     const loaded = yield* runPromise(async () => loadedFor(g));
     if (loaded.config.kind === "accessory") {
-      console.error(
-        "bundant: " + loaded.config.service + " is an accessory - use \`bundant accessory boot\`",
-      );
-      return yield* finish(2);
+      throw new UsageError({
+        message: loaded.config.service + " is an accessory - use \`bundant accessory boot\`",
+      });
     }
     const revision = value(g.rev)
       ? sanitizeRevision(value(g.rev)!)
       : yield* runPromise(() => resolveRevision(dirname(loaded.path)));
     const localImage = value(g["local-image"]);
     if (localImage !== undefined && localImage.trim() === "") {
-      console.error("bundant: --local-image requires a name:tag value");
-      return yield* finish(2);
+      throw new UsageError({ message: "--local-image requires a name:tag value" });
     }
     const plan = buildDeployPlan(loaded.config, revision, { localImage });
     const via = opsVia(g.via);
     if (via === null) return yield* finish(2);
     if (g["dry-run"]) {
-      console.log(
+      const rendered =
         via === "api" && localImage === undefined
           ? renderApiPlan(plan, { envCount: loaded.envCount })
-          : renderPlan(plan),
-      );
+          : renderPlan(plan);
+      if (g.json) recordData({ status: "dry-run", plan: rendered });
+      else console.log(rendered);
       return yield* finish(0);
     }
     if (!["missing", "always", "never"].includes(g.pull)) {
-      console.error("bundant: --pull must be 'missing', 'always' or 'never'");
-      return yield* finish(2);
+      throw new UsageError({ message: "--pull must be 'missing', 'always' or 'never'" });
     }
     const phases: Record<string, number> = {};
     // CLI startup is part of the wall time an operator sees.
@@ -69,13 +69,7 @@ export const deploy = Command.make("deploy", {}, () =>
       // The external wall measurement is the denominator; no total row here."
     }
     if (g.json) {
-      console.log(
-        JSON.stringify(
-          { status: code === 0 ? "deployed" : "failed", phases, totalMs: Math.round(totalMs) },
-          null,
-          2,
-        ),
-      );
+      recordData({ status: code === 0 ? "deployed" : "failed", phases, totalMs: Math.round(totalMs) });
     }
     yield* finish(code);
   }),

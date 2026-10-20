@@ -1,6 +1,8 @@
 import { Effect } from "effect";
 import { Argument, Command } from "effect/cli";
 import { monitorFor } from "../../monitor.ts";
+import { recordData } from "../../agent/emit.ts";
+import { NotFoundError } from "../../agent/errors.ts";
 import { rootCommand } from "../root.ts";
 import { finish, opsVia, runPromise } from "./common.ts";
 import { flatLoadedFor, resolutionOptions, selectorFor, withFlatUnits } from "./flat-common.ts";
@@ -27,18 +29,20 @@ export const exec = Command.make(
         }),
       );
       if (containers.length === 0) {
-        console.error("bundant: exec found no container");
-        return yield* finish(1);
+        throw new NotFoundError({ message: "exec found no container" });
       }
       const monitor = yield* runPromise(() => monitorFor(loaded));
       try {
+        const names = containers.map((container) => container.name);
+        let last = 0;
         for (const container of containers) {
           const code = yield* runPromise(() =>
             monitor.execShell(container.host, container.name, [...argv]),
           );
-          if (code !== 0) return yield* finish(code);
+          last = code;
+          if (code !== 0) return yield* finish(code, { containers: names, exitCode: code });
         }
-        yield* finish(0);
+        yield* finish(0, { containers: names, exitCode: last });
       } finally {
         yield* runPromise(() => monitor.close());
       }

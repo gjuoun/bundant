@@ -2,6 +2,7 @@ import { Effect } from "effect";
 import { Argument, Command } from "effect/cli";
 import { monitorFor } from "../../monitor.ts";
 import { renderStats } from "../../monitor-render.ts";
+import { recordData } from "../../agent/emit.ts";
 import { rootCommand } from "../root.ts";
 import { finish, loadedFor, runPromise } from "./common.ts";
 import { flatLoadedFor, resolutionOptions, selectorFor, withFlatUnits } from "./flat-common.ts";
@@ -29,7 +30,8 @@ export const stats = Command.make(
           ...host,
           rows: host.rows.filter((row) => names.includes(row.name)),
         }));
-        console.log(renderStats(filtered));
+        if (g.json) recordData(filtered);
+        else console.log(renderStats(filtered));
         yield* finish(0);
       } finally {
         yield* runPromise(() => monitor.close());

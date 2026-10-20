@@ -48,6 +48,14 @@ export function recordFailure(error: AppError): void {
   state.failure = error;
 }
 
+export function hasFailure(): boolean {
+  return state !== null && state.failure !== null;
+}
+
+export function hasData(): boolean {
+  return state !== null && state.hasData;
+}
+
 function restore(): void {
   if (savedWrite !== null) process.stdout.write = savedWrite;
   if (savedLog !== null) console.log = savedLog;

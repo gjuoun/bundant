@@ -14,6 +14,7 @@ import { status as serviceStatus } from "./status.ts";
 import { accessoryContainerName, serviceLabels } from "./naming.ts";
 import { openOps, type OpsVia } from "./ops/index.ts";
 import { assertGroupPreflight } from "./validation.ts";
+import { UsageError } from "./agent/errors.ts";
 
 /**
  * Group orchestration: a group is a namespace with one lifecycle. Install walks
@@ -223,8 +224,7 @@ export class GroupRunner {
   async rollback(opts: GroupRunOptions): Promise<number> {
     assertGroupPreflight(this.loaded);
     if (opts.toRevision === undefined || opts.toRevision === "") {
-      console.error("bundant: group rollback needs --to-revision <sha>");
-      return 2;
+      throw new UsageError({ message: "group rollback needs --to-revision <sha>" });
     }
     const via: OpsVia = opts.via ?? "api";
     const plan = groupRollbackPlan(this.loaded.members, opts.toRevision);

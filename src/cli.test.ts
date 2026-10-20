@@ -101,18 +101,9 @@ describe("effect/cli parsing", () => {
         "proxy: { enabled: false }",
       ].join("\n"),
     );
-    const lines: string[] = [];
-    const original = console.error;
-    console.error = (...args: unknown[]) => {
-      lines.push(args.map(String).join(" "));
-    };
-    try {
-      await run(["deploy", "-f", file]);
-    } finally {
-      console.error = original;
-    }
-    expect(process.exitCode).toBe(2);
-    expect(lines[0]).toContain("is an accessory - use `bundant accessory boot`");
+    await expect(run(["deploy", "-f", file])).rejects.toThrow(
+      "is an accessory - use `bundant accessory boot`",
+    );
   });
 
   test("scale on an accessory refuses", async () => {
@@ -128,18 +119,9 @@ describe("effect/cli parsing", () => {
         "proxy: { enabled: false }",
       ].join("\n"),
     );
-    const lines: string[] = [];
-    const original = console.error;
-    console.error = (...args: unknown[]) => {
-      lines.push(args.map(String).join(" "));
-    };
-    try {
-      await run(["scale", "-f", file, "--replicas", "2"]);
-    } finally {
-      console.error = original;
-    }
-    expect(process.exitCode).toBe(2);
-    expect(lines[0]).toContain("is an accessory - a stateful member is one of one");
+    await expect(run(["scale", "-f", file, "--replicas", "2"])).rejects.toThrow(
+      "is an accessory - a stateful member is one of one",
+    );
   });
 
   test("lock contention maps to exit 2", async () => {

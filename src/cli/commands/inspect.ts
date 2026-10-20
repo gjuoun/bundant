@@ -2,6 +2,8 @@ import { Effect } from "effect";
 import { Argument, Command } from "effect/cli";
 import { monitorFor } from "../../monitor.ts";
 import { renderInspect } from "../../monitor-render.ts";
+import { recordData } from "../../agent/emit.ts";
+import { NotFoundError } from "../../agent/errors.ts";
 import { rootCommand } from "../root.ts";
 import { finish, opsVia, runPromise } from "./common.ts";
 import { flatLoadedFor, resolutionOptions, selectorFor, withFlatUnits } from "./flat-common.ts";
@@ -23,13 +25,13 @@ export const inspect = Command.make(
         }),
       );
       if (first === undefined) {
-        console.error("bundant: inspect found no running container");
-        return yield* finish(1);
+        throw new NotFoundError({ message: "inspect found no running container" });
       }
       const monitor = yield* runPromise(() => monitorFor(loaded));
       try {
         const rows = yield* runPromise(() => monitor.inspect(first.name));
-        console.log(renderInspect(rows));
+        if (g.json) recordData(rows);
+        else console.log(renderInspect(rows));
         yield* finish(0);
       } finally {
         yield* runPromise(() => monitor.close());

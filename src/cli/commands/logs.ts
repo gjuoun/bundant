@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { Argument, Command } from "effect/cli";
 import { monitorFor } from "../../monitor.ts";
+import { UsageError } from "../../agent/errors.ts";
 import { rootCommand } from "../root.ts";
 import { finish, opsVia, runPromise } from "./common.ts";
 import { flatLoadedFor, opsFor, resolutionOptions, selectorFor, withFlatUnits } from "./flat-common.ts";
@@ -13,8 +14,7 @@ export const logs = Command.make(
       const g = yield* rootCommand;
       const tail = Number(g.tail);
       if (!Number.isInteger(tail) || tail <= 0) {
-        console.error("bundant: --tail must be a positive integer");
-        return yield* finish(2);
+        throw new UsageError({ message: "--tail must be a positive integer" });
       }
       const via = opsVia(g.via);
       if (via === null) return yield* finish(2);
@@ -47,19 +47,21 @@ export const logs = Command.make(
         }
         return;
       }
+      const entries: { host: string; container: string; lines: string[] }[] = [];
       yield* runPromise(() =>
         withFlatUnits(loaded, via, pattern, resolutionOptions(g), async (ctx) => {
           for (const unit of ctx.units) {
             for (const container of unit.containers) {
               const text = await opsFor(ctx, container.host).logs(container.name, tail);
-              for (const line of text.split("\n")) {
-                if (line === "") continue;
-                console.log(container.name + " | " + line);
+              const lines = text.split("\n").filter((line) => line !== "");
+              entries.push({ host: container.host, container: container.name, lines });
+              if (!g.json) {
+                for (const line of lines) console.log(container.name + " | " + line);
               }
             }
           }
         }),
       );
-      yield* finish(0);
+      yield* finish(0, entries);
     }),
 ).pipe(Command.withDescription("logs by path, each line prefixed with the replica"));

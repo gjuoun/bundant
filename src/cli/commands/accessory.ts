@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 import { Command } from "effect/cli";
 import { Accessory } from "../../accessory.ts";
+import { UsageError } from "../../agent/errors.ts";
 import { rootCommand } from "../root.ts";
 import { finish, loadedFor, opsVia, runPromise, value } from "./common.ts";
 
@@ -23,8 +24,7 @@ function runAction(action: Action) {
     const loaded = yield* runPromise(async () => loadedFor(g, "accessory.yml"));
     const tail = Number(g.tail);
     if (!Number.isInteger(tail) || tail <= 0) {
-      console.error("bundant: --tail must be a positive integer");
-      return yield* finish(2);
+      throw new UsageError({ message: "--tail must be a positive integer" });
     }
     const via = opsVia(g.via);
     if (via === null) return yield* finish(2);
