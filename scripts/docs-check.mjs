@@ -3,14 +3,20 @@
  * docs-check - prove the generated docs site is complete and tutorial-shaped.
  *
  * For every tutorial and reference source: the built /docs/<slug>/ page exists,
- * carries its title, and its sidebar label is on /docs/. Tutorial chapters must
- * also contain a fenced command block, a "You should see" proof block and a
- * fenced mermaid diagram. The
+ * carries its title, and its sidebar label is on /docs/. Tutorial chapters are
+ * MDX and must keep their fenced command block, a "You should see" proof block,
+ * a fenced mermaid diagram, and the Starlight components the tutorial uses
+ * (<Steps>, <Tabs>, <Aside>, <FileTree>, <Badge>, <CardGrid>). The built pages
+ * must carry the matching Starlight classes, keep the diagram source readable
+ * with JS off, and (when Chrome is available) render it to SVG with JS on.
+ * Reference pages stay plain Markdown. The
  * legacy /docs/cli/, /docs/naming/ and /docs/transfer/ URLs must still resolve,
  * and /docs/design/ must be gone.
  */
 import { access, readdir, readFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { spawn } from 'node:child_process';
+import { createServer } from 'node:http';
+import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -20,6 +26,14 @@ const generatedDir = join(repoRoot, 'site', 'src', 'content', 'docs', 'docs');
 const manifestPath = join(generatedDir, 'sync.manifest.json');
 
 const failures = [];
+
+/** Chapters that must use a given component (from the tutorial's component map). */
+const NEEDS_TREE = new Set(['01-quickstart', '02-first-service', '04-scale-and-groups']);
+const NEEDS_BADGE = new Set(['01-quickstart', '02-first-service', '03-operate']);
+
+function chapterOf(source) {
+  return source.replace(/^.*\//, '').replace(/\.mdx?$/, '');
+}
 
 async function exists(path) {
   try {
@@ -32,6 +46,73 @@ async function exists(path) {
 
 async function read(path) {
   return readFile(path, 'utf8').catch(() => '');
+}
+
+/**
+ * Serve site/dist the way the product does (/bundant prefix) and ask headless
+ * Chrome for the rendered DOM. With JS off the page keeps <pre class="mermaid">;
+ * with JS on the same page must contain an SVG flowchart. Chrome is optional so
+ * the check still runs on a machine without it.
+ */
+async function checkMermaidRuntime() {
+  const chrome =
+    process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+  if (!(await exists(chrome))) {
+    console.log('skip mermaid JS check (no Chrome at ' + chrome + ')');
+    return;
+  }
+
+  const types = {
+    '.html': 'text/html; charset=utf-8',
+    '.js': 'text/javascript; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.json': 'application/json; charset=utf-8',
+    '.svg': 'image/svg+xml',
+    '.png': 'image/png',
+    '.woff2': 'font/woff2',
+  };
+  const server = createServer(async (request, response) => {
+    const url = new URL(request.url, 'http://127.0.0.1');
+    let pathname = decodeURIComponent(url.pathname).replace(/^\/bundant/, '');
+    if (pathname.endsWith('/')) pathname += 'index.html';
+    let file = join(distDir, pathname);
+    if (!(await exists(file))) file = join(distDir, pathname, 'index.html');
+    const body = await readFile(file).catch(() => null);
+    if (!body) {
+      response.writeHead(404).end('not found');
+      return;
+    }
+    response.writeHead(200, { 'content-type': types[extname(file)] || 'application/octet-stream' });
+    response.end(body);
+  });
+
+  await new Promise((done) => server.listen(0, '127.0.0.1', done));
+  const port = server.address().port;
+  const page = 'http://127.0.0.1:' + port + '/bundant/docs/tutorial/01-quickstart/';
+
+  const dom = await new Promise((done) => {
+    const child = spawn(chrome, [
+      '--headless=new',
+      '--disable-gpu',
+      '--no-sandbox',
+      '--virtual-time-budget=10000',
+      '--dump-dom',
+      page,
+    ]);
+    let stdout = '';
+    child.stdout.on('data', (chunk) => (stdout += chunk));
+    child.on('error', () => done(''));
+    child.on('close', () => done(stdout));
+    setTimeout(() => child.kill(), 20000).unref();
+  });
+
+  server.close();
+
+  if (!/aria-roledescription="[^"]*flowchart|id="mermaid-[0-9]/.test(dom)) {
+    failures.push('mermaid did not render to SVG with JS on (only the <pre> source is present)');
+    return;
+  }
+  console.log('ok   mermaid renders to SVG with JS on');
 }
 
 async function main() {
@@ -74,11 +155,37 @@ async function main() {
     if (!source) problems.push('source is missing');
 
     if (doc.group === 'Tutorial') {
+      const chapter = chapterOf(doc.source);
+      if (!doc.source.endsWith('.mdx')) problems.push('tutorial source is not .mdx');
       if (!/\`\`\`sh\n/.test(source)) problems.push('no fenced sh command block');
       if (!/\`\`\`mermaid\n/.test(source)) problems.push('no fenced mermaid diagram');
       if (!/You should see/.test(source)) problems.push('no "You should see" block');
       if (!/## Did it fail\?/.test(source)) problems.push('no "Did it fail?" block');
+
+      // The components wrap content; they must never be the only copy of it.
+      if (!/<Steps>/.test(source)) problems.push('no <Steps> wrapper');
+      if (!/<Tabs>/.test(source) || !/<TabItem\b/.test(source)) problems.push('no <Tabs> wrapper');
+      if (!/<Aside\b/.test(source)) problems.push('no <Aside>');
+      if (!/<Aside type="note"/.test(source)) problems.push('no <Aside type="note"> term definition');
+      if (!/<Aside type="tip"/.test(source)) problems.push('no <Aside type="tip"> shortcut');
+      if (!/<Aside type="caution"/.test(source)) problems.push('no <Aside type="caution"> failure note');
+      if (!/<CardGrid>/.test(source) || !/<LinkCard\b/.test(source)) problems.push('no LinkCard footer');
+      if (NEEDS_TREE.has(chapter) && !/<FileTree>/.test(source)) problems.push('no <FileTree>');
+      if (NEEDS_BADGE.has(chapter) && !/<Badge\b/.test(source)) problems.push('no <Badge>');
+      if (chapter === '03-operate' && !/<Aside type="danger"/.test(source)) problems.push('no <Aside type="danger"> for rollback');
+
+      if (page) {
+        if (!page.includes('class="sl-steps"')) problems.push('built page has no sl-steps');
+        if (!page.includes('role="tab"')) problems.push('built page has no tab list');
+        if (!page.includes('class="starlight-aside')) problems.push('built page has no aside');
+        if (NEEDS_TREE.has(chapter) && !page.includes('<starlight-file-tree')) problems.push('built page has no file tree');
+        if (!page.includes('class="sl-link-card')) problems.push('built page has no link card');
+        // JS off: the diagram source must still be in the HTML.
+        if (!page.includes('<pre class="mermaid"')) problems.push('built page lost its mermaid source');
+      }
     } else {
+      if (!doc.source.endsWith('.md')) problems.push('reference source is not plain .md');
+      if (/<Aside\b|<Steps>|<Tabs>/.test(source)) problems.push('reference page uses MDX components');
       if (!/^slug:\s/m.test(source)) problems.push('reference page has no slug frontmatter');
     }
 
@@ -103,13 +210,17 @@ async function main() {
   }
 
   // The tutorial is published: no private addresses or machine paths may leak into it.
-  const sourceFiles = (await readdir(join(repoRoot, "docs", "tutorial"))).filter((name) => name.endsWith('.md'));
+  const sourceFiles = (await readdir(join(repoRoot, "docs", "tutorial"))).filter(
+    (name) => name.endsWith('.md') || name.endsWith('.mdx'),
+  );
   for (const name of sourceFiles) {
     const body = await readFile(join(repoRoot, "docs", "tutorial", name), "utf8");
     const ip = body.match(/\b(?:192\.168|10\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01]))\.\d{1,3}\.\d{1,3}\b/);
     if (ip) failures.push(`${name} leaks a private address (${ip[0]})`);
     if (/\/Users\/[a-z]/.test(body)) failures.push(`${name} leaks a home directory path`);
   }
+
+  await checkMermaidRuntime();
 
   if (failures.length) {
     console.error('\n' + failures.map((failure) => 'FAIL ' + failure).join('\n'));
