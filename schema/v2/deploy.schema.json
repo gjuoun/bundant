@@ -32,14 +32,16 @@
       "enum": [
         "service",
         "accessory"
-      ]
+      ],
+      "description": "service (default) deploys/rolls back; accessory is stateful: stable name, named volumes, flat lifecycle verbs"
     },
     "volumes": {
       "type": "array",
       "items": {
         "type": "string",
         "minLength": 1
-      }
+      },
+      "description": "accessory named volumes, \"name:/path/in/container\" - survive container recreation"
     },
     "hosts": {
       "type": "array",
@@ -84,10 +86,6 @@
           "minLength": 1
         }
       ]
-    },
-    "user": {
-      "type": "string",
-      "pattern": "^[A-Za-z0-9._-]+$"
     },
     "runtime": {
       "type": "string",

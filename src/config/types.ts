@@ -6,9 +6,9 @@ export interface ValidationIssue {
   message: string;
 }
 
-/** Fully-defaulted config. This shape is v1-compatible and version-agnostic. */
+/** Fully-defaulted config. The shape is version-agnostic. */
 export interface BundantConfig {
-  /** Config version that produced this object (implicit v1 when absent). */
+  /** Config version that produced this object. */
   version?: number;
   service: string;
   image: string;
@@ -24,8 +24,6 @@ export interface BundantConfig {
   hosts: string[];
   /** ssh connection defaults (user/port/identity/options); per-host entries win. */
   ssh?: { user?: string; port?: number; identity?: string; options?: string[] };
-  /** Legacy alias for ssh.user. */
-  user?: string;
   /** Container runtime on the target hosts (default: docker). */
   runtime: RuntimeKind;
   env: { file?: string; vars: Record<string, string> };
@@ -33,7 +31,7 @@ export interface BundantConfig {
   proxy: { enabled: boolean; host?: string; port: number; tls: boolean; image: string };
 }
 
-/** Raw deploy.yml shape shared by every v1 schema (inferred T is checked in v1). */
+/** Raw deploy.yml shape every version schema parses. */
 export interface RawConfig {
   version?: number;
   service: string;
@@ -46,7 +44,6 @@ export interface RawConfig {
   ssh?:
     | { user?: string; port?: number; identity?: string; options?: string[] }
     | string;
-  user?: string;
   runtime?: RuntimeKind;
   env?: { file?: string; vars?: Record<string, string> };
   healthcheck?: { path?: string; port?: number; timeout?: number; tcp?: number };
@@ -59,7 +56,7 @@ export interface LoadedConfig {
   envContent: string | null;
   envCount: number;
   path: string;
-  /** Declared (or implicit) config version that produced this file. */
+  /** Declared config version that produced this file. */
   version?: number;
 }
 

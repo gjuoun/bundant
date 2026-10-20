@@ -1,6 +1,6 @@
 import type { BundantConfig } from "../config.ts";
 import { moduleForVersion } from "../config/registry.ts";
-import type { NameGrammar } from "../config/v1/grammar.ts";
+import type { NameGrammar } from "../config/grammar.ts";
 import {
   KIND_ACCESSORY,
   KIND_SERVICE,
@@ -30,7 +30,7 @@ export interface ServiceIdentityFields {
 /**
  * One deployment identity. All name/path/label derivations live here; call
  * sites pass the grammar from the resolved config version, so nothing is
- * hard-coded to v1.
+ * hard-coded to one grammar.
  */
 export class ServiceIdentity {
   readonly group: string;

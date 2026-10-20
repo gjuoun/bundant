@@ -3,7 +3,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import { ConfigRegistry, ConfigVersionError, loadConfig, v1Module, type VersionModule } from "./config.ts";
+import { ConfigRegistry, ConfigVersionError, loadConfig, v2Module, type VersionModule } from "./config.ts";
 import { validatePath } from "./validation.ts";
 
 const dir = mkdtempSync(join(tmpdir(), "bundant-ver-"));
@@ -22,11 +22,11 @@ const base = [
   "proxy: { enabled: false }",
 ].join("\n");
 
-/** A minimal v2 whose schema and normalize are observably different from v1. */
-function dummyV2(): VersionModule {
+/** A minimal version 3 whose schema and normalize are observably different. */
+function dummyV3(): VersionModule {
   const schema = z
     .object({
-      version: z.literal(2),
+      version: z.literal(3),
       service: z.string().min(1),
       image: z.string().min(1),
       hosts: z.array(z.string()).optional(),
@@ -37,42 +37,50 @@ function dummyV2(): VersionModule {
           port: z.number().optional(),
         })
         .optional(),
-      v2Only: z.boolean().optional(),
+      v3Only: z.boolean().optional(),
     })
     .strict();
   return {
-    version: 2,
-    grammar: v1Module.grammar,
+    version: 3,
+    grammar: v2Module.grammar,
     deploySchema: schema,
     accessorySchema: schema,
     groupSchema: schema,
     normalize: (raw, hosts) => ({
-      ...v1Module.normalize(raw, hosts),
-      image: "v2-normalized",
+      ...v2Module.normalize(raw, hosts),
+      image: "v3-normalized",
     }),
-    preflight: v1Module.preflight,
+    preflight: v2Module.preflight,
   };
 }
 
 describe("config versions", () => {
-  test("missing version is accepted as implicit v1", async () => {
+  test("a file without a version is rejected", async () => {
     const path = write("implicit.yml", base);
-    const loaded = loadConfig(path);
-    expect(loaded.version).toBe(1);
+    expect(() => loadConfig(path)).toThrow(ConfigVersionError);
+    expect(() => loadConfig(path)).toThrow(/version: missing config version/);
     const report = await validatePath(path);
-    expect(report.ok).toBe(true);
-    expect(report.version).toBe(1);
-    expect(report.versionExplicit).toBe(false);
-    expect(report.notes[0]).toContain('version: 1 (implicit - add "version: 1" to pin it)');
+    expect(report.ok).toBe(false);
+    expect(report.errors[0]?.field).toBe("version");
   });
 
-  test("explicit version: 1 is accepted without a note", async () => {
-    const path = write("explicit.yml", "version: 1\n" + base);
+  test("version 1 is unsupported with the stable exit contract", async () => {
+    const path = write("v1.yml", "version: " + 1 + "\n" + base);
+    expect(() => loadConfig(path)).toThrow(ConfigVersionError);
+    expect(() => loadConfig(path)).toThrow(/unsupported config version 1 \(supported: 2\)/);
+    const report = await validatePath(path);
+    expect(report.ok).toBe(false);
+    expect(report.errors[0]?.field).toBe("version");
+    expect(report.errors[0]?.message).toContain("(supported: 2)");
+  });
+
+  test("explicit version: 2 is accepted", async () => {
+    const path = write("explicit.yml", "version: 2\n" + base);
     const loaded = loadConfig(path);
-    expect(loaded.version).toBe(1);
+    expect(loaded.version).toBe(2);
     const report = await validatePath(path);
     expect(report.ok).toBe(true);
-    expect(report.version).toBe(1);
+    expect(report.version).toBe(2);
     expect(report.versionExplicit).toBe(true);
     expect(report.notes).toEqual([]);
   });
@@ -87,83 +95,61 @@ describe("config versions", () => {
       const report = await validatePath(path);
       expect(report.ok).toBe(false);
       expect(report.errors[0]?.field).toBe("version");
-      expect(report.errors[0]?.message).toContain("(supported: 1, 2)");
+      expect(report.errors[0]?.message).toContain("(supported: 2)");
       expect(() => loadConfig(path)).toThrow(/version: unsupported config version/);
     }
   });
 
-  test("--strict rejects an implicit version", async () => {
-    const path = write("strict.yml", base);
-    const report = await validatePath(path, process.env, { strict: true });
-    expect(report.ok).toBe(false);
-    expect(report.errors[0]?.field).toBe("version");
-    expect(report.errors[0]?.message).toBe(
-      'missing config version (strict mode): add "version: 1" (supported: 1, 2)',
-    );
-    const explicit = await validatePath(write("strict-ok.yml", "version: 1\n" + base), process.env, {
-      strict: true,
-    });
-    expect(explicit.ok).toBe(true);
+  test("a dummy version 3 can be registered without touching version 2", () => {
+    const oldVersion = 1;
+    const v3 = dummyV3();
+    const registry = new ConfigRegistry([v2Module, v3]);
+
+    expect(registry.supported()).toEqual([2, 3]);
+    expect(registry.resolve({ version: 2 }).module).toBe(v2Module);
+    expect(registry.resolve({ version: 3 }).module).toBe(v3);
+    expect(registry.get(2)).toBe(v2Module);
+
+    expect(() => registry.resolve({ version: oldVersion })).toThrow(ConfigVersionError);
+    expect(() => registry.resolve({ version: oldVersion })).toThrow(/supported: 2, 3/);
   });
 
-  test("a dummy v2 can be registered without touching v1", () => {
-    const v2 = dummyV2();
-    const registry = new ConfigRegistry([v1Module, v2]);
-
-    expect(registry.supported()).toEqual([1, 2]);
-    expect(registry.resolve({ version: 1 }).module).toBe(v1Module);
-    expect(registry.resolve({ version: 2 }).module.version).toBe(2);
-    expect(registry.resolve({ version: 2 }).module).toBe(v2);
-    expect(registry.resolve({}).version).toBe(1);
-
-    // v1 behaviour is untouched by the extra registration.
-    const before = v1Module.deploySchema.safeParse({ version: 1, service: "Bad_Name", image: "x" });
-    const after = registry.get(1).deploySchema.safeParse({ version: 1, service: "Bad_Name", image: "x" });
-    expect(before.success).toBe(false);
-    expect(after.success).toBe(false);
-    expect(registry.get(1)).toBe(v1Module);
-
-    expect(() => registry.resolve({ version: 3 })).toThrow(ConfigVersionError);
-    expect(() => registry.resolve({ version: 3 })).toThrow(/supported: 1, 2/);
-  });
-
-  test("loadConfig dispatches v2 through the real loader entry point", () => {
-    const registry = new ConfigRegistry([v1Module, dummyV2()]);
+  test("loadConfig dispatches a registered version through the real loader entry point", () => {
+    const registry = new ConfigRegistry([v2Module, dummyV3()]);
     const file = write(
-      "load-v2.yml",
+      "load-v3.yml",
       [
-        "version: 2",
+        "version: 3",
         "service: hello",
         "image: x:1",
         "hosts: [box.test]",
         "proxy: { enabled: false }",
-        "v2Only: true",
+        "v3Only: true",
       ].join("\n"),
     );
 
     const loaded = loadConfig(file, { registry });
-    expect(loaded.version).toBe(2);
-    expect(loaded.config.image).toBe("v2-normalized");
+    expect(loaded.version).toBe(3);
+    expect(loaded.config.image).toBe("v3-normalized");
 
-    // The same file with a v1-only registry fails in the real loader.
-    const v1Only = new ConfigRegistry([v1Module]);
-    expect(() => loadConfig(file, { registry: v1Only })).toThrow(ConfigVersionError);
-    expect(() => loadConfig(file, { registry: v1Only })).toThrow(
-      /unsupported config version 2 \(supported: 1\)/,
+    const v2Only = new ConfigRegistry([v2Module]);
+    expect(() => loadConfig(file, { registry: v2Only })).toThrow(ConfigVersionError);
+    expect(() => loadConfig(file, { registry: v2Only })).toThrow(
+      /unsupported config version 3 \(supported: 2\)/,
     );
   });
 
   test("group.yml carries its own version", async () => {
     const groupDir = mkdtempSync(join(dir, "grp-"));
-    writeFileSync(join(groupDir, "deploy.yml"), base);
+    writeFileSync(join(groupDir, "deploy.yml"), "version: 2\n" + base);
     const manifest = join(groupDir, "group.yml");
     writeFileSync(
       manifest,
-      ["version: 1", "group: shop", "services:", "  - name: hello", "    file: ./deploy.yml"].join("\n"),
+      ["version: 2", "group: shop", "services:", "  - name: hello", "    file: ./deploy.yml"].join("\n"),
     );
     const report = await validatePath(manifest);
     expect(report.ok).toBe(true);
-    expect(report.version).toBe(1);
+    expect(report.version).toBe(2);
     expect(report.versionExplicit).toBe(true);
   });
 });

@@ -49,23 +49,6 @@ function source(host = "root@h"): UnitSource {
   };
 }
 
-describe("legacy v1 names", () => {
-  test("a pre-label container derives default.api.web, not a 'rev' role", () => {
-    const legacy = row("api-web-rev-mvds9k6w", { "bundant.service": "api" }, 100);
-    const units = foldUnits([{ host: "h", row: legacy }]);
-    expect(units.map((u) => u.path)).toEqual(["default.api.web"]);
-    expect(units[0]!.revision).toBe("rev-mvds9k6w");
-    expect(units[0]!.kind).toBe("service");
-  });
-
-  test("a completely unlabelled legacy name also splits at rev-", () => {
-    const legacy = row("hello-web-rev-mvds9ilt", {}, 100);
-    const units = foldUnits([{ host: "h", row: legacy }]);
-    expect(units.map((u) => u.path)).toEqual(["default.hello.web"]);
-    expect(units[0]!.revision).toBe("rev-mvds9ilt");
-  });
-});
-
 describe("foldUnits", () => {
   test("folds by path and revision, including accessory and replicas", () => {
     const units = foldUnits(rows.map((row) => ({ host: "h", row })));

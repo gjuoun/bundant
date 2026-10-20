@@ -16,6 +16,7 @@ function writeYml(name: string, body: string): string {
 }
 
 const minimal = [
+  "version: 2",
   "service: hello",
   "image: traefik/whoami:v1.10",
   "hosts:",
@@ -45,6 +46,7 @@ describe("loadConfig", () => {
 
   test("replicas > 1 without a proxy is a configuration error", () => {
     const noProxy = [
+      "version: 2",
       "service: hello",
       "image: traefik/whoami:v1.10",
       "hosts:",
@@ -58,6 +60,7 @@ describe("loadConfig", () => {
 
   test("replicas is rejected on an accessory (stateful members are one of one)", () => {
     const acc = [
+      "version: 2",
       "service: db",
       "image: postgres:16",
       "kind: accessory",
@@ -103,26 +106,24 @@ describe("loadConfig", () => {
     expect(() => loadConfig(writeYml("badsvc.yml", bad))).toThrow();
   });
 
-  test("service keeps hyphens; role does not (they are separators)", () => {
+  test("service and role accept kebab, camel and snake identifiers", () => {
     const hyphenService = minimal.replace("service: hello", "service: hello-world");
     expect(loadConfig(writeYml("svc-hyphen.yml", hyphenService)).config.service).toBe("hello-world");
-    expect(() =>
-      loadConfig(writeYml("role-hyphen.yml", [minimal, "role: web-1"].join("\n"))),
-    ).toThrow(/role "web-1" must match \[a-z0-9]\+ .*hyphens are reserved as separators/);
+    for (const role of ["web-1", "Web", "web_api"]) {
+      const path = writeYml("role-" + role.replace(/\W/g, "_") + ".yml", [minimal, "role: " + role].join("\n"));
+      expect(loadConfig(path).config.role).toBe(role);
+    }
   });
 
-  test("camelCase, snake_case and dot.case roles are rejected with the exact rule", () => {
-    for (const role of ["Web", "web_api", "web.api"]) {
-      const path = writeYml("role-" + role.replace(/\W/g, "_") + ".yml", [minimal, "role: " + role].join("\n"));
-      expect(() => loadConfig(path)).toThrow(
-        new RegExp('role "' + role.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + '" must match'),
-      );
-      expect(() => loadConfig(path)).toThrow(/hyphens are reserved as separators/);
-    }
+  test("a dot in an identifier is rejected with the exact rule", () => {
+    const path = writeYml("role-dot.yml", [minimal, "role: web.api"].join("\n"));
+    expect(() => loadConfig(path)).toThrow(/role "web\.api" must match/);
+    expect(() => loadConfig(path)).toThrow(/no '\.'/);
   });
 
   test("rejects proxy enabled without a host", () => {
     const noHost = [
+      "version: 2",
       "service: hello",
       "image: traefik/whoami:v1.10",
       "hosts:",
@@ -161,15 +162,6 @@ describe("loadConfig", () => {
     expect(offline.config.proxy.image).toBe("docker.io/basecamp/kamal-proxy:offline-2026-10");
   });
 
-  test("top-level user is optional and validated", () => {
-    expect(loadConfig(writeYml("u1.yml", minimal)).config.user).toBeUndefined();
-    const withUser = loadConfig(writeYml("u2.yml", [minimal, "user: root"].join("\n")));
-    expect(withUser.config.user).toBe("root");
-    expect(() =>
-      loadConfig(writeYml("u3.yml", [minimal, "user: root@box"].join("\n"))),
-    ).toThrow(/user/);
-  });
-
   test("missing env file is a clear error", () => {
     expect(() =>
       loadConfig(
@@ -184,27 +176,25 @@ describe("collision-proof group naming", () => {
     const dir = mkdtempSync(join(tmp, "grp-"));
     writeFileSync(
       join(dir, "deploy.yml"),
-      ["service: " + member, "image: x:1", "hosts: [box.test]", "proxy: {enabled: false}"].join("\n"),
+      ["version: 2", "service: " + member, "image: x:1", "hosts: [box.test]", "proxy: {enabled: false}"].join("\n"),
     );
     const manifest = join(dir, "group.yml");
     writeFileSync(
       manifest,
-      ["group: " + group, "services:", "  - name: " + member, "    file: ./deploy.yml"].join("\n"),
+      ["version: 2", "group: " + group, "services:", "  - name: " + member, "    file: ./deploy.yml"].join("\n"),
     );
     return manifest;
   }
 
-  test("a hyphenated group is rejected, so <group>-<service> cannot collide", () => {
-    expect(() => loadGroup(groupFixture("a-b", "c"))).toThrow(
-      /group "a-b" must match \[a-z0-9]\+ .*hyphens are reserved as separators/,
-    );
+  test("a hyphenated group and service are unambiguous in dotted names", () => {
+    const loaded = loadGroup(groupFixture("a-b", "c-d"));
+    expect(loaded.group).toBe("a-b");
+    expect(loaded.members[0]!.name).toBe("c-d");
+    expect(loaded.members[0]!.loaded.config.service).toBe("c-d");
   });
 
-  test("the split that used to collide now has only one valid spelling", () => {
-    // group "a" + service "b-c" is the valid side of the old collision.
-    const loaded = loadGroup(groupFixture("a", "b-c"));
-    expect(loaded.group).toBe("a");
-    expect(loaded.members[0]!.name).toBe("b-c");
+  test("a dot in a group is rejected", () => {
+    expect(() => loadGroup(groupFixture("a.b", "c"))).toThrow(/group "a\.b" must match/);
   });
 });
 
@@ -217,7 +207,7 @@ describe("shared ssh file", () => {
     const cfg = loadConfig(
       writeYml(
         "shared1.yml",
-        ["service: api", "image: x:1", "ssh: ./prod-ssh.yaml", "proxy: {enabled: false}"].join("\n"),
+        ["version: 2", "service: api", "image: x:1", "ssh: ./prod-ssh.yaml", "proxy: {enabled: false}"].join("\n"),
       ),
     );
     expect(cfg.config.hosts).toEqual(["a.example.com", "b.example.com"]);
@@ -232,6 +222,7 @@ describe("shared ssh file", () => {
       writeYml(
         "shared2.yml",
         [
+          "version: 2",
           "service: api",
           "image: x:1",
           "ssh: ./pool-only.yaml",
@@ -246,21 +237,21 @@ describe("shared ssh file", () => {
 
   test("a missing ssh file names the resolved path", () => {
     expect(() =>
-      loadConfig(writeYml("shared3.yml", ["service: api", "image: x:1", "ssh: ./nope.yaml"].join("\n"))),
+      loadConfig(writeYml("shared3.yml", ["version: 2", "service: api", "image: x:1", "ssh: ./nope.yaml"].join("\n"))),
     ).toThrow(/nope\.yaml/);
   });
 
   test("a malformed ssh file reports the field path", () => {
     writeFileSync(join(tmp, "bad-ssh.yaml"), ["port: 99999"].join("\n"));
     expect(() =>
-      loadConfig(writeYml("shared4.yml", ["service: api", "image: x:1", "ssh: ./bad-ssh.yaml"].join("\n"))),
+      loadConfig(writeYml("shared4.yml", ["version: 2", "service: api", "image: x:1", "ssh: ./bad-ssh.yaml"].join("\n"))),
     ).toThrow(/ssh file.*port/);
   });
 
   test("no hosts anywhere is a clear error", () => {
     writeFileSync(join(tmp, "hostless.yaml"), ["user: deploy"].join("\n"));
     expect(() =>
-      loadConfig(writeYml("shared5.yml", ["service: api", "image: x:1", "ssh: ./hostless.yaml"].join("\n"))),
+      loadConfig(writeYml("shared5.yml", ["version: 2", "service: api", "image: x:1", "ssh: ./hostless.yaml"].join("\n"))),
     ).toThrow(/hosts is required/);
   });
 });

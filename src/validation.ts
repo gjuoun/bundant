@@ -5,9 +5,6 @@ import {
   ConfigError,
   ConfigVersionError,
   DEFAULT_GROUP,
-  GROUP_NAME_RE,
-  ROLE_NAME_RE,
-  SERVICE_NAME_RE,
   defaultRegistry,
   loadConfig,
   loadGroup,
@@ -20,7 +17,7 @@ import {
   type ValidationIssue,
   type VersionModule,
 } from "./config.ts";
-import type { NameGrammar, NameIdentity } from "./config/v1/grammar.ts";
+import type { NameGrammar, NameIdentity } from "./config/grammar.ts";
 import { ServiceIdentity } from "./domain/identity.ts";
 import { resolveRevision } from "./revision.ts";
 
@@ -64,7 +61,7 @@ export interface ValidationReport {
 }
 
 export interface ValidateOptions {
-  /** Missing version is an error instead of implicit v1. */
+  /** Missing version is always an error. */
   strict?: boolean;
   /** Test seam: an isolated registry (e.g. with a dummy v2). */
   registry?: ConfigRegistry;
@@ -86,7 +83,7 @@ function issue(field: string, message: string): ValidationIssue {
 /** The revision rule also comes from the resolved version's grammar. */
 export function validateRevision(
   revision: string,
-  grammar: NameGrammar = moduleForVersion(1).grammar,
+  grammar: NameGrammar = moduleForVersion(undefined).grammar,
 ): ValidationIssue | null {
   if (grammar.revision.test(revision)) return null;
   return issue("revision", 'revision "' + revision + '" ' + grammar.segmentRule);
@@ -274,7 +271,7 @@ export async function validatePath(
 
   let resolved;
   try {
-    resolved = registry.resolve(doc, { strict: opts.strict === true });
+    resolved = registry.resolve(doc);
   } catch (e) {
     if (e instanceof ConfigVersionError) {
       return {

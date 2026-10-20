@@ -3,7 +3,6 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { validatePath } from "../../validation.ts";
-import { v1Grammar } from "../v1/grammar.ts";
 import {
   IDENTIFIER_RE,
   composeAccessory,
@@ -47,7 +46,7 @@ describe("v2 dotted composition", () => {
   });
 
   test("accessory is exactly two segments", () => {
-    const identity = { group: "shop", service: "db", role: "", revision: "", kind: "accessory" };
+    const identity = { group: "shop", service: "db", role: "", revision: "", kind: "accessory" as const };
     expect(composeAccessory(identity)).toBe("shop.db");
     expect(parseDotted("shop.db")).toEqual(identity);
   });
@@ -59,11 +58,6 @@ describe("v2 dotted composition", () => {
     expect(() => parseDotted("shop.api/x.web.r1")).toThrow(/identifier/);
   });
 
-  test("v1 grammar is unchanged", () => {
-    expect(v1Grammar.compose({ group: "shop", service: "api", role: "web", revision: "r1" })).toBe(
-      "shop-api-web-r1",
-    );
-  });
 });
 
 describe("v2 accessory validation", () => {

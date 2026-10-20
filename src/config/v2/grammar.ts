@@ -1,8 +1,9 @@
 import {
   DEFAULT_GROUP,
+  NameParseError,
   type NameGrammar,
   type NameIdentity,
-} from "../v1/grammar.ts";
+} from "../grammar.ts";
 
 /** v2 identifier: letters/digits plus single, non-edge '-' or '_'. No dots. */
 export const IDENTIFIER_RE = /^[A-Za-z0-9](?:[A-Za-z0-9]|[-_](?=[A-Za-z0-9]))*$/;
@@ -10,15 +11,6 @@ export const REVISION_RE = /^[A-Za-z0-9]+$/;
 export const IDENTIFIER_RULE =
   "must match [A-Za-z0-9]([A-Za-z0-9]|[-_][A-Za-z0-9])* (letters, digits, '-' and '_'; no leading/trailing/consecutive separators, no '.')";
 export const REVISION_RULE = "must match [A-Za-z0-9]+";
-
-export class NameParseError extends Error {
-  readonly containerName: string;
-  constructor(containerName: string, reason: string) {
-    super('cannot parse container name "' + containerName + '": ' + reason);
-    this.name = "NameParseError";
-    this.containerName = containerName;
-  }
-}
 
 function groupOf(identity: NameIdentity): string {
   return identity.group !== undefined && identity.group !== "" ? identity.group : DEFAULT_GROUP;

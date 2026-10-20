@@ -64,7 +64,7 @@ describe("exit status contract", () => {
   });
 
   test("bad YAML exits 1 with CONFIG_INVALID", async () => {
-    const file = fixture("broken.yml", ["version: 1", "service: [unclosed"]);
+    const file = fixture("broken.yml", ["version: 2", "service: [unclosed"]);
     const result = await cli(["deploy", "-f", file, "--json"]);
     expect(result.code).toBe(1);
     expect(result.json.error.code).toBe("CONFIG_INVALID");
@@ -88,7 +88,7 @@ describe("exit status contract", () => {
     mkdirSync(join(dir, "a"), { recursive: true });
     mkdirSync(join(dir, "b"), { recursive: true });
     const member = (name: string): string[] => [
-      "version: 1",
+      "version: 2",
       "service: " + name,
       "image: alpine",
       "hosts: [box.test]",
@@ -100,7 +100,7 @@ describe("exit status contract", () => {
     writeFileSync(
       manifest,
       [
-        "version: 1",
+        "version: 2",
         "group: smoke",
         "services:",
         "  - name: a",

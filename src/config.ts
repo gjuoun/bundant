@@ -10,24 +10,9 @@ import {
   type ConfigRegistry,
   type VersionModule,
 } from "./config/registry.ts";
-import {
-  RawConfigSchema,
-  SshFileSchema,
-  SshSchema,
-  namedString,
-  normalize,
-  zodIssues,
-} from "./config/v1/deploy.ts";
-import { GroupFileSchema, GroupServiceSchema } from "./config/v1/group.ts";
-import {
-  DEFAULT_GROUP,
-  GROUP_NAME_RE,
-  REVISION_RE,
-  ROLE_NAME_RE,
-  SEGMENT_NAME_RULE,
-  SERVICE_NAME_RE,
-  SERVICE_NAME_RULE,
-} from "./config/v1/grammar.ts";
+import { SshFileSchema, SshSchema, zodIssues } from "./config/deploy-base.ts";
+import { GroupFileSchema } from "./config/v2/group.ts";
+import { DEFAULT_GROUP } from "./config/grammar.ts";
 import type {
   BundantConfig,
   GroupMember,
@@ -42,34 +27,23 @@ export {
   ConfigVersionError,
   defaultRegistry,
   moduleForVersion,
-  v1Module,
   v2Module,
   type VersionModule,
 } from "./config/registry.ts";
 
 export { ConfigError } from "./config/errors.ts";
 
-export {
-  DEFAULT_GROUP,
-  GROUP_NAME_RE,
-  REVISION_RE,
-  ROLE_NAME_RE,
-  SEGMENT_NAME_RULE,
-  SERVICE_NAME_RE,
-  SERVICE_NAME_RULE,
-} from "./config/v1/grammar.ts";
+export { DEFAULT_GROUP } from "./config/grammar.ts";
+export { IDENTIFIER_RE, IDENTIFIER_RULE, REVISION_RE, REVISION_RULE } from "./config/v2/grammar.ts";
 
+export { SshFileSchema, SshSchema, zodIssues } from "./config/deploy-base.ts";
 export {
   RawConfigSchema,
-  SshFileSchema,
-  SshSchema,
-  namedString,
   normalize,
-  zodIssues,
-} from "./config/v1/deploy.ts";
-export { GroupFileSchema, GroupServiceSchema } from "./config/v1/group.ts";
-export { AccessorySchema } from "./config/v1/accessory.ts";
-export type { GroupFile } from "./config/v1/group.ts";
+} from "./config/v2/deploy.ts";
+export { GroupFileSchema, GroupServiceSchema } from "./config/v2/group.ts";
+export { AccessorySchema } from "./config/v2/accessory.ts";
+export type { GroupFile } from "./config/v2/group.ts";
 
 export type {
   BundantConfig,
@@ -79,9 +53,6 @@ export type {
   RawConfig,
   ValidationIssue,
 } from "./config/types.ts";
-
-/** Historical alias: every config name used to share one grammar. */
-export const NAME_RE = SERVICE_NAME_RE;
 
 export interface ConfigIssue {
   field: string;

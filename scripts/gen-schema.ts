@@ -2,7 +2,7 @@
 /**
  * Generate the versioned JSON Schemas that editors use for autocomplete and
  * inline errors. Every registered config version gets its own directory; the
- * root files remain stable v1 aliases for existing examples.
+ * root files remain stable aliases for the current version.
  *
  * The zod modules in src/config/v<version>/ are the source of truth. This
  * script only projects them to draft-07. src/schema.test.ts fails on drift.
@@ -96,16 +96,15 @@ export function buildVersionSchemas(module: VersionModule): Record<string, strin
   );
 }
 
-/** Every generated file, versioned plus the stable root v1 aliases. */
+/** Every generated file, versioned plus the stable root aliases. */
 export function buildSchemas(): Record<string, string> {
   const out: Record<string, string> = {};
   for (const module of defaultRegistry.all()) {
     Object.assign(out, buildVersionSchemas(module));
   }
-  if (defaultRegistry.supported().includes(1)) {
-    out["deploy.schema.json"] = out["v1/deploy.schema.json"]!;
-    out["group.schema.json"] = out["v1/group.schema.json"]!;
-  }
+  const current = "v" + defaultRegistry.supported().at(-1)!;
+  out["deploy.schema.json"] = out[current + "/deploy.schema.json"]!;
+  out["group.schema.json"] = out[current + "/group.schema.json"]!;
   return out;
 }
 
