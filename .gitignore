@@ -2,3 +2,8 @@ node_modules/
 .bundant/
 # generated node bundle (npm prepack)
 dist/
+
+# the product site is a separate Astro project
+site/node_modules/
+site/dist/
+site/.astro/
