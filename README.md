@@ -61,17 +61,19 @@ registry).
 | `scale --replicas n [--via cli\|api] [-f path]` (or `scale n`) | add/remove replicas of the running revision without dropping requests (proxy target set changes before containers are removed) |
 | `rollback [--to-revision rev]` | previous revision, or the exact one named by `--to-revision`: re-gate then re-swap |
 | `history` | revisions newest-first with state, current one marked |
-| `status` | per-host containers, proxy targets, live health probe |
+| `start <path>` / `stop <path>` / `restart <path>` | flat lifecycle verbs over one unit or a glob path (`shop.**`, `**.web`, `*`); `start` can create an accessory from `-f` |
+| `rm <path> [--yes] [--revision rev] [--all-revisions] [--volumes] [--route] [--env] [--images]` | remove every matched unit; prints what it resolved first; accessories keep volumes unless `--volumes` |
+| `status [path] [--json]` | unit status `{path,kind,revision,expected,live,containers}`; no path = every unit; `-f` filters to that file's unit |
 | `prune [--keep k]` | drop stopped revisions beyond the newest k (default 3) + dangling layers |
 | `delete [--yes] [--images]` | remove the service everywhere: proxy route, this service-role's containers (`<service>-<role>-*`, plus the pre-grouping names when grouped), rendered env file (images kept unless `--images`); prints the plan and refuses without `--yes` |
 | `group <install\|uninstall\|status\|rollback> -f group.yml` | namespace lifecycle: ordered install (`needs:` topo-sorted), labelled-sweep uninstall that leaves accessories alone, aggregated status, whole-group rollback to one shared sha |
-| `accessory <boot\|reboot\|stop\|logs\|status\|remove> -f accessory.yml` | stateful member lifecycle: stable name + named volumes, `healthcheck.tcp` readiness, `remove --yes [--volumes]` |
+| `accessory <boot\|reboot\|stop\|logs\|status\|remove> -f accessory.yml` | deprecated aliases for the flat verbs; stable name + named volumes, `healthcheck.tcp` readiness, `remove --yes [--volumes]` |
 | `bootstrap [--dry-run] [--skip-smoke]` | make each host ready: install podman when missing (apt/dnf/yum/apk/pacman/zypper), enable `podman-restart.service`, set the registry search path, smoke-test one container |
 | `runtime [--json] [--hosts a,b]` | per-host engine detection over the forwarded socket: engine, engine/API version, socket path, forward path, and socket-service state |
 | `ps` / `stats` / `events [--since 2h]` | read-only monitoring: every container with state and ports, one resource snapshot per host, a bounded runtime-event window |
-| `logs [--host h] [--container c] [--tail n] [--follow]` | tail logs (all hosts in parallel, host-prefixed) or stream them with `--follow` |
-| `inspect <selector>` | state, restarts, health, image, restart policy, log driver |
-| `exec --host h [--container c] -- <cmd...>` | PTY into a container through the same ssh connection |
+| `logs [path] [--tail n] [--follow]` | tail logs for matched units, each line prefixed with its replica; `--follow` streams |
+| `inspect [path]` | state, restarts, health, image, restart policy of the first matched replica |
+| `exec [path] [--replica n] [--all] -- <cmd...>` | exec in the first running replica (or every replica with `--all`) |
 | `ui [--port 8787]` | local read-only monitoring page; binds 127.0.0.1 (tunnel or tailnet for remote) |
 
 Env hooks: `BUNDANT_HOSTS=a,b` overrides hosts, `BUNDANT_LOCK_TTL_S` sets the stale-lock

@@ -27,6 +27,13 @@ part of the regression suite.
 - v2 always includes the group segment, including `default`, so the shape is
   unambiguous.
 
+## Selector paths
+
+Flat verbs address the composed name as a path with dots preserved
+(`group.service.role` / `group.name`) and match it with picomatch: `*` is one
+segment, `**` any number, `*` alone means everything. Replica/revision are
+flags, never path segments. See [cli.md](cli.md#unit-paths-and-globs).
+
 ## Case collisions
 
 Docker names are case-sensitive but DNS/hosts may not be. v2 therefore refuses a
