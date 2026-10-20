@@ -2,6 +2,7 @@ import type { LoadedConfig } from "./config.ts";
 import type { DeployPlan } from "./planner.ts";
 import type { ContainerSpec } from "./adapters/types.ts";
 import { groupLabels } from "./planner.ts";
+import { LABEL_EMULATED } from "./labels.ts";
 import { NETWORK } from "./commands/docker.ts";
 import { defaultControlDir } from "./host/session.ts";
 import { LocalExecutor } from "./exec/local.ts";
@@ -11,6 +12,8 @@ import { acquireLock, releaseLock } from "./lock.ts";
 import { openOps, type PullPolicy, type RuntimeOps } from "./ops/index.ts";
 import { preflightGate } from "./validation.ts";
 import { runtimeFor } from "./runtime.ts";
+import { checkArch, emulationWarning, platformsMatch, type ArchVerdict } from "./preflight/arch.ts";
+import { defaultArchPreflight, type ArchPreflight } from "./preflight/probe.ts";
 import {
   resolveLocalImage,
   transferLocalImage,
@@ -28,6 +31,16 @@ export interface DeployOptions {
   phases?: Record<string, number>;
   /** Receives the image-transfer report per host (delta or full). */
   onTransfer?: (host: string, report: TransferReport) => void;
+  /** --allow-emulation: downgrade ARCH_MISMATCH only when binfmt can execute it. */
+  allowEmulation?: boolean;
+  /** Test seam: the read-only arch probe that runs before the deploy lock. */
+  archPreflight?: ArchPreflight;
+  /** Written before any mutation, for --json / status reporting. */
+  outcome?: DeployOutcome;
+}
+
+export interface DeployOutcome {
+  emulated?: boolean;
 }
 
 export interface DeployOnHostOptions {
@@ -38,6 +51,38 @@ export interface DeployOnHostOptions {
   /** --local-image over the engine API (delta stream, fallback inside). */
   localImageTransfer?: (ops: RuntimeOps) => Promise<TransferReport>;
   onTransfer?: (host: string, report: TransferReport) => void;
+  allowEmulation?: boolean;
+  /** Called once when the image is foreign but provably emulatable. */
+  onEmulation?: (verdict: ArchVerdict) => void;
+}
+
+/**
+ * Compare the image the host actually received with the host itself. This is
+ * the registry half of the preflight: a single-arch tag pulled onto a foreign
+ * host must fail as ARCH_MISMATCH, never as an engine start error.
+ */
+async function enforceImageArch(
+  ops: RuntimeOps,
+  image: string,
+  host: string,
+  allowEmulation: boolean,
+): Promise<ArchVerdict | undefined> {
+  const [imagePlatform, hostPlatform] = await Promise.all([
+    ops.imagePlatform(image),
+    ops.hostPlatform(),
+  ]);
+  if (imagePlatform === undefined || hostPlatform === undefined) return undefined;
+  if (platformsMatch(imagePlatform, hostPlatform)) return undefined;
+  const binfmtPresent = allowEmulation ? await ops.binfmtPresent(imagePlatform.arch) : false;
+  const verdict = checkArch({
+    image,
+    imagePlatform,
+    hostPlatform,
+    allowEmulation,
+    binfmtPresent,
+  });
+  console.log("[" + host + "] " + emulationWarning(verdict, host));
+  return verdict;
 }
 
 function timed(phases: Record<string, number> | undefined, phase: string, start: number): void {
@@ -160,6 +205,11 @@ export async function deployOnHost(
     );
   }
 
+  // Must precede every container mutation: the image loads by diffID and the
+  // architecture only surfaces at start (or silently under qemu).
+  const emulated = await enforceImageArch(ops, imageForSpec, host, opts.allowEmulation === true);
+  if (emulated !== undefined) opts.onEmulation?.(emulated);
+
   const networkStart = performance.now();
   await ops.ensureNetwork();
   timed(opts.phases, "network", networkStart);
@@ -170,11 +220,13 @@ export async function deployOnHost(
   try {
     for (let i = 0; i < m.containerNames.length; i++) {
       const name = m.containerNames[i]!;
+      const labels = groupLabels(loaded.config, m.revision, i + 1);
+      if (emulated !== undefined) labels[LABEL_EMULATED] = "true";
       const spec: ContainerSpec = {
         image: imageForSpec,
         name,
         env,
-        labels: groupLabels(loaded.config, m.revision, i + 1),
+        labels,
         network: NETWORK,
         restart: "unless-stopped",
       };
@@ -263,10 +315,27 @@ export async function deploy(
   let locked = false;
 
   const local = m.localImage ? new LocalExecutor() : null;
+  const rt = runtimeFor(loaded.config.runtime);
 
   try {
+    // Read-only arch preflight: it runs after the ssh session exists (uname is
+    // the only way to learn the target) but before the lock and before any
+    // engine call. A local image is fully checked here; a registry ref is
+    // re-checked after the pull inside deployOnHost.
+    const archStart = performance.now();
+    const archProbe = opts.archPreflight ?? defaultArchPreflight;
+    const arch = await archProbe({
+      image: m.localImage ?? m.image,
+      isLocal: m.localImage !== undefined,
+      allowEmulation: opts.allowEmulation === true,
+      exec: primary,
+      rt,
+      ...(local !== null ? { local } : {}),
+    });
+    timed(opts.phases, "arch", archStart);
+    if (arch?.emulated === true && opts.outcome !== undefined) opts.outcome.emulated = true;
+
     if (m.localImage && local) {
-      const rt = runtimeFor(loaded.config.runtime);
       try {
         await resolveLocalImage(m.localImage, rt, local);
       } catch {
@@ -306,6 +375,10 @@ export async function deploy(
                 })
             : undefined,
           onTransfer: opts.onTransfer,
+          allowEmulation: opts.allowEmulation,
+          onEmulation: () => {
+            if (opts.outcome !== undefined) opts.outcome.emulated = true;
+          },
           allowCaseCollision: opts.allowCaseCollision,
           pullPolicy: opts.pullPolicy,
           phases: opts.phases,

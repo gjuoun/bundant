@@ -8,6 +8,7 @@ import type {
 import { CURL_IMAGE, NETWORK, TCP_IMAGE } from "../commands/docker.ts";
 import type { BundantConfig } from "../config.ts";
 import type { Platform } from "../platform.ts";
+import { probeBinfmtPresent, probeHostPlatform } from "../preflight/probe.ts";
 import type { Executor } from "../types.ts";
 import { belongsToService, serviceLabels } from "../naming.ts";
 import { revisionOf, type RevisionEntry } from "../revisions.ts";
@@ -99,6 +100,14 @@ export class ApiOps implements RuntimeOps {
 
   async imagePlatform(image: string): Promise<Platform | undefined> {
     return await this.adapter.imagePlatform(image);
+  }
+
+  async hostPlatform(): Promise<Platform | undefined> {
+    return await probeHostPlatform(this.exec);
+  }
+
+  async binfmtPresent(arch: string): Promise<boolean> {
+    return await probeBinfmtPresent(this.exec, arch);
   }
 
   async pull(image: string): Promise<void> {

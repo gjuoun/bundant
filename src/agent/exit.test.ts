@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import {
   ApiDriftError,
+  ArchMismatchError,
   ConfigError,
   ConfigVersionError,
   EngineUnavailableError,
@@ -122,6 +123,7 @@ describe("exit status contract", () => {
       [new ConfigError({ message: "x" }), "CONFIG_INVALID", 1],
       [new ConfigVersionError({ message: "x" }), "CONFIG_VERSION_UNSUPPORTED", 1],
       [new ValidationError({ message: "x" }), "VALIDATION_FAILED", 1],
+      [new ArchMismatchError({ message: "x" }), "ARCH_MISMATCH", 1],
       [new NoMatchError({ message: "x" }), "NO_MATCH", 3],
       [new LockError({ message: "x" }), "LOCK_HELD", 2],
       [new EngineUnavailableError({ message: "x" }), "ENGINE_UNAVAILABLE", 1],

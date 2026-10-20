@@ -99,6 +99,12 @@ class FakeAdapter implements RuntimeAdapter {
   async imagePlatform(): Promise<{ os: string; arch: string } | undefined> {
     return undefined;
   }
+  async hostPlatform(): Promise<{ os: string; arch: string } | undefined> {
+    return undefined;
+  }
+  async binfmtPresent(): Promise<boolean> {
+    return false;
+  }
   async pruneImages(): Promise<void> {
     this.steps.push("prune-images");
   }

@@ -16,6 +16,8 @@ export const LABEL_VOLUMES = "bundant.volumes";
 /** Volume ownership: `<group>/<service>`. */
 export const LABEL_OWNER = "bundant.owner";
 export const LABEL_MANAGED = "bundant.managed";
+/** The deploy ran a foreign-arch image under qemu (set only when true). */
+export const LABEL_EMULATED = "bundant.emulated";
 
 /** Values for LABEL_KIND. */
 export const KIND_SERVICE = "service";

@@ -50,6 +50,10 @@ export interface RuntimeOps {
   imageId(image: string): Promise<string | undefined>;
   /** The image's own os/arch, as the host engine sees it. */
   imagePlatform(image: string): Promise<Platform | undefined>;
+  /** The host's own os/arch (one uname call, no engine). */
+  hostPlatform(): Promise<Platform | undefined>;
+  /** Whether /proc/sys/fs/binfmt_misc/qemu-<arch> is registered on the host. */
+  binfmtPresent(arch: string): Promise<boolean>;
   /** Stream a save/OCI archive into the engine's POST /images/load. */
   loadImage(stream: NodeJS.ReadableStream, opts?: { contentLength?: number }): Promise<void>;
   ensureNetwork(): Promise<void>;

@@ -97,6 +97,10 @@ export const globalFlags = {
     Flag.withDefault(false),
     Flag.withDescription("deploy v2: permit case-only duplicate units"),
   ),
+  "allow-emulation": Flag.Boolean("allow-emulation").pipe(
+    Flag.withDefault(false),
+    Flag.withDescription("deploy: run a foreign-arch image under qemu when binfmt can execute it"),
+  ),
   replica: Flag.String("replica").pipe(
     Flag.optional,
     Flag.withDescription("flat verbs: select one replica"),

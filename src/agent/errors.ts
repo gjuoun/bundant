@@ -16,6 +16,7 @@ export const ERROR_CATALOG = {
   CONFIG_INVALID: { exitCode: 1, when: "YAML does not parse or violates the v2 schema" },
   CONFIG_VERSION_UNSUPPORTED: { exitCode: 1, when: "version: names a module we do not ship" },
   VALIDATION_FAILED: { exitCode: 1, when: "preflight rejected the plan (collision, missing host, bad reference)" },
+  ARCH_MISMATCH: { exitCode: 1, when: "the image's os/arch differs from the target host (or emulation was not proven)" },
   NO_MATCH: { exitCode: 3, when: "a selector matched zero units" },
   LOCK_HELD: { exitCode: 2, when: "another deploy holds the group lock" },
   ENGINE_UNAVAILABLE: { exitCode: 1, when: "the engine socket cannot be reached or started" },
@@ -61,6 +62,13 @@ export class ValidationError extends Data.TaggedError("ValidationError")<{
   message: string;
   field?: string;
 }> {}
+export class ArchMismatchError extends Data.TaggedError("ArchMismatchError")<{
+  message: string;
+  image?: string;
+  host?: string;
+  imagePlatform?: string;
+  hostPlatform?: string;
+}> {}
 export class NoMatchError extends Data.TaggedError("NoMatchError")<{
   message: string;
   pattern?: string;
@@ -96,6 +104,7 @@ export type AppError =
   | ConfigError
   | ConfigVersionError
   | ValidationError
+  | ArchMismatchError
   | NoMatchError
   | LockError
   | EngineUnavailableError
@@ -111,6 +120,7 @@ const CODE_BY_TAG = {
   ConfigError: "CONFIG_INVALID",
   ConfigVersionError: "CONFIG_VERSION_UNSUPPORTED",
   ValidationError: "VALIDATION_FAILED",
+  ArchMismatchError: "ARCH_MISMATCH",
   NoMatchError: "NO_MATCH",
   LockError: "LOCK_HELD",
   EngineUnavailableError: "ENGINE_UNAVAILABLE",
