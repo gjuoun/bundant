@@ -1,4 +1,14 @@
+---
+title: "Monitoring"
+description: "Logs, stats, events, exec and the local read-only UI."
+slug: "monitoring"
+sidebar:
+  order: 8
+---
+
 # Monitoring: CLI + local UI
+
+Read this after [chapter 5](/bundant/docs/tutorial/05-observe/).
 
 bundant's monitoring surface is **pull-on-demand and read-only**. Starting to
 watch is what pulls data: every query is one ssh round trip per host, executed in

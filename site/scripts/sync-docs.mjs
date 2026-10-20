@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * Sync the repo's docs/*.md into the Starlight content collection.
+ * Sync the repository's docs into the Starlight content collection.
  *
  * The repository keeps exactly one copy of the documentation; Starlight needs
  * its files under src/content/docs. This script regenerates that directory
- * (gitignored) from ../../docs on every dev/build, deriving the frontmatter
- * from the markdown itself: title from the first H1, description from the
- * first prose paragraph.
+ * (gitignored) from ../../docs/tutorial and ../../docs/reference on every
+ * dev/build. Source frontmatter is preserved for title, description, slug and
+ * sidebar order; anything missing is derived from the markdown itself.
  */
-import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,6 +17,12 @@ const siteRoot = resolve(here, '..');
 const repoRoot = resolve(siteRoot, '..');
 const sourceDir = join(repoRoot, 'docs');
 const targetDir = join(siteRoot, 'src', 'content', 'docs', 'docs');
+
+/** The doc trees that become site pages, in sidebar order. */
+const TREES = [
+  { directory: 'tutorial', group: 'Tutorial' },
+  { directory: 'reference', group: 'Reference' },
+];
 
 const TICK = String.fromCharCode(96);
 const FENCE = new RegExp('^\\s*' + TICK.repeat(3));
@@ -33,6 +39,44 @@ function plain(text) {
     .replace(/__([^_]+)__/g, '$1')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/** Parse the tiny YAML frontmatter used by docs pages (flat keys + sidebar). */
+function frontmatter(source) {
+  if (!source.startsWith('---\n')) return { data: {}, body: source };
+  const end = source.indexOf('\n---\n', 4);
+  if (end === -1) return { data: {}, body: source };
+
+  const data = {};
+  let sidebar = null;
+  for (const raw of source.slice(4, end).split('\n')) {
+    if (!raw.trim() || raw.trimStart().startsWith('#')) continue;
+    const nested = /^\s+([A-Za-z0-9_-]+):\s*(.*)$/.exec(raw);
+    if (nested && sidebar) {
+      sidebar[nested[1]] = unquote(nested[2]);
+      continue;
+    }
+    const match = /^([A-Za-z0-9_-]+):\s*(.*)$/.exec(raw);
+    if (!match) continue;
+    if (match[1] === 'sidebar') {
+      sidebar = {};
+      data.sidebar = sidebar;
+      continue;
+    }
+    sidebar = null;
+    data[match[1]] = unquote(match[2]);
+  }
+
+  return { data, body: source.slice(end + 5) };
+}
+
+function unquote(value) {
+  const text = value.trim();
+  if (!text) return '';
+  if ((text.startsWith('"') && text.endsWith('"')) || (text.startsWith("'") && text.endsWith("'"))) {
+    return text.slice(1, -1);
+  }
+  return text;
 }
 
 /** The first H1 in a markdown document, or null. */
@@ -86,55 +130,120 @@ function withoutTitle(source) {
   return lines.join('\n').replace(/^\s*\n/, '').trim();
 }
 
+function yamlString(value) {
+  return JSON.stringify(value ?? '');
+}
+
+async function listMarkdown(dir) {
+  const names = await readdir(dir).catch(() => []);
+  const files = [];
+  for (const name of names.sort((a, b) => a.localeCompare(b))) {
+    const path = join(dir, name);
+    const info = await stat(path);
+    if (info.isDirectory()) files.push(...(await listMarkdown(path)));
+    else if (name.endsWith('.md')) files.push(path);
+  }
+  return files;
+}
+
 async function main() {
-  const files = (await readdir(sourceDir))
-    .filter((name) => name.endsWith('.md'))
-    .sort((a, b) => a.localeCompare(b));
-
-  await rm(targetDir, { recursive: true, force: true });
-  await mkdir(targetDir, { recursive: true });
-
   const manifest = [];
-  for (const name of files) {
-    const slug = name.replace(/\.md$/, '');
-    const source = await readFile(join(sourceDir, name), 'utf8');
-    const title = firstHeading(source) || slug;
-    const description = firstParagraph(source);
-    const body = withoutTitle(source);
-    const frontmatter = [
-      '---',
-      'title: ' + JSON.stringify(title),
-      'description: ' + JSON.stringify(description),
-      '---',
-      '',
-    ].join('\n');
 
-    await writeFile(join(targetDir, slug + '.md'), frontmatter + body + '\n', 'utf8');
-    manifest.push({ slug, source: 'docs/' + name, title });
+  for (const tree of TREES) {
+    const treeDir = join(sourceDir, tree.directory);
+    for (const path of await listMarkdown(treeDir)) {
+      const relative = path.slice(treeDir.length + 1).replace(/\.md$/, '');
+      const source = await readFile(path, 'utf8');
+      const { data, body: rawBody } = frontmatter(source);
+      const title = data.title || firstHeading(rawBody) || relative;
+      const description = data.description || firstParagraph(rawBody) || '';
+      // Public path is /docs/<slug>/; Starlight's slug is relative to the collection root.
+      const slug = data.slug || tree.directory + '/' + relative;
+      const routeSlug = 'docs/' + slug;
+      const order = data.sidebar?.order;
+      const label = data.sidebar?.label;
+
+      const lines = [
+        '---',
+        'title: ' + yamlString(title),
+        'description: ' + yamlString(description),
+        'slug: ' + yamlString(routeSlug),
+      ];
+      if (order !== undefined || label !== undefined) {
+        lines.push('sidebar:');
+        if (order !== undefined) lines.push('  order: ' + Number(order));
+        if (label !== undefined) lines.push('  label: ' + yamlString(label));
+      }
+      lines.push('---', '');
+
+      // Keep the source directory in the content tree so Starlight's autogenerated
+      // sidebar groups stay populated; the frontmatter slug above still decides the URL.
+      const target = join(targetDir, tree.directory, relative + '.md');
+      await mkdir(dirname(target), { recursive: true });
+      await writeFile(target, lines.join('\n') + withoutTitle(rawBody) + '\n', 'utf8');
+      manifest.push({
+        slug,
+        route: '/' + routeSlug + '/',
+        source: 'docs/' + tree.directory + '/' + relative + '.md',
+        title,
+        label: label || title,
+        group: tree.group,
+        order: order === undefined ? null : Number(order),
+      });
+    }
   }
 
   // Starlight needs an index route for /docs/; derive it from the same manifest.
+  const tutorial = manifest.filter((doc) => doc.group === 'Tutorial');
+  const reference = manifest.filter((doc) => doc.group === 'Reference');
   const index = [
     '---',
-    'title: "Overview"',
-    'description: "The bundant manual, generated from the repository docs at build time."',
+    'title: "Documentation"',
+    'description: "Install bundant, deploy a first service, then look up every command and field."',
     'tableOfContents: false',
     '---',
     '',
-    'The bundant manual. Every page below is rendered from the repository docs at build time.',
+    'A five-chapter tutorial, then the reference behind it. Every command in the tutorial was run',
+    'against a real host; the pages show the output it produced.',
     '',
-    ...manifest.map((doc) => '- [' + doc.title + '](' + doc.slug + '/)'),
+    '## Tutorial',
+    '',
+    ...tutorial.map((doc) => '- [' + doc.title + '](' + doc.slug + '/)'),
+    '',
+    '## Reference',
+    '',
+    ...reference.map((doc) => '- [' + doc.title + '](' + doc.slug + '/)'),
     '',
   ].join('\n');
   await writeFile(join(targetDir, 'index.md'), index, 'utf8');
 
+  // Starlight's autogenerate skips entries whose frontmatter overrides `slug`, so the
+  // sidebar is generated from this manifest instead of from the directory tree.
+  const byOrder = (a, b) => (a.order ?? 999) - (b.order ?? 999) || a.label.localeCompare(b.label);
+  const sidebar = [
+    { label: 'Tutorial', items: tutorial.slice().sort(byOrder).map((doc) => ({ label: doc.label, link: doc.route })) },
+    { label: 'Reference', items: reference.slice().sort(byOrder).map((doc) => ({ label: doc.label, link: doc.route })) },
+  ];
+  await writeFile(join(here, '..', 'src', 'data', 'sidebar.json'), JSON.stringify(sidebar, null, 2) + '\n', 'utf8');
+
   await writeFile(
     join(targetDir, 'sync.manifest.json'),
-    JSON.stringify({ generatedFrom: 'docs/*.md', docs: manifest }, null, 2) + '\n',
+    JSON.stringify(
+      {
+        generatedFrom: 'docs/{tutorial,reference}/**/*.md',
+        tutorial: tutorial.length,
+        reference: reference.length,
+        docs: manifest,
+      },
+      null,
+      2,
+    ) + '\n',
     'utf8',
   );
 
-  console.log('synced ' + manifest.length + ' docs');
+  console.log(
+    'synced ' + tutorial.length + ' tutorial + ' + reference.length + ' reference docs',
+  );
 }
 
 main().catch((error) => {

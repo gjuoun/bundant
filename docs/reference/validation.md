@@ -1,4 +1,14 @@
+---
+title: "Validation"
+description: "The preflight rules that run before anything touches a host."
+slug: "validation"
+sidebar:
+  order: 7
+---
+
 # Validation and preflight
+
+Read this after [chapter 2](/bundant/docs/tutorial/02-first-service/).
 
 `bundant validate` parses **one** file — `deploy.yml`, `accessory.yml` or
 `group.yml` (detected by shape) — and reports what it resolved **without

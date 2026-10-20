@@ -5,9 +5,14 @@ Bun/TypeScript control plane. No Kubernetes, no scheduler, no daemon on the host
 **no registry required** — bundant can stream a locally built image to the host over the
 same ssh connection it uses for everything else.
 
+The npm package is not published yet; install from a checkout:
+
 ```sh
-npm install -g bundant          # installs the node launcher: bundant
-bun  add -g bundant              # bun users also get bundant-bun (runs the TS sources)
+git clone https://github.com/gjuoun/bundant.git
+cd bundant
+bun install
+bun run build
+bun link                # puts bundant and bundant-bun on PATH
 ```
 
 Both entry points ship in the package: `bundant` runs on node (a small bundle built from
@@ -98,22 +103,27 @@ threshold.
   CentOS/Rocky/Alma/Amazon Linux, Alpine, Arch and openSUSE, then enables the boot-time
   restart unit and smoke-tests a container.
 
-## More
+## Documentation
 
-- [`docs/deploy-yml.md`](docs/deploy-yml.md) — every field, env handling, revisions
-- [`docs/naming.md`](docs/naming.md) — dotted container names, selectors and case collisions
-- [`docs/agent.md`](docs/agent.md) — the machine contract: `--json` envelope, stable error codes, exit statuses, schema
-- [`docs/cli.md`](docs/cli.md) — the effect/cli command tree, shared flags and completions
-- [`docs/validation.md`](docs/validation.md) — preflight, what is checked, and the `--json` shape
-- [`docs/group.md`](docs/group.md) — group namespaces, `needs:` ordering, accessories and their lifecycle
-- [`docs/schema.md`](docs/schema.md) — `schema/*.json` for editor autocomplete + inline errors
-- [`docs/api-types.md`](docs/api-types.md) — generated engine API types + zod validation at the adapter boundary
-- [`docs/podman.md`](docs/podman.md) — rootless podman, LXC nesting, boot persistence, `bundant bootstrap`
-- [`docs/replicas.md`](docs/replicas.md) — N copies on one host, `bundant scale`, the drain ordering invariant
-- [`docs/monitoring.md`](docs/monitoring.md) — CLI + local UI monitoring, and what it deliberately leaves out
-- [`docs/transfer.md`](docs/transfer.md) — `--local-image`: OCI layer deltas, fallback and `--json` transfer fields
-- [`docs/architecture.md`](docs/architecture.md) — internals, proxy integration, design rules
-- [`docs/design.md`](docs/design.md) — the site's Bigface palette, token mapping and re-sync steps
+Start with the five-chapter tutorial; every command and output in it was captured from a real host.
+
+- [Quick start](docs/tutorial/01-quickstart.md) — install, host, one deploy, status
+- [Your first service](docs/tutorial/02-first-service.md) — `deploy.yml` field by field
+- [Operate](docs/tutorial/03-operate.md) — status, logs, revisions and rollback
+- [Scale and groups](docs/tutorial/04-scale-and-groups.md) — replicas, `scale`, accessories
+- [Observe and debug](docs/tutorial/05-observe.md) — ps, stats, events, ui, exec, failures
+
+Reference, in the order you are likely to need it:
+
+- [`docs/reference/deploy-yml.md`](docs/reference/deploy-yml.md) — every field, replicas, `group.yml`, accessories
+- [`docs/reference/cli.md`](docs/reference/cli.md) — commands, flags, selectors, `--json` envelope and error codes
+- [`docs/reference/naming.md`](docs/reference/naming.md) — dotted container names and case collisions
+- [`docs/reference/schema.md`](docs/reference/schema.md) — `schema/*.json` for editor autocomplete
+- [`docs/reference/transfer.md`](docs/reference/transfer.md) — `--local-image`: OCI layer deltas and fallback
+- [`docs/reference/podman.md`](docs/reference/podman.md) — rootless podman, LXC nesting, boot persistence
+- [`docs/reference/validation.md`](docs/reference/validation.md) — preflight and the `--json` shape
+- [`docs/reference/monitoring.md`](docs/reference/monitoring.md) — CLI + local UI monitoring
+- [`docs/reference/architecture.md`](docs/reference/architecture.md) — internals, proxy integration, design rules
 - [`examples/hello`](examples/hello) — runnable fixture
 - [`examples/shop`](examples/shop) — a group: db (accessory) + api + web
 - [`examples/replicas`](examples/replicas) — three copies of one service behind the proxy
@@ -126,8 +136,10 @@ bun run schema:gen               # regenerate schema/*.json after editing src/co
 bun run api:gen                  # regenerate engine API types from specs/ + the allowlist
 
 # product site (site/): one Bigface dark theme, tokens derived from site/src/data/bigface.json
-# palette upstream: https://github.com/gjuoun/bigface-theme (see docs/design.md)
+# palette upstream: https://github.com/gjuoun/bigface-theme
 cd site && bun run build
+
+# theme: https://github.com/gjuoun/bigface-theme (linked from the site footer)
 
 # dual-runtime smoke: everything below must work (same sources, both runtimes)
 bun  src/cli.ts --version

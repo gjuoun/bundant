@@ -7,8 +7,8 @@ The product page for [bundant](https://github.com/gjuoun/bundant), built with
 - **Base:** `/bundant` — GitHub Pages project-page paths.
 - **Content source of truth:** the CLI. Every command and flag on the page comes from
   `bun run src/cli.ts --help` and the subcommand helps; unshipped features are not listed.
-- **Docs:** rendered at build time from the repo's `../docs/*.md`, with relative
-  `*.md` links rewritten to `/bundant/docs/<slug>/`.
+- **Docs:** rendered at build time from `../docs/tutorial/` and `../docs/reference/`;
+  each page's `slug:` frontmatter keeps its public `/bundant/docs/<slug>/` URL.
 
 ## Preview locally
 

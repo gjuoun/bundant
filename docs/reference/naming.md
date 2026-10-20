@@ -1,4 +1,14 @@
+---
+title: "Naming"
+description: "The identifier grammar and the composed container names."
+slug: "naming"
+sidebar:
+  order: 3
+---
+
 # Naming
+
+Read this after [chapter 2](/bundant/docs/tutorial/02-first-service/).
 
 Every config declares `version: 2`. A composed name joins identifiers with dots:
 dots are separators, never part of an identifier.
@@ -26,7 +36,7 @@ dots are separators, never part of an identifier.
 Flat verbs address the composed name as a path with dots preserved
 (`group.service.role` / `group.service`) and match it with picomatch: `*` is
 one segment, `**` any number, `*` alone means everything. Replica and revision
-are flags, never path segments. See [cli.md](cli.md#unit-paths-and-globs).
+are flags, never path segments. See [the CLI reference](/bundant/docs/cli/#unit-paths-and-globs).
 
 ## Case collisions
 

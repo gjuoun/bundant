@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
@@ -5,6 +7,12 @@ import starlight from '@astrojs/starlight';
 import tailwindcss from '@tailwindcss/vite';
 
 const BASE = '/bundant';
+
+// scripts/sync-docs.mjs writes the sidebar from the docs manifest: Starlight's
+// autogenerate skips entries that override `slug`, and every reference page does.
+const here = dirname(fileURLToPath(import.meta.url));
+const sidebarPath = join(here, 'src/data/sidebar.json');
+const docsSidebar = existsSync(sidebarPath) ? JSON.parse(readFileSync(sidebarPath, 'utf8')) : [];
 
 /**
  * Bigface theme for Expressive Code / Shiki, derived from site/src/data/bigface.json.
@@ -62,10 +70,10 @@ export default defineConfig({
     react(),
     starlight({
       title: 'bundant',
-      description: 'bundant documentation: deploy.yml, the CLI, groups, replicas, validation and monitoring.',
+      description: 'bundant documentation: a five-chapter tutorial, then the deploy.yml, CLI and operational reference.',
       pagefind: true,
       social: [],
-      sidebar: [{ label: 'Documentation', autogenerate: { directory: 'docs' } }],
+      sidebar: docsSidebar,
       tableOfContents: { minHeadingLevel: 2, maxHeadingLevel: 4 },
       disable404Route: false,
       customCss: ['./src/styles/starlight.css'],

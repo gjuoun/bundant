@@ -1,4 +1,14 @@
+---
+title: "Editor schema"
+description: "The generated JSON Schema for editor completion and inline errors."
+slug: "schema"
+sidebar:
+  order: 4
+---
+
 # Editor schema (JSON Schema)
+
+Read this after [chapter 2](/bundant/docs/tutorial/02-first-service/).
 
 bundant validates configs at load time with the version 2 zod modules in
 `src/config/v2/`, dispatched by `src/config/registry.ts`. The same schemas are
@@ -68,5 +78,5 @@ they depend on more than one file or on the host:
 - a group member's `name` must equal its file's `service:`
 - `needs:` cycles, and dependencies that are not members of the group
 
-See [validation.md](validation.md#version-2) for the validation rules and
-[naming.md](naming.md#identifiers) for the composed-name grammar.
+See [validation](/bundant/docs/validation/#version-2) for the validation rules and
+[naming](/bundant/docs/naming/#identifiers) for the composed-name grammar.
