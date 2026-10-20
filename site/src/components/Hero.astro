@@ -1,0 +1,56 @@
+---
+import { ArrowRight, Check } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { CopyCommand } from '@/components/CopyCommand';
+import HeroTerminal from '@/components/HeroTerminal.astro';
+import { installCommands } from '@/lib/features';
+import { withBase } from '@/lib/utils';
+---
+
+<section class="border-b border-border">
+  <div class="container-page grid gap-12 py-14 md:py-20 lg:grid-cols-[1.05fr_0.95fr] lg:items-start lg:gap-16 lg:py-24">
+    <div class="min-w-0">
+      <Badge variant="accent" class="rounded-md px-2.5 py-1 font-mono text-[10px] uppercase tracking-wider">
+        v0.1.0 · MIT
+      </Badge>
+
+      <h1 class="mt-5 text-[2.35rem] font-semibold leading-[1.06] tracking-[-0.04em] sm:text-5xl lg:text-[3.6rem]">
+        Deploy to the box
+        <span class="block">you already own.</span>
+      </h1>
+
+      <p class="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground sm:text-lg">
+        bundant ships your container over plain SSH, gates it on health, and swaps traffic
+        through kamal-proxy. Docker or podman, one CLI, nothing left running on the host.
+        <span class="text-foreground">No Kubernetes. No registry required.</span>
+      </p>
+
+      <div class="mt-7 grid gap-2.5 sm:flex sm:flex-wrap sm:items-center">
+        <Button asChild size="lg" class="w-full sm:w-auto">
+          <a href={withBase('docs/deploy-yml/')}>
+            Get started
+            <ArrowRight class="size-4" />
+          </a>
+        </Button>
+        <Button asChild size="lg" variant="outline" class="w-full sm:w-auto">
+          <a href="#commands">Browse commands</a>
+        </Button>
+      </div>
+
+      <div class="mt-7 max-w-md">
+        <CopyCommand commands={installCommands} client:load />
+      </div>
+
+      <ul class="mt-6 flex flex-col gap-2 text-[0.8125rem] text-muted-foreground sm:flex-row sm:flex-wrap sm:gap-x-5">
+        <li class="flex items-center gap-1.5"><Check class="size-3.5 text-primary" /> docker or podman</li>
+        <li class="flex items-center gap-1.5"><Check class="size-3.5 text-primary" /> plain ssh, no agent</li>
+        <li class="flex items-center gap-1.5"><Check class="size-3.5 text-primary" /> MIT, self-hosted</li>
+      </ul>
+    </div>
+
+    <div class="min-w-0 lg:pt-1">
+      <HeroTerminal />
+    </div>
+  </div>
+</section>

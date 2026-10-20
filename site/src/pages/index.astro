@@ -1,19 +1,17 @@
 ---
-import '../styles/global.css';
+import Base from '@/layouts/Base.astro';
+import Nav from '@/components/Nav.astro';
+import Hero from '@/components/Hero.astro';
+import Footer from '@/components/Footer.astro';
 ---
 
-<!doctype html>
-<html lang="en" class="dark">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>bundant — zero-downtime deploys over SSH</title>
-    <meta name="description" content="Zero-downtime single-host deploys over SSH." />
-  </head>
-  <body>
-    <main class="container-page py-24">
-      <h1 class="text-5xl font-semibold">Deploy without the platform.</h1>
-      <p class="mt-4 text-muted-foreground">Scaffold. The landing page lands in the next step.</p>
-    </main>
-  </body>
-</html>
+<Base
+  title="bundant — zero-downtime deploys over SSH"
+  description="Ship containers to any SSH host with docker or podman. Health-gated, zero-downtime swaps through kamal-proxy. No Kubernetes, no registry required."
+>
+  <Nav />
+  <main>
+    <Hero />
+  </main>
+  <Footer />
+</Base>
