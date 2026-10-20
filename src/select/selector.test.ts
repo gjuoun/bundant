@@ -6,7 +6,7 @@ const paths = [
   "shop/api/web",
   "shop/api/admin",
   "other/api/web",
-  "legacy/old/web",
+  "archive/old/web",
 ];
 
 describe("selector matching", () => {
@@ -14,7 +14,7 @@ describe("selector matching", () => {
     ["shop.db", ["shop/db"]],
     ["shop.*", ["shop/db"]],
     ["shop.**", ["shop/db", "shop/api/web", "shop/api/admin"]],
-    ["**.web", ["shop/api/web", "other/api/web", "legacy/old/web"]],
+    ["**.web", ["shop/api/web", "other/api/web", "archive/old/web"]],
     ["shop.[ad]*", ["shop/db"]],
     ["shop.api.?eb", ["shop/api/web"]],
     ["*", paths],
