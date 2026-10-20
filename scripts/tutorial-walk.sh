@@ -15,6 +15,7 @@ REPO_ROOT=$(cd "$(dirname "$0")/.." && pwd)
 if [ -z "$TUTORIAL_HOST" ]; then TUTORIAL_HOST=root@192.168.2.104; fi
 if [ -z "$TUTORIAL_PODMAN_HOST" ]; then TUTORIAL_PODMAN_HOST=root@192.168.2.103; fi
 if [ -z "$TUTORIAL_DIR" ]; then TUTORIAL_DIR="$HOME/bundant-tutorial"; fi
+if [ -z "$TUTORIAL_SOURCE" ]; then TUTORIAL_SOURCE=https://github.com/gjuoun/bundant.git; fi
 HOST_ADDR=$(printf '%s' "$TUTORIAL_HOST" | cut -d@ -f2)
 APP="$TUTORIAL_DIR/app"
 
@@ -62,8 +63,8 @@ trap cleanup EXIT
 say "== install from source"
 rm -rf "$TUTORIAL_DIR"
 mkdir -p "$TUTORIAL_DIR"
-step "git clone https://github.com/gjuoun/bundant.git"
-git clone --quiet "$REPO_ROOT" "$TUTORIAL_DIR/bundant"
+step "git clone $TUTORIAL_SOURCE"
+git clone --quiet "$TUTORIAL_SOURCE" "$TUTORIAL_DIR/bundant"
 cd "$TUTORIAL_DIR/bundant"
 step "bun install"
 bun install --silent
