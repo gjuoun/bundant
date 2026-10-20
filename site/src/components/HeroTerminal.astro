@@ -13,8 +13,9 @@ import { ArrowRight, Check, FileCode, GitBranch } from 'lucide-react';
     </span>
   </div>
 
-  <pre class="overflow-x-auto border-b border-border-muted bg-code-surface px-4 py-4 font-mono text-[11.5px] leading-6 text-foreground"><code><span class="text-code-key">service</span>: <span class="text-code-string">hello</span>
-<span class="text-code-key">image</span>: <span class="text-code-string">traefik/whoami:v1.10</span>
+  <pre class="overflow-x-auto border-b border-border-muted bg-code-surface px-4 py-4 font-mono text-[11.5px] leading-6 text-foreground"><code><span class="text-code-key">version</span>: <span class="text-code-number">2</span>
+<span class="text-code-key">service</span>: <span class="text-code-string">hello</span>
+<span class="text-code-key">image</span>: <span class="text-code-string">traefik/whoami:latest</span>
 <span class="text-code-key">hosts</span>: [<span class="text-code-string">root@box.example.com</span>]
 <span class="text-code-key">healthcheck</span>:
   <span class="text-code-key">path</span>: <span class="text-code-string">/</span>
@@ -29,7 +30,7 @@ import { ArrowRight, Check, FileCode, GitBranch } from 'lucide-react';
     <ul class="space-y-2.5 font-mono text-[11px]">
       <li class="flex items-start gap-2 text-muted-foreground">
         <Check className="mt-px size-3.5 shrink-0 text-success" />
-        <span>revision <span class="text-foreground">hello-web-59ceb8d</span> started unpublished</span>
+        <span>revision <span class="text-foreground">default.hello.web.59ceb8d</span> started unpublished</span>
       </li>
       <li class="flex items-start gap-2 text-muted-foreground">
         <Check className="mt-px size-3.5 shrink-0 text-success" />

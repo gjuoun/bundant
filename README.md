@@ -25,7 +25,7 @@ from a checkout you can also run the sources directly with `node src/cli.ts …`
 cat > deploy.yml <<'YAML'
 version: 2
 service: hello
-image: traefik/whoami:v1.10
+image: traefik/whoami:latest
 hosts: [root@box.example.com]   # user@host for an IP or a different login
 proxy:
   host: hello.example.com
