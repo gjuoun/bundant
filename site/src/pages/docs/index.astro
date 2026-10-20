@@ -1,0 +1,35 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '@/layouts/Base.astro';
+import Nav from '@/components/Nav.astro';
+import Footer from '@/components/Footer.astro';
+import { docDescriptions, docRank, docTitle } from '@/lib/docs';
+import { withBase } from '@/lib/utils';
+
+const docs = (await getCollection('docs')).sort((a, b) => docRank(a.id) - docRank(b.id));
+---
+
+<Base title="Docs — bundant" description="bundant documentation: deploy.yml, the CLI, groups, replicas, validation and monitoring.">
+  <Nav />
+  <main class="container-page py-12 md:py-16">
+    <div class="max-w-2xl">
+      <p class="mono-label">Documentation</p>
+      <h1 class="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">The manual, without the platform.</h1>
+      <p class="mt-4 text-muted-foreground">
+        These pages are rendered from the same <span class="font-mono text-foreground">docs/*.md</span>
+        files that ship in the repository. If the CLI changes, the docs change with it.
+      </p>
+    </div>
+
+    <div class="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {docs.map((doc) => (
+        <a href={withBase(`docs/${doc.id}/`)} class="group rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/40">
+          <h2 class="text-[0.9375rem] font-semibold tracking-tight group-hover:text-accent-foreground">{docTitle(doc.id)}</h2>
+          <p class="mt-2 text-[0.8125rem] leading-relaxed text-muted-foreground">{docDescriptions[doc.id]}</p>
+          <span class="mt-4 inline-block font-mono text-[10px] uppercase tracking-wider text-muted-foreground">/docs/{doc.id}</span>
+        </a>
+      ))}
+    </div>
+  </main>
+  <Footer />
+</Base>

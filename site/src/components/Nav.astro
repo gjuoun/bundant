@@ -3,10 +3,10 @@ import { Github, Menu, Moon, Sun } from 'lucide-react';
 import { withBase } from '@/lib/utils';
 
 const links = [
-  { href: '#why', label: 'Why' },
-  { href: '#features', label: 'Features' },
-  { href: '#how', label: 'How it works' },
-  { href: '#commands', label: 'Commands' },
+  { href: withBase('#why'), label: 'Why' },
+  { href: withBase('#features'), label: 'Features' },
+  { href: withBase('#how'), label: 'How it works' },
+  { href: withBase('#commands'), label: 'Commands' },
   { href: withBase('docs/'), label: 'Docs' },
 ];
 ---

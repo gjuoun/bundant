@@ -16,7 +16,7 @@ import { withBase } from '@/lib/utils';
       </Badge>
 
       <h1 class="mt-5 text-[2.35rem] font-semibold leading-[1.06] tracking-[-0.04em] sm:text-5xl lg:text-[3.6rem]">
-        Deploy to the box
+        Ship to the box
         <span class="block">you already own.</span>
       </h1>
 
@@ -27,11 +27,11 @@ import { withBase } from '@/lib/utils';
       </p>
 
       <div class="mt-7 grid gap-2.5 sm:flex sm:flex-wrap sm:items-center">
-        <a href={withBase('docs/deploy-yml/')} class={buttonVariants({ size: 'lg', className: 'w-full sm:w-auto' })}>
+        <a href={withBase('docs/')} class={buttonVariants({ size: 'lg', className: 'w-full sm:w-auto' })}>
           Get started
           <ArrowRight className="size-4" />
         </a>
-        <a href="#commands" class={buttonVariants({ size: 'lg', variant: 'outline', className: 'w-full sm:w-auto' })}>
+        <a href={withBase('#commands')} class={buttonVariants({ size: 'lg', variant: 'outline', className: 'w-full sm:w-auto' })}>
           Browse commands
         </a>
       </div>
