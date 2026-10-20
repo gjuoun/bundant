@@ -3,6 +3,8 @@ import { Effect, Exit, Fiber, Layer, Schedule } from "effect";
 import { z } from "zod";
 import { TestClock } from "effect/testing";
 import { ApiSchemaDriftError } from "../adapters/schemas/drift.ts";
+import { ConfigError as LegacyConfigError } from "../config/errors.ts";
+import { LockHeldError } from "../lock.ts";
 import {
   ConfigError,
   LockError,
@@ -51,6 +53,17 @@ describe("runMain", () => {
     expect(await runMain(Effect.succeed(0), { layer: counting })).toBe(0);
     expect(await runMain(Effect.succeed(0), { layer: counting })).toBe(0);
     expect(built).toBe(1);
+  });
+
+  test("legacy ConfigError and LockHeldError become their typed cases", async () => {
+    expect(toAppError(new LegacyConfigError("invalid"))._tag).toBe("ConfigError");
+    const legacyLock = new LockHeldError("api", "owner", 5);
+    expect(toAppError(legacyLock)._tag).toBe("LockError");
+    const result = await capture(() =>
+      runMain(Effect.fail(toAppError(legacyLock))),
+    );
+    expect(result.code).toBe(2);
+    expect(result.lines[0]).toContain(legacyLock.message);
   });
 
   test("adapter drift becomes ApiDriftError with the same wording", () => {
