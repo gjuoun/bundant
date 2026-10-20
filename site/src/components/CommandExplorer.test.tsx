@@ -93,6 +93,27 @@ describe('command explorer data', () => {
 });
 
 describe('command explorer selection', () => {
+  test('rendering and selecting never scroll the page', async () => {
+    // Regression: a scrollIntoView() on the active option scrolled every ancestor, so
+    // opening the page jumped the window down to this section.
+    const calls: string[] = [];
+    const proto = window.Element.prototype as unknown as { scrollIntoView: () => void };
+    const original = proto.scrollIntoView;
+    proto.scrollIntoView = function (this: Element) {
+      calls.push(this.id || String(this.className) || this.tagName);
+    };
+    try {
+      const container = await renderAt('#commands/deploy');
+      await act(async () => {
+        option(container, 'rollback').dispatchEvent(new window.MouseEvent('click', { bubbles: true }));
+      });
+      await press(container.querySelector('[role="listbox"]') as HTMLElement, 'ArrowDown');
+    } finally {
+      proto.scrollIntoView = original;
+    }
+    expect(calls).toEqual([]);
+  });
+
   test('clicking an option selects it', async () => {
     const container = await renderAt('#commands/deploy');
     expect(pane(container).textContent).toContain('deploy');
