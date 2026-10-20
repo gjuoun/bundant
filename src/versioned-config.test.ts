@@ -79,15 +79,15 @@ describe("config versions", () => {
 
   test("unknown versions list the supported ones", async () => {
     for (const [label, value] of [
-      ["two", "2"],
-      ["v2", '"v2"'],
+      ["three", "3"],
+      ["v3", '"v3"'],
       ["fraction", "1.5"],
     ] as const) {
       const path = write("bad-" + label + ".yml", "version: " + value + "\n" + base);
       const report = await validatePath(path);
       expect(report.ok).toBe(false);
       expect(report.errors[0]?.field).toBe("version");
-      expect(report.errors[0]?.message).toContain("(supported: 1)");
+      expect(report.errors[0]?.message).toContain("(supported: 1, 2)");
       expect(() => loadConfig(path)).toThrow(/version: unsupported config version/);
     }
   });
@@ -98,7 +98,7 @@ describe("config versions", () => {
     expect(report.ok).toBe(false);
     expect(report.errors[0]?.field).toBe("version");
     expect(report.errors[0]?.message).toBe(
-      'missing config version (strict mode): add "version: 1" (supported: 1)',
+      'missing config version (strict mode): add "version: 1" (supported: 1, 2)',
     );
     const explicit = await validatePath(write("strict-ok.yml", "version: 1\n" + base), process.env, {
       strict: true,
@@ -145,9 +145,12 @@ describe("config versions", () => {
     expect(loaded.version).toBe(2);
     expect(loaded.config.image).toBe("v2-normalized");
 
-    // The same file without a registered v2 fails in the real loader.
-    expect(() => loadConfig(file)).toThrow(ConfigVersionError);
-    expect(() => loadConfig(file)).toThrow(/unsupported config version 2 \(supported: 1\)/);
+    // The same file with a v1-only registry fails in the real loader.
+    const v1Only = new ConfigRegistry([v1Module]);
+    expect(() => loadConfig(file, { registry: v1Only })).toThrow(ConfigVersionError);
+    expect(() => loadConfig(file, { registry: v1Only })).toThrow(
+      /unsupported config version 2 \(supported: 1\)/,
+    );
   });
 
   test("group.yml carries its own version", async () => {

@@ -43,6 +43,7 @@ export {
   defaultRegistry,
   moduleForVersion,
   v1Module,
+  v2Module,
   type VersionModule,
 } from "./config/registry.ts";
 

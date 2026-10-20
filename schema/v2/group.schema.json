@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://bundant.dev/schema/v2/group.schema.json",
+  "title": "bundant group.yml (v2)",
+  "description": "A namespace: members in install order plus explicit needs. Version 2.",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "number",
+      "const": 2
+    },
+    "group": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9]|[-_](?=[A-Za-z0-9]))*$",
+      "description": "namespace name (v2 identifier)"
+    },
+    "services": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9]|[-_](?=[A-Za-z0-9]))*$",
+            "description": "member identity (v2 identifier)"
+          },
+          "file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "needs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9]|[-_](?=[A-Za-z0-9]))*$"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "file"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "version",
+    "group",
+    "services"
+  ],
+  "additionalProperties": false
+}
