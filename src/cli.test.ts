@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Effect, FileSystem, Layer, Path, Stdio, Terminal } from "effect";
 import { ChildProcessSpawner } from "effect/process";
-import { Command } from "effect/cli";
+import { Argument, Command } from "effect/cli";
 import { rootCommand } from "./cli/root.ts";
 import { command } from "./cli/index.ts";
 import { LockError } from "./effect/errors.ts";
@@ -144,6 +144,21 @@ describe("effect/cli parsing", () => {
 
   test("an invalid accessory action is a parse error", async () => {
     await expect(run(["accessory", "bogus"])).rejects.toBeDefined();
+  });
+
+  test("-- passthrough keeps --version for the remote command", async () => {
+    let captured: ReadonlyArray<string> = [];
+    const probe = Command.make(
+      "execprobe",
+      { argv: Argument.String("cmd").pipe(Argument.variadic({ min: 0 })) },
+      ({ argv }) =>
+        Effect.sync(() => {
+          captured = argv;
+        }),
+    );
+    const app = rootCommand.pipe(Command.withSubcommands([probe]));
+    await run(["execprobe", "--container", "c", "--", "sh", "--version"], app);
+    expect(captured).toEqual(["sh", "--version"]);
   });
 
   test("validate accepts the example file", async () => {

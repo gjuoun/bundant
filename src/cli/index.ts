@@ -15,6 +15,10 @@ import { prune } from "./commands/prune.ts";
 import { del } from "./commands/delete.ts";
 import { group } from "./commands/group.ts";
 import { accessory } from "./commands/accessory.ts";
+import { bootstrap } from "./commands/bootstrap.ts";
+import { runtime } from "./commands/runtime.ts";
+import { ui } from "./commands/ui.ts";
+import { exec } from "./commands/exec.ts";
 
 export const command = rootCommand.pipe(
   Command.withSubcommands([
@@ -28,6 +32,10 @@ export const command = rootCommand.pipe(
     prune,
     group,
     accessory,
+    bootstrap,
+    runtime,
+    ui,
+    exec,
   ]),
 );
 
