@@ -16,22 +16,29 @@ looks like the tools rather than a separate brand.
 
 ## Mapping
 
-| shadcn token | Bigface | value |
-|---|---|---|
-| `--background` | `bg` | `#252925` |
-| `--card` | `bgPanel` | `#2e332e` |
-| `--foreground` | `fg` | `#d9d9d4` |
-| `--muted-foreground` | `fgMuted` | `#9c9a8f` |
-| `--border` | `border` | `#494848` |
-| `--primary` / `--ring` | `lightBlue` | `#40c4ff` |
-| `--primary-foreground` | `bgDeep` | `#1f231f` |
-| `--accent` | `blue` | `#00b0ff` |
-| `--destructive` | `pink` | `#f52670` |
+| shadcn token | Bigface | value | role |
+|---|---|---|---|
+| `--background` | `bgDeep` | `#1f231f` | page |
+| `--card` | `bg` | `#252925` | panels and cards |
+| `--muted` | `bgPanel` | `#2e332e` | elements inside a panel, code surface |
+| `--foreground` | `fg` | `#d9d9d4` | meaningful text |
+| `--muted-foreground` | `fgMuted` | `#9c9a8f` | secondary labels, inactive tabs |
+| `--border` | `border` | `#494848` | panel outlines |
+| `--border-muted` | `borderMuted` | `#333333` | dividers inside a panel |
+| `--primary` / `--ring` | `lightBlue` | `#40c4ff` | CTA, active-tab underline |
+| `--primary-foreground` | `bgDeep` | `#1f231f` | ink on the light-blue button |
+| `--accent` | `blue` | `#00b0ff` | accent surfaces |
+| `--destructive` | `pink` | `#f52670` | destructive actions |
 
-Code surfaces use `bgDeep`, comments `#75715e`, strings `yellow`, keywords `blue`,
-numbers `burntOrange`, functions `lime`, types `cyan`, success ticks `green` and
-arrows `lightBlue`. Shiki is pinned to a theme derived from these values in
-`site/astro.config.mjs`.
+The hierarchy is always page `bgDeep` → panel `bg` → inner element `bgPanel`.
+`fgDim` is reserved for purely decorative marks; labels never use it. Active tabs
+render the panel surface plus a 2px `lightBlue` underline, inactive tabs stay
+`fgMuted`.
+
+Comments use `#75715e`, strings `yellow`, keywords `blue`, numbers `burntOrange`,
+functions `lime`, types `cyan`, success ticks `green` and arrows `lightBlue`. Shiki
+is pinned to a theme derived from these values in `site/astro.config.mjs` with its
+editor background set to `bgPanel`.
 
 ## Re-syncing the palette
 
