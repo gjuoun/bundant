@@ -6,7 +6,7 @@ import { Effect, FileSystem, Layer, Option, Path, Stdio, Terminal } from "effect
 import { ChildProcessSpawner } from "effect/process";
 import { Argument, Command } from "effect/cli";
 import { rootCommand } from "./cli/root.ts";
-import { command } from "./cli/index.ts";
+import { command } from "./cli/tree.ts";
 import { LockError } from "./effect/errors.ts";
 import { runMain } from "./effect/runtime.ts";
 import { findCaseCollision } from "./deploy.ts";
