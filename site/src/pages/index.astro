@@ -2,13 +2,10 @@
 import Base from '@/layouts/Base.astro';
 import Nav from '@/components/Nav.astro';
 import Hero from '@/components/Hero.astro';
-import TerminalDemo from '@/components/TerminalDemo';
-import demo from '@/data/demo.json';
 import Why from '@/components/Why.astro';
 import Features from '@/components/Features.astro';
 import HowItWorks from '@/components/HowItWorks.astro';
 import Commands from '@/components/Commands.astro';
-import Comparison from '@/components/Comparison.astro';
 import Faq from '@/components/Faq.astro';
 import Footer from '@/components/Footer.astro';
 ---
@@ -20,35 +17,10 @@ import Footer from '@/components/Footer.astro';
   <Nav />
   <main>
     <Hero />
-
-    <section id="demo" class="border-b border-border py-16 md:py-24">
-      <div class="container-page">
-        <div class="max-w-2xl">
-          <p class="mono-label">Recorded run</p>
-          <h2 class="mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
-            Try a command.
-          </h2>
-          <p class="mt-4 text-muted-foreground">
-            Run <span class="font-mono text-foreground">validate</span>,
-            <span class="font-mono text-foreground">deploy</span>,
-            <span class="font-mono text-foreground">status</span> and
-            <span class="font-mono text-foreground">rollback</span> in order. Press Enter to advance,
-            or click a command to replay it. This transcript is a recorded run on a real docker host;
-            the host, paths and revision are redacted.
-          </p>
-        </div>
-
-        <div class="mt-10">
-          <TerminalDemo demo={demo} client:load />
-        </div>
-      </div>
-    </section>
-
     <Why />
     <Features />
     <HowItWorks />
     <Commands />
-    <Comparison />
     <Faq />
   </main>
   <Footer />

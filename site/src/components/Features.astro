@@ -1,16 +1,14 @@
 ---
-import { Activity, Boxes, Container, Layers, Route, ShieldCheck, Terminal, Wand2 } from 'lucide-react';
+import { Activity, Boxes, Container, Layers, Route, ShieldCheck } from 'lucide-react';
 import { features, type FeatureIcon } from '@/lib/features';
 
 const icons: Record<FeatureIcon, typeof Boxes> = {
+  route: Route,
   boxes: Boxes,
   layers: Layers,
-  route: Route,
   'shield-check': ShieldCheck,
   container: Container,
   activity: Activity,
-  wand: Wand2,
-  terminal: Terminal,
 };
 ---
 
@@ -25,7 +23,7 @@ const icons: Record<FeatureIcon, typeof Boxes> = {
         </h2>
       </div>
       <p class="max-w-sm text-sm leading-relaxed text-muted-foreground md:text-right">
-        Eight capabilities, all present in <span class="font-mono text-foreground">bundant 0.1.0</span>.
+        Six capabilities, all present in <span class="font-mono text-foreground">bundant 0.1.0</span>.
         If it is not in the CLI today, it is not on this page.
       </p>
     </div>

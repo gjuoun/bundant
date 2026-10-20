@@ -21,9 +21,9 @@ const CHIP_BLURBS: Record<string, string> = {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-type Props = { demo: DemoFixture };
+type Props = { demo: DemoFixture; layout?: 'side' | 'compact' };
 
-export default function TerminalDemo({ demo }: Props) {
+export default function TerminalDemo({ demo, layout = 'side' }: Props) {
   const { commands, prompt } = demo;
   const [blocks, setBlocks] = useState<TranscriptBlock[]>([]);
   const [input, setInput] = useState('');
@@ -130,7 +130,13 @@ export default function TerminalDemo({ demo }: Props) {
   }
 
   return (
-    <div className="grid min-w-0 gap-6 md:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] md:items-start">
+    <div
+      className={
+        layout === 'compact'
+          ? 'grid min-w-0 gap-4'
+          : 'grid min-w-0 gap-6 md:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] md:items-start'
+      }
+    >
       <div
         className="min-w-0 overflow-hidden rounded-xl border border-border bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         tabIndex={0}
@@ -151,7 +157,10 @@ export default function TerminalDemo({ demo }: Props) {
 
         <div
           ref={screenRef}
-          className="terminal-demo-screen bg-code-surface px-4 py-4 font-mono text-[11.5px] leading-6"
+          className={
+            'terminal-demo-screen bg-code-surface px-4 py-4 font-mono text-[11.5px] leading-6' +
+            (layout === 'compact' ? ' terminal-demo-screen--compact' : '')
+          }
           role="log"
           aria-live="polite"
           aria-relevant="additions text"
@@ -228,7 +237,7 @@ export default function TerminalDemo({ demo }: Props) {
 
       <div className="min-w-0">
         <p className="mono-label">Commands in this transcript</p>
-        <div className="mt-3 grid gap-2">
+        <div className={layout === 'compact' ? 'mt-2 grid grid-cols-2 gap-2' : 'mt-3 grid gap-2'}>
           {commands.map((command, index) => {
             const name = command.cmd.replace(/^bundant\s+/, '');
             const active = index === lastIndex && running;
@@ -240,7 +249,8 @@ export default function TerminalDemo({ demo }: Props) {
                 data-command={name}
                 aria-current={active ? 'true' : undefined}
                 className={
-                  'group flex min-w-0 items-start justify-between gap-3 rounded-lg border px-3.5 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ' +
+                  'group flex min-w-0 items-start justify-between gap-3 rounded-lg border px-3.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ' +
+                  (layout === 'compact' ? 'py-2 ' : 'py-3 ') +
                   (active
                     ? 'border-primary bg-muted'
                     : 'border-border bg-card hover:border-primary hover:bg-muted')
@@ -248,9 +258,11 @@ export default function TerminalDemo({ demo }: Props) {
               >
                 <span className="min-w-0">
                   <span className="block font-mono text-[11.5px] text-primary">{command.cmd}</span>
-                  <span className="mt-0.5 block text-[11px] leading-relaxed text-muted-foreground">
-                    {CHIP_BLURBS[name] ?? 'replay this command'}
-                  </span>
+                  {layout === 'side' ? (
+                    <span className="mt-0.5 block text-[11px] leading-relaxed text-muted-foreground">
+                      {CHIP_BLURBS[name] ?? 'replay this command'}
+                    </span>
+                  ) : null}
                 </span>
                 <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
                   {typeof command.durationMs === 'number' ? (command.durationMs / 1000).toFixed(1) + 's' : ''}
@@ -259,8 +271,8 @@ export default function TerminalDemo({ demo }: Props) {
             );
           })}
         </div>
-        <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-          Recorded once on a real docker host, then redacted; nothing is executed in your browser.
+        <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+          Recorded on a real docker host, then redacted; nothing runs in your browser.
         </p>
       </div>
     </div>
