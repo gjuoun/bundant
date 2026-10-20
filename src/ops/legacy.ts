@@ -64,9 +64,48 @@ export class LegacyOps implements RuntimeOps {
     return r.code === 0;
   }
 
+  async imageId(image: string): Promise<string | undefined> {
+    const r = await this.exec.run(
+      this.rt.bin + " image inspect --format '{{.Id}}' " + image + " 2>/dev/null",
+    );
+    const id = r.stdout.trim();
+    return r.code === 0 && id !== "" ? id : undefined;
+  }
+
   async pull(image: string): Promise<void> {
     this.steps.push("pull:" + image);
     await this.run("pull", docker.pull(this.rt, image));
+  }
+
+  /** Legacy path inventory (used only if a caller reads it); deploy never does. */
+  async imageLayers(): Promise<Set<string>> {
+    const list = await this.exec.run(this.rt.bin + " images -q --no-trunc");
+    if (list.code !== 0) {
+      throw new Error("image list failed: " + (list.stderr.trim() || list.stdout.trim()));
+    }
+    const layers = new Set<string>();
+    for (const id of list.stdout.split("\n").map((line) => line.trim()).filter((line) => line !== "")) {
+      const r = await this.exec.run(
+        this.rt.bin + " image inspect --format '{{json .RootFS.Layers}}' " + id,
+      );
+      if (r.code !== 0) continue;
+      try {
+        const ids = JSON.parse(r.stdout.trim()) as unknown;
+        if (Array.isArray(ids)) {
+          for (const entry of ids) if (typeof entry === "string") layers.add(entry);
+        }
+      } catch {
+        // an image without a readable rootfs contributes no layers
+      }
+    }
+    return layers;
+  }
+
+  async loadImage(
+    _stream: NodeJS.ReadableStream,
+    _opts: { contentLength?: number } = {},
+  ): Promise<void> {
+    throw new Error("image streaming needs the engine API; run with --via api");
   }
 
   async ensureNetwork(): Promise<void> {

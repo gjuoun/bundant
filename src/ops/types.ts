@@ -47,6 +47,12 @@ export interface RuntimeOps {
   /** Whether the image ref is already on the host. */
   imagePresent(image: string): Promise<boolean>;
   pull(image: string): Promise<void>;
+  /** Every layer diffID present in any image on the host. */
+  imageLayers(): Promise<Set<string>>;
+  /** Resolve a local tag to an image id; the id is create-safe where the tag is not. */
+  imageId(image: string): Promise<string | undefined>;
+  /** Stream a save/OCI archive into the engine's POST /images/load. */
+  loadImage(stream: NodeJS.ReadableStream, opts?: { contentLength?: number }): Promise<void>;
   ensureNetwork(): Promise<void>;
 
   removeContainer(name: string, opts?: { force?: boolean }): Promise<void>;

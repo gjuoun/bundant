@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { Readable } from "node:stream";
 import type {
   ContainerInfo,
   ContainerSpec,
@@ -70,6 +71,10 @@ class FakeAdapter implements RuntimeAdapter {
   existing: ContainerSummary[] = [];
   /** Whether the image is already present (pull-policy tests). */
   imageAvailable = false;
+  /** Host layer inventory, keyed by image id. */
+  imageLayerMap: Record<string, string[]> = {};
+  /** Bodies received by loadImage. */
+  readonly loadCalls: Buffer[] = [];
 
   async imagePresent(): Promise<boolean> {
     return this.imageAvailable;
@@ -77,7 +82,20 @@ class FakeAdapter implements RuntimeAdapter {
   async pull(ref: string): Promise<void> {
     this.steps.push("pull:" + ref);
   }
-  async loadImage(): Promise<void> {}
+  async loadImage(stream: NodeJS.ReadableStream): Promise<void> {
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) chunks.push(chunk as Buffer);
+    this.loadCalls.push(Buffer.concat(chunks));
+  }
+  async imageIds(): Promise<string[]> {
+    return Object.keys(this.imageLayerMap);
+  }
+  async imageId(ref: string): Promise<string | undefined> {
+    return ref in this.imageLayerMap ? ref : undefined;
+  }
+  async imageLayers(ref: string): Promise<string[]> {
+    return this.imageLayerMap[ref] ?? [];
+  }
   async pruneImages(): Promise<void> {
     this.steps.push("prune-images");
   }
@@ -292,6 +310,57 @@ describe("case-collision guard on the real deploy path", () => {
     const ops = new ApiOps(adapter, new FakeExecutor(), runtimeFor("docker"), async () => {});
     await deployOnHost(ops, plan, loadedFor(config), { host: "box.test" });
     expect(adapter.steps.some((s) => s.startsWith("create:"))).toBe(true);
+  });
+});
+
+describe("incremental image transfer wiring", () => {
+  test("deployOnHost reports one transfer and never pulls a local image", async () => {
+    const config = cfg();
+    const plan = buildDeployPlan(config, "abc1234", { localImage: "app:t1" });
+    const adapter = new FakeAdapter();
+    const ops = new ApiOps(adapter, new FakeExecutor(), runtimeFor("docker"), async () => {});
+    const reports: { host: string; report: unknown }[] = [];
+    await deployOnHost(ops, plan, loadedFor(config), {
+      host: "box.test",
+      localImageTransfer: async (target) => {
+        await target.loadImage(Readable.from([Buffer.from("delta-tar")]));
+        return {
+          mode: "delta",
+          bytesSent: 1234,
+          layersReused: 2,
+          layersTotal: 3,
+          missingLayers: 1,
+        };
+      },
+      onTransfer: (host, report) => reports.push({ host, report }),
+    });
+    expect(adapter.steps.some((step) => step.startsWith("pull:"))).toBe(false);
+    expect(adapter.loadCalls).toHaveLength(1);
+    expect(adapter.loadCalls[0]!.toString("utf8")).toBe("delta-tar");
+    expect(reports).toEqual([
+      { host: "box.test", report: { mode: "delta", bytesSent: 1234, layersReused: 2, layersTotal: 3, missingLayers: 1 } },
+    ]);
+  });
+
+  test("the CLI fallback path still invokes the legacy pipeline", async () => {
+    const config = cfg();
+    const plan = buildDeployPlan(config, "abc1234", { localImage: "app:t1" });
+    const adapter = new FakeAdapter();
+    const ops = new ApiOps(adapter, new FakeExecutor(), runtimeFor("docker"), async () => {});
+    const reports: unknown[] = [];
+    await deployOnHost(ops, plan, loadedFor(config), {
+      host: "box.test",
+      localImageTransfer: async () => ({
+        mode: "full",
+        bytesSent: 9000,
+        layersReused: 0,
+        layersTotal: 1,
+        missingLayers: 1,
+      }),
+      onTransfer: (_host, report) => reports.push(report),
+    });
+    expect(reports).toHaveLength(1);
+    expect((reports[0] as { mode: string }).mode).toBe("full");
   });
 });
 

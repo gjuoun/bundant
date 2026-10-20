@@ -13,6 +13,12 @@ import { connectionForTarget } from "./hosts.ts";
 import { acquireLock, releaseLock } from "./lock.ts";
 import { openOps, type OpsVia, type PullPolicy, type RuntimeOps } from "./ops/index.ts";
 import { preflightGate } from "./validation.ts";
+import { runtimeFor } from "./runtime.ts";
+import {
+  resolveLocalImage,
+  transferLocalImage,
+  type TransferReport,
+} from "./transfer/transfer.ts";
 
 export interface DeployOptions {
   /** Execution path for mutations: API (default) or the legacy CLI strings. */
@@ -25,6 +31,8 @@ export interface DeployOptions {
   pullPolicy?: PullPolicy;
   /** Per-phase milliseconds, written for --timings / --json. */
   phases?: Record<string, number>;
+  /** Receives the image-transfer report per host (delta or full). */
+  onTransfer?: (host: string, report: TransferReport) => void;
 }
 
 export interface DeployOnHostOptions {
@@ -36,6 +44,9 @@ export interface DeployOnHostOptions {
   allowCaseCollision?: boolean;
   pullPolicy?: PullPolicy;
   phases?: Record<string, number>;
+  /** --local-image over the engine API (delta stream, fallback inside). */
+  localImageTransfer?: (ops: RuntimeOps) => Promise<TransferReport>;
+  onTransfer?: (host: string, report: TransferReport) => void;
 }
 
 function timed(phases: Record<string, number> | undefined, phase: string, start: number): void {
@@ -142,12 +153,25 @@ export async function deployOnHost(
   const prereqStart = performance.now();
   await ops.hostPrereqs();
   timed(opts.phases, "connect", prereqStart);
+  let imageForSpec = m.image;
   if (opts.localPushPipeline !== undefined) {
     const r = await new LocalExecutor().run(opts.localPushPipeline.replaceAll("{HOST}", host));
     if (r.code !== 0) {
       throw new Error("[" + host + "] push-image failed: " + (r.stderr.trim() || r.stdout.trim()));
     }
     console.log("[" + host + "] push-image ok: " + r.stdout.trim());
+  } else if (opts.localImageTransfer !== undefined) {
+    const transferStart = performance.now();
+    const report = await opts.localImageTransfer(ops);
+    timed(opts.phases, "transfer", transferStart);
+    opts.onTransfer?.(host, report);
+    imageForSpec = (await ops.imageId(m.image)) ?? m.image;
+    console.log(
+      "[" + host + "] image transfer ok (" + report.mode +
+        ", layers reused " + report.layersReused + "/" + report.layersTotal +
+        ", " + report.bytesSent + " bytes sent" +
+        (report.fallback !== undefined ? ", fallback: " + report.fallback : "") + ")",
+    );
   } else {
     const policy = opts.pullPolicy ?? "missing";
     const pullStart = performance.now();
@@ -170,7 +194,7 @@ export async function deployOnHost(
     for (let i = 0; i < m.containerNames.length; i++) {
       const name = m.containerNames[i]!;
       const spec: ContainerSpec = {
-        image: m.image,
+        image: imageForSpec,
         name,
         env,
         labels: groupLabels(loaded.config, m.revision, i + 1),
@@ -259,10 +283,9 @@ export async function deploy(
   opts: DeployOptions = {},
 ): Promise<number> {
   const m = plan.meta;
-  // Image streaming is still stage 4 work: keep the whole run on the CLI path.
-  const via: OpsVia = m.localImage !== undefined ? "cli" : (opts.via ?? "api");
-  if (m.localImage !== undefined && opts.via === "api") {
-    console.log("note: --local-image still uses the CLI path (stage 4 moves image streaming)");
+  const via: OpsVia = opts.via ?? "api";
+  if (m.localImage !== undefined && via === "cli") {
+    console.log("note: --local-image with --via cli uses the legacy full save|gzip|ssh|load path");
   }
 
   // Preflight first: an invalid config must never create a connection or a lock.
@@ -295,11 +318,13 @@ export async function deploy(
 
   try {
     if (m.localImage && local) {
-      const rt = loaded.config.runtime;
-      const check = await local.run(rt + " image inspect " + m.localImage + " >/dev/null 2>&1");
-      if (check.code !== 0) {
+      const rt = runtimeFor(loaded.config.runtime);
+      try {
+        await resolveLocalImage(m.localImage, rt, local);
+      } catch {
         throw new Error(
-          "local image not found: " + m.localImage + " - build or pull it first (" + rt + " images)",
+          "local image not found: " + m.localImage + " - build or pull it first (" +
+            rt.bin + " images)",
         );
       }
     }
@@ -329,7 +354,14 @@ export async function deploy(
         await deployOnHost(ops, plan, loaded, {
           host,
           envLocalFile,
-          localPushPipeline: pushStep?.cmds[0],
+          localPushPipeline: via === "cli" ? pushStep?.cmds[0] : undefined,
+          localImageTransfer: via === "api" && m.localImage !== undefined
+            ? (hosterOps) =>
+                transferLocalImage(hosterOps, m.localImage!, {
+                  rt: runtimeFor(loaded.config.runtime),
+                })
+            : undefined,
+          onTransfer: opts.onTransfer,
           allowCaseCollision: opts.allowCaseCollision,
           pullPolicy: opts.pullPolicy,
           phases: opts.phases,

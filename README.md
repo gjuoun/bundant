@@ -41,7 +41,8 @@ Anything ssh can reach works — LAN, VPN, cloud, tailscale. The login user come
 the host itself (`root@10.0.0.5`) or from a top-level `user: root`; a per-host prefix
 wins. Use `--local-image
 <name:tag>` when the image lives only on your machine (it is streamed, not pushed to a
-registry).
+registry; the API path sends only the layers the host lacks — see
+[`docs/transfer.md`](docs/transfer.md)).
 
 ## How it works
 
@@ -112,6 +113,7 @@ threshold.
 - [`docs/podman.md`](docs/podman.md) — rootless podman, LXC nesting, boot persistence, `bundant bootstrap`
 - [`docs/replicas.md`](docs/replicas.md) — N copies on one host, `bundant scale`, the drain ordering invariant
 - [`docs/monitoring.md`](docs/monitoring.md) — CLI + local UI monitoring, and what it deliberately leaves out
+- [`docs/transfer.md`](docs/transfer.md) — `--local-image`: OCI layer deltas, fallback and `--json` transfer fields
 - [`docs/architecture.md`](docs/architecture.md) — internals, proxy integration, design rules
 - [`docs/design.md`](docs/design.md) — the site's Bigface palette, token mapping and re-sync steps
 - [`examples/hello`](examples/hello) — runnable fixture

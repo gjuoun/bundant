@@ -2,6 +2,8 @@ import { createRequire } from "node:module";
 import { stat } from "node:fs/promises";
 import http from "node:http";
 import type { IncomingMessage } from "node:http";
+import net from "node:net";
+import { PassThrough } from "node:stream";
 import type { Readable } from "node:stream";
 
 /**
@@ -168,6 +170,32 @@ export class ApiClient {
     return res;
   }
 
+  /**
+   * Streaming request whose body is a readable stream (image load). The body
+   * is sent chunked, so the caller does not need to know its length first.
+   */
+  async requestBody(
+    method: string,
+    path: string,
+    body: Readable,
+    contentType: string,
+    contentLength?: number,
+  ): Promise<Readable> {
+    const res = await rawBodyRequest(
+      this.socketPath,
+      method,
+      path,
+      body,
+      contentType,
+      contentLength,
+    );
+    if (res.status >= 400) {
+      const buf = await readBody(res.stream as unknown as IncomingMessage);
+      throw new ApiError(method, path, res.status, parseBody(buf, res.headers["content-type"]));
+    }
+    return res.stream;
+  }
+
   async close(): Promise<void> {
     const handle = this.dockerode as { destroy?: () => void } | null;
     try {
@@ -309,3 +337,207 @@ export async function* demuxStream(source: Readable): AsyncGenerator<DemuxFrame>
 }
 
 export const DOCKER_FRAME_HEADER_BYTES = FRAME_HEADER;
+
+// ---------------------------------------------------------------------------
+// Streaming request bodies (image load)
+//
+// node:http under bun buffers a piped readable before it sends, which defeats
+// a streamed image transfer. This raw HTTP/1.1 request writes real chunked
+// frames as the producer yields, and decodes a chunked response back into a
+// Readable. It is deliberately narrow: one request/response pair, Connection:
+// close, no keep-alive.
+
+async function writeAll(socket: net.Socket, buf: Buffer): Promise<void> {
+  if (socket.write(buf)) return;
+  await new Promise<void>((resolve, reject) => {
+    const onDrain = (): void => {
+      socket.off("error", onError);
+      resolve();
+    };
+    const onError = (err: Error): void => {
+      socket.off("drain", onDrain);
+      reject(err);
+    };
+    socket.once("drain", onDrain);
+    socket.once("error", onError);
+  });
+}
+
+interface ResponseHead {
+  status: number;
+  headers: Record<string, string>;
+}
+
+function parseResponseHead(buf: Buffer): { head: ResponseHead; rest: Buffer } | null {
+  const end = buf.indexOf("\r\n\r\n");
+  if (end === -1) return null;
+  const lines = buf.subarray(0, end).toString("latin1").split("\r\n");
+  const match = /^HTTP\/\d\.\d\s+(\d{3})/.exec(lines[0] ?? "");
+  if (match === null) throw new Error("malformed HTTP response from engine");
+  const headers: Record<string, string> = {};
+  for (const line of lines.slice(1)) {
+    const colon = line.indexOf(":");
+    if (colon <= 0) continue;
+    headers[line.slice(0, colon).trim().toLowerCase()] = line.slice(colon + 1).trim();
+  }
+  return { head: { status: Number(match[1]), headers }, rest: buf.subarray(end + 4) };
+}
+
+class ChunkDecoder {
+  private buffer = Buffer.alloc(0);
+  private remaining = 0;
+  private done = false;
+
+  push(chunk: Buffer, out: PassThrough): void {
+    this.buffer = Buffer.concat([this.buffer, chunk]);
+    for (;;) {
+      if (this.done) return;
+      if (this.remaining > 0) {
+        const take = Math.min(this.remaining, this.buffer.length);
+        if (take > 0) {
+          out.write(this.buffer.subarray(0, take));
+          this.buffer = this.buffer.subarray(take);
+          this.remaining -= take;
+        }
+        if (this.remaining > 0) return;
+        if (this.buffer.length >= 2) this.buffer = this.buffer.subarray(2);
+        continue;
+      }
+      const lineEnd = this.buffer.indexOf("\r\n");
+      if (lineEnd === -1) return;
+      const size = Number.parseInt(this.buffer.subarray(0, lineEnd).toString("latin1").split(";")[0] ?? "", 16);
+      this.buffer = this.buffer.subarray(lineEnd + 2);
+      if (!Number.isFinite(size) || size < 0) {
+        out.destroy(new Error("malformed chunked response from engine"));
+        return;
+      }
+      if (size === 0) {
+        this.done = true;
+        out.end();
+        return;
+      }
+      this.remaining = size;
+    }
+  }
+}
+
+function rawBodyRequest(
+  socketPath: string,
+  method: string,
+  path: string,
+  body: Readable,
+  contentType: string,
+  contentLength?: number,
+): Promise<{ status: number; headers: Record<string, string>; stream: Readable }> {
+  return new Promise((resolve, reject) => {
+    const socket = net.connect(socketPath);
+    const framing = contentLength === undefined
+      ? "Transfer-Encoding: chunked\r\n"
+      : "Content-Length: " + contentLength + "\r\n";
+    const head =
+      method + " " + path + " HTTP/1.1\r\n" +
+      "Host: localhost\r\n" +
+      "Content-Type: " + contentType + "\r\n" +
+      framing +
+      "Connection: close\r\n\r\n";
+    let settled = false;
+    let headerBuffer: Buffer = Buffer.alloc(0);
+    let out: PassThrough | null = null;
+    let decoder: ChunkDecoder | null = null;
+    let contentLeft: number | undefined;
+
+    const fail = (err: Error): void => {
+      out?.destroy(err);
+      if (!settled) {
+        settled = true;
+        reject(err);
+      }
+      socket.destroy();
+    };
+
+    socket.on("error", fail);
+    socket.on("data", (chunk: Buffer) => {
+      if (out === null) {
+        headerBuffer = Buffer.concat([headerBuffer, chunk]);
+        let parsed: { head: ResponseHead; rest: Buffer };
+        try {
+          // Docker may emit "100 Continue" before the real response when the
+          // body is large (or an intermediary does). Skip every interim head;
+          // otherwise the second response's headers are read as body bytes and
+          // the chunked body never terminates.
+          for (;;) {
+            const headOnly = parseResponseHead(headerBuffer);
+            if (headOnly === null) return;
+            if (headOnly.head.status >= 100 && headOnly.head.status < 200) {
+              headerBuffer = headOnly.rest;
+              continue;
+            }
+            parsed = headOnly;
+            break;
+          }
+        } catch (err) {
+          fail(err instanceof Error ? err : new Error(String(err)));
+          return;
+        }
+        out = new PassThrough();
+        const encoding = (parsed.head.headers["transfer-encoding"] ?? "").toLowerCase();
+        if (encoding.includes("chunked")) decoder = new ChunkDecoder();
+        const length = parsed.head.headers["content-length"];
+        if (decoder === null && length !== undefined) contentLeft = Number(length);
+        settled = true;
+        resolve({ status: parsed.head.status, headers: parsed.head.headers, stream: out });
+        if (parsed.rest.length > 0) feed(parsed.rest);
+        return;
+      }
+      feed(chunk);
+    });
+    socket.on("end", () => {
+      if (out !== null) out.end();
+    });
+
+    const feed = (chunk: Buffer): void => {
+      if (out === null) return;
+      if (decoder !== null) {
+        decoder.push(chunk, out);
+        return;
+      }
+      if (contentLeft !== undefined) {
+        const take = Math.min(contentLeft, chunk.length);
+        if (take > 0) out.write(chunk.subarray(0, take));
+        contentLeft -= take;
+        if (contentLeft === 0) out.end();
+        return;
+      }
+      out.write(chunk);
+    };
+
+    void (async () => {
+      try {
+        await writeAll(socket, Buffer.from(head, "latin1"));
+        let written = 0;
+        for await (const chunk of body) {
+          const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array);
+          if (buf.length === 0) continue;
+          written += buf.length;
+          if (contentLength === undefined) {
+            await writeAll(socket, Buffer.from(buf.length.toString(16) + "\r\n", "latin1"));
+            await writeAll(socket, buf);
+            await writeAll(socket, Buffer.from("\r\n", "latin1"));
+          } else {
+            await writeAll(socket, buf);
+          }
+        }
+        if (contentLength !== undefined && written !== contentLength) {
+          throw new Error(
+            "stream body length mismatch: promised " + contentLength + " bytes, wrote " + written,
+          );
+        }
+        if (contentLength === undefined) {
+          await writeAll(socket, Buffer.from("0\r\n\r\n", "latin1"));
+        }
+      } catch (err) {
+        fail(err instanceof Error ? err : new Error(String(err)));
+      }
+    })();
+  });
+}
