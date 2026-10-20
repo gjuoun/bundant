@@ -1,0 +1,139 @@
+---
+title: "Your first service"
+description: "Understand deploy.yml by editing it, validate it, then deploy it."
+slug: "tutorial/02-first-service"
+sidebar:
+  order: 2
+  label: "02 · Your first service"
+---
+
+# Your first service
+
+**Goal:** by the end of this page you can read every line of `deploy.yml`, know what the deploy
+phases do, and validate a change before it reaches a host.
+
+## The file, field by field
+
+This is the file from the quick start, with a role, an environment variable and an explicit
+health check added:
+
+```yaml
+version: 2
+service: hello                 # identifier: letters, digits, - or _
+role: web                      # defaults to web
+image: traefik/whoami:v1.10    # the host pulls this, or --local-image streams it
+hosts: [root@192.168.2.104]    # user@host:port forms are allowed
+env:
+  vars:
+    BUNDANT_DEMO: "1"          # merged into the container environment, never printed
+healthcheck:
+  path: /                      # probed by a throwaway sidecar before traffic moves
+  timeout: 30
+proxy:
+  enabled: true
+  host: hello.bundant.test     # Host header that selects this service
+  port: 80                     # port the proxy targets
+```
+
+| field | what it decides |
+|---|---|
+| `service` / `role` | the name: `<group>.<service>.<role>.<revision>` |
+| `image` | what to run; no registry is required when you use `--local-image` |
+| `hosts` | one or more ssh targets; `BUNDANT_HOSTS` overrides the list |
+| `env` | variables merged into the create request; values never appear in output |
+| `healthcheck` | the gate that must pass before the proxy is pointed at the new container |
+| `proxy` | `enabled: false` for workers; when enabled, `host` is required |
+
+Commit the edit. The new git short sha is the new revision:
+
+```sh
+git add deploy.yml
+git commit -m 'add health, env and role'
+```
+
+## Validate before you deploy
+
+```sh
+bundant validate -f deploy.yml
+```
+
+```text
+bundant validate: OK
+  version: 2
+  group: default
+  service: hello
+  role: web
+  revision: 0f2c8cc (git short sha of ~/bundant-tutorial/app)
+  container: default.hello.web.0f2c8cc
+  proxy id: default.hello.web
+  env path: ~/.bundant/env/default/hello-web.env
+  lock key: default/hello
+  round-trip: ok
+```
+
+Validation parses the file, checks every field and the composed name, and prints the identity a
+deploy would use. It does not open an ssh connection.
+
+## Deploy
+
+```sh
+bundant deploy -f deploy.yml
+```
+
+```text
+deploy hello/web rev=0f2c8cc -> root@192.168.2.104
+[root@192.168.2.104] deploying default.hello.web.0f2c8cc
+[root@192.168.2.104] pull skipped (present, policy=missing)
+[root@192.168.2.104] network ok
+[root@192.168.2.104] run ok: default.hello.web.0f2c8cc
+[root@192.168.2.104] health gate passed (1 target(s))
+[root@192.168.2.104] proxy-ensure ok
+[root@192.168.2.104] proxy-swap ok
+[root@192.168.2.104] stop-old ok
+deployed default.hello.web.0f2c8cc on 1 host(s)
+```
+
+What the phases mean:
+
+- **pull** — the host already had the image, so this was a no-op. Without a registry,
+  `--local-image` streams it over the same ssh connection.
+- **network** — the shared `bundant` network exists.
+- **run** — the new container starts with `--restart unless-stopped` and no published ports.
+- **health gate** — a throwaway sidecar requests `healthcheck.path`; a failure aborts before
+  traffic moves.
+- **proxy-ensure / proxy-swap** — the proxy container is running, then its target set is swapped
+  in one call and old connections drain.
+- **stop-old** — the previous revision is stopped, not removed; it is the rollback material.
+
+```sh
+bundant history -f deploy.yml
+```
+
+```text
+== root@192.168.2.104 (hello-web) ==
+ * default.hello.web.0f2c8cc 1 replica    Up                       2026-10-20 20:57:28 +0000 UTC
+   default.hello.web.11a45b2 1 replica    Exited (2) Less than a second ago 2026-10-20 20:57:25 +0000 UTC
+  * = running revision
+```
+
+You should see `health gate passed` followed by `proxy-swap ok` and
+`deployed ... on 1 host(s)`; the `history` output marks the new revision with `*` and keeps
+the old one stopped.
+
+## Did it fail?
+
+- **A typo in a field name** — unknown keys are rejected. This is a real validation failure:
+
+  ```text
+  bundant validate: FAILED (1 error(s))
+    version: 2
+    - (root): Unrecognized key(s) in object: 'helthcheck'
+  ```
+
+  Rename it to `healthcheck` and validate again.
+- **`proxy.host is required when proxy.enabled is true`** — either add the `Host` name your
+  service answers on, or set `proxy: { enabled: false }` for a worker that publishes no route.
+- **The image cannot be pulled** — the error names the image and the host. Check that the tag
+  exists and, on a private registry, that the host is already logged in.
+
+Next: [Chapter 3 — Operate](/bundant/docs/tutorial/03-operate/).
