@@ -15,6 +15,14 @@ export interface ContainerSpec {
   /** Docker restart policy name (default unless-stopped). */
   restart?: "no" | "always" | "unless-stopped" | "on-failure";
   network?: string;
+  /** "host" shares the host pid namespace (sessiond watches host pids). */
+  pidMode?: "host";
+  /** "host" makes /sys/fs/cgroup show the host hierarchy (sessiond fallback). */
+  cgroupns?: "host";
+  /** Read-only root filesystem (only declared binds stay writable). */
+  readonly?: boolean;
+  /** Extra HostConfig.SecurityOpt entries, e.g. no-new-privileges. */
+  securityOpt?: string[];
   /** Published ports, "hostPort:containerPort[/proto]". */
   ports?: string[];
   /** Command/args appended to the image entrypoint (health probes). */

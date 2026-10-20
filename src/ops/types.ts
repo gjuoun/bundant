@@ -92,6 +92,8 @@ export interface RuntimeOps {
   proxyRemove(serviceId: string): Promise<void>;
   /** Delete a rendered env file left on the host, when present. */
   removeEnv(remotePath: string): Promise<void>;
+  /** Read a bounded host file (sessiond event log); empty when absent. */
+  readFile(path: string): Promise<string>;
   /** Accessory logs (static tail). */
   logs(name: string, tail: number): Promise<string>;
   /** A bare TCP connect from a sidecar must succeed (accessory readiness). */

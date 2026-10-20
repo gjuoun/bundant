@@ -23,6 +23,7 @@ import { events } from "./commands/events.ts";
 import { inspect } from "./commands/inspect.ts";
 import { logs } from "./commands/logs.ts";
 import { errors } from "./commands/errors.ts";
+import { sessiond } from "./commands/sessiond.ts";
 
 /** The complete command tree, importable without running the CLI. */
 export const command = rootCommand.pipe(
@@ -49,6 +50,7 @@ export const command = rootCommand.pipe(
     inspect,
     logs,
     events,
+    sessiond,
     errors,
   ]),
 );

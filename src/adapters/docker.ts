@@ -502,6 +502,12 @@ export function createBody(spec: ContainerSpec): Record<string, unknown> {
   };
   if (spec.volumes !== undefined && spec.volumes.length > 0) hostConfig.Binds = spec.volumes;
   if (spec.network !== undefined) hostConfig.NetworkMode = spec.network;
+  if (spec.pidMode !== undefined) hostConfig.PidMode = spec.pidMode;
+  if (spec.cgroupns !== undefined) hostConfig.CgroupnsMode = spec.cgroupns;
+  if (spec.readonly === true) hostConfig.ReadonlyRootfs = true;
+  if (spec.securityOpt !== undefined && spec.securityOpt.length > 0) {
+    hostConfig.SecurityOpt = spec.securityOpt;
+  }
   if (Object.keys(bindings).length > 0) hostConfig.PortBindings = bindings;
   if (spec.sysctl !== undefined && Object.keys(spec.sysctl).length > 0) hostConfig.Sysctls = spec.sysctl;
 

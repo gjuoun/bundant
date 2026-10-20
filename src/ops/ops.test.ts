@@ -105,6 +105,9 @@ class FakeAdapter implements RuntimeAdapter {
   async binfmtPresent(): Promise<boolean> {
     return false;
   }
+  async readFile(): Promise<string> {
+    return "";
+  }
   async pruneImages(): Promise<void> {
     this.steps.push("prune-images");
   }

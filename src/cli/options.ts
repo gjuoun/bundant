@@ -85,6 +85,14 @@ export const globalFlags = {
     Flag.withDefault(false),
     Flag.withDescription("print per-phase timings"),
   ),
+  from: Flag.String("from").pipe(
+    Flag.optional,
+    Flag.withDescription("sessiond install: load a local image archive instead of transferring"),
+  ),
+  image: Flag.String("image").pipe(
+    Flag.optional,
+    Flag.withDescription("sessiond: image ref (default: the per-arch bundant/sessiond tag)"),
+  ),
   hosts: Flag.String("hosts").pipe(
     Flag.optional,
     Flag.withDescription("filter to a comma-separated host list"),

@@ -25,6 +25,10 @@ const containerSpecSchema = z.object({
   volumes: z.array(z.string()).optional(),
   restart: z.enum(["no", "always", "unless-stopped", "on-failure"]).optional(),
   network: z.string().optional(),
+  pidMode: z.literal("host").optional(),
+  cgroupns: z.literal("host").optional(),
+  readonly: z.boolean().optional(),
+  securityOpt: z.array(z.string()).optional(),
   ports: z.array(z.string()).optional(),
   cmd: z.array(z.string()).optional(),
   sysctl: z.record(z.string()).optional(),
@@ -344,6 +348,14 @@ export class ApiOps implements RuntimeOps {
     if (r.code !== 0 && !/not found|no such|unknown/i.test(r.stderr + r.stdout)) {
       throw new Error("proxy-remove failed: " + (r.stderr.trim() || r.stdout.trim()));
     }
+  }
+
+  async readFile(path: string): Promise<string> {
+    const r = await this.exec.run("cat " + JSON.stringify(path) + " 2>/dev/null || true");
+    if (r.code !== 0) {
+      throw new Error("read " + path + " failed: " + (r.stderr.trim() || "exit " + r.code));
+    }
+    return r.stdout;
   }
 
   async removeEnv(remotePath: string): Promise<void> {
