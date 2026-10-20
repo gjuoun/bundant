@@ -15,7 +15,7 @@ and which change routing, and validate a change before any host sees it.
 **Why it matters:** the file is the whole contract. Once you can read it, you can predict what a
 deploy will do — and validation catches most mistakes locally, for free.
 
-## The file, field by field
+## The file, field by field 📝
 
 This is the complete file from the quick start, with a role, an environment variable and an
 explicit health check added:
@@ -43,21 +43,32 @@ The mind map groups the fields by what they change. **Container side** decides w
 and what it is called.
 
 ```mermaid
-mindmap
-  root((deploy.yml))
-    identity
-      service
-      role
-      rev
-    container
-      image
-      env
-      health
-      replicas
-    routing
-      host
-      port
+flowchart TD
+  root["deploy.yml<br/>the whole contract"]
+  subgraph fields["what the fields decide"]
+    direction TB
+    id["identity<br/>what it is called<br/>service · role · rev"]
+    ctr["container side<br/>what runs<br/>image · env · health · replicas"]
+    rt["routing side<br/>who reaches it<br/>host · port"]
+    id ~~~ ctr ~~~ rt
+  end
+  root -- "three groups" --> fields
+  subgraph notes["what a change does"]
+    direction LR
+    cnote["image/env change<br/>starts a new container"]
+    inote["round-trip ok<br/>name composed"]
+    cnote ~~~ inote
+  end
+  fields -. "read together" .-> notes
+  classDef local fill:#143038,color:#40c4ff,stroke:#494848;
+  classDef ok fill:#0f2a17,color:#00c853,stroke:#494848;
+  classDef neutral fill:#2e332e,color:#d9d9d4,stroke:#494848;
+  class root,ctr local;
+  class inote ok;
+  class id,rt,cnote neutral;
 ```
+
+*Colour legend: blue = an action on your machine or a normal step · green = healthy or live · orange = the one irreversible step · purple = storage and state.*
 
 | field | what it decides |
 |---|---|
@@ -79,7 +90,7 @@ git add deploy.yml
 git commit -m 'add health, env and role'
 ```
 
-## Validate before you deploy
+## Validate before you deploy ✅
 
 ```sh
 bundant validate -f deploy.yml
@@ -102,7 +113,7 @@ bundant validate: OK
 Validation parses the file, checks every field and the composed name, and prints the identity a
 deploy would use. It does not open an ssh connection and does not take the lock.
 
-## Deploy
+## Deploy 🚀
 
 ```sh
 bundant deploy -f deploy.yml
@@ -148,7 +159,7 @@ You should see `health gate passed` followed by `proxy-swap ok` and
 `deployed ... on 1 host(s)`; `history` marks the new revision with `*` and keeps the old one
 stopped.
 
-## What actually happens
+## What actually happens ⚙️
 
 Validate runs the same zod preflight that every mutating command runs — before it creates an ssh
 executor or takes the lock — so an invalid file causes zero host contact. Deploy then builds a
@@ -159,7 +170,7 @@ typed `ContainerSpec` (image, merged env, labels `bundant.kind`/`bundant.revisio
 [deploy.yml reference](/bundant/docs/deploy-yml/) and
 [Architecture](/bundant/docs/architecture/).
 
-## Did it fail?
+## Did it fail? ⚠️
 
 - **A typo in a field name** — unknown keys are rejected. This is a real validation failure:
 

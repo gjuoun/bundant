@@ -26,7 +26,7 @@ Three words on this page:
 - **group** — a directory with a `group.yml` that lists members and their `needs` edges; the
   install order is the topological sort of those edges.
 
-## More than one replica
+## More than one replica 📈
 
 This is the complete `deploy.yml` with `replicas: 3` added. Commit it and deploy:
 
@@ -126,18 +126,38 @@ web member depends on an accessory that owns a volume.
 flowchart TD
   subgraph svc["hello · replicas 3"]
     direction LR
-    P1["proxy<br/>hello.bundant.test"] --> H1["replicas .1 · .2 · .3"]
+    P1["proxy<br/>hello.bundant.test"] -- "one proxy route" --> H1["replicas .1 · .2 · .3"]
   end
   subgraph grp["group shop"]
     direction TB
-    P2["proxy<br/>shop.bundant.test"] --> W["shop.web.web.e05b32b"]
+    P2["proxy<br/>shop.bundant.test"] -- "health gate" --> W["shop.web.web.e05b32b"]
     W -. "needs: db" .-> D["shop.db<br/>accessory"]
-    D --- V[("pgdata")]
+    D -- "named volume" --> V[("pgdata")]
   end
-  H1 --- BRIDGE["same host"] --- P2
+  H1 -- "same host" --> BRIDGE["two routes, one host"] -- "same host" --> P2
+  subgraph notes["notes"]
+    direction LR
+    N2["accessory keeps<br/>its name and data"]
+    N1["replicas share<br/>one proxy route"]
+    N3["needs: db<br/>is an install order"]
+    N2 ~~~ N1 ~~~ N3
+  end
+  V -. "deploy never recreates it" .-> N2
+  H1 -. "three containers" .-> N1
+  W -. "tcp 5432" .-> N3
+  classDef local fill:#143038,color:#40c4ff,stroke:#494848;
+  classDef ok fill:#0f2a17,color:#00c853,stroke:#494848;
+  classDef storage fill:#211a33,color:#ae81ff,stroke:#494848;
+  classDef neutral fill:#2e332e,color:#d9d9d4,stroke:#494848;
+  class P1,P2 local;
+  class H1,W ok;
+  class D,V storage;
+  class BRIDGE,N1,N2,N3 neutral;
 ```
 
-## A group with an accessory
+*Colour legend: blue = an action on your machine or a normal step · green = healthy or live · orange = the one irreversible step · purple = storage and state.*
+
+## A group with an accessory 🧩
 
 A group is a directory. `shop/group.yml` lists the members; each member has its own complete file:
 
@@ -272,7 +292,7 @@ IP: ::1
 You should see `order: db -> web` from validation and `group install report: applied [db, web]`
 after the accessory is running. `needs: [db]` is why web waits for the TCP probe on 5432.
 
-## What actually happens
+## What actually happens ⚙️
 
 Each replica is a separate container named `<group>.<service>.<role>.<rev>.<i>` and labelled
 `bundant.replica=<i>`, all carrying the same `bundant.revision`. Deploy gates each one, then makes
@@ -284,7 +304,7 @@ an accessory dependency is checked by a bare TCP connect from a throwaway busybo
 [group.yml](/bundant/docs/deploy-yml/#groupyml) and
 [accessory.yml](/bundant/docs/deploy-yml/#accessoryyml).
 
-## Did it fail?
+## Did it fail? ⚠️
 
 - **`replicas > 1 requires proxy.enabled: true`** — without a proxy nothing distributes
   traffic between the copies. Add `proxy: { enabled: true, host: ... }`.

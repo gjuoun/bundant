@@ -24,7 +24,7 @@ Three words come up on this page and everywhere after it:
 - **proxy swap** — the single step that points the host's proxy at the new container. Until it
   happens, nothing user-visible changes.
 
-## 1. Install the CLI
+## 1. Install the CLI 📦
 
 `bundant` is not on npm yet, so install it from a checkout. This builds the Node bundle and
 links the command into Bun's global bin directory:
@@ -43,7 +43,7 @@ You should see `bundant v0.1.0`.
 Bun users can also run `bundant-bun`, which executes the TypeScript sources directly and needs
 no build step.
 
-## 2. Write a deploy.yml
+## 2. Write a deploy.yml 📝
 
 `deploy.yml` is the one file that describes a service: which image to run, which hosts run it,
 and how HTTP traffic reaches it. Create a directory, write the file, and commit it:
@@ -72,7 +72,7 @@ git rev-parse --short HEAD
 The short sha is the **revision** — the commit-derived identity of this deploy. Ours was
 `11a45b2`; yours will differ.
 
-## 3. Check the host
+## 3. Check the host 🖥️
 
 `bundant runtime` asks the host which container engine it has, over the same ssh connection a
 deploy uses. It changes nothing:
@@ -86,7 +86,7 @@ root@box.example.com engine=docker version=29.1.3 api=1.52 socket=/var/run/docke
   forward=~/.cache/bundant/forward/fwd-20078-1-mvh77n88.sock
 ```
 
-## 4. Validate, then deploy
+## 4. Validate, then deploy 🚀
 
 `bundant validate` parses the file and prints the identity a deploy would use. It never opens
 an ssh connection:
@@ -139,18 +139,29 @@ exactly one point — the proxy swap.
 ```mermaid
 flowchart TD
   subgraph local["Your machine"]
-    A["bundant deploy -f deploy.yml"] --> B["resolve the revision<br/>git short sha"]
-    B --> C["one ssh connection per host"]
+    A["bundant deploy -f deploy.yml<br/>resolves the git short sha"] --> B["one ssh connection per host"]
   end
   subgraph host["Target host"]
-    D["pull the image, or load it<br/>through the forwarded engine socket"] --> E["start the new container<br/>no published host port"]
+    D["pull the image, or load it<br/>through the forwarded socket"] --> E["start the new container<br/>no published host port"]
     E --> F{"health gate:<br/>does it answer?"}
-    F -- "no" --> G["remove the new container<br/>traffic untouched"]
-    F -- "yes" --> H["proxy swap:<br/>route now points at the new container"]
-    H --> I["stop the old container<br/>kept, not removed"]
+    F -- "no" --> NF["new container removed<br/>traffic untouched"]
+    F -- "yes" --> H["proxy swap:<br/>the only traffic move"]
+    H --> I["stop the old container<br/>kept for rollback"]
+    I -. "this is where a rollback lands" .-> N3["start it again,<br/>no rebuild"]
+    N3 -. "nothing restarts here" .-> N1["no agent installed"]
   end
-  C --> D
+  B -- "one ssh connection" --> D
+  classDef local fill:#143038,color:#40c4ff,stroke:#494848;
+  classDef ok fill:#0f2a17,color:#00c853,stroke:#494848;
+  classDef risk fill:#2e1a12,color:#fc5d23,stroke:#494848;
+  classDef neutral fill:#2e332e,color:#d9d9d4,stroke:#494848;
+  class A,B,D,E local;
+  class F ok;
+  class H risk;
+  class I,NF,N1,N3 neutral;
 ```
+
+*Colour legend: blue = an action on your machine or a normal step · green = healthy or live · orange = the one irreversible step · purple = storage and state.*
 
 The container publishes no host port. **The proxy** is the shared `kamal-proxy` container on the
 host: it owns port 80 and forwards each request by the `Host` header. It reaches the container by
@@ -166,7 +177,7 @@ IP: 127.0.0.1
 IP: ::1
 ```
 
-## 5. Read the state back
+## 5. Read the state back 📊
 
 ```sh
 bundant status '*' -f deploy.yml
@@ -185,7 +196,7 @@ differ on every run and on every machine; the lines that carry meaning do not.
 You should see `deployed default.hello.web.11a45b2 on 1 host(s)` followed by `live=1/1` — one
 running container, serving through the proxy.
 
-## What actually happens
+## What actually happens ⚙️
 
 `deploy` validates locally, takes a per-service `mkdir` lock on the first host
 (`~/.bundant/locks/default/hello.lock`, reclaimed after `BUNDANT_LOCK_TTL_S`), then drives the
@@ -196,7 +207,7 @@ engine over an ssh-forwarded socket: `/images/load` (or a registry pull),
 inside the proxy container, which blocks until old connections drain. The full call sequence is
 in [Architecture](/bundant/docs/architecture/).
 
-## Did it fail?
+## Did it fail? ⚠️
 
 - **`bundant: command not found`** — `bun link` wrote the command under Bun's global bin,
   which may not be on PATH. Fix it with `export PATH="$HOME/.bun/bin:$PATH"` and run

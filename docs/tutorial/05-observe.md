@@ -20,20 +20,38 @@ service and `group.service` for an accessory, matched as a glob (`*` = everythin
 group). That path is the selector. Revision and replica are flags (`--revision`, `--replica`),
 never path segments.
 
-## Look at the host
+## Look at the host 🔍
 
 All monitoring is read-only and pull-on-demand: one ssh round trip per host, nothing installed
 there. The diagram maps the question to the surface that answers it.
 
 ```mermaid
-flowchart LR
+flowchart TD
   Q{"Which surface?"}
-  Q --> PS["what exists<br/>bundant ps · status"]
-  Q --> L["what it said<br/>bundant logs"]
-  Q --> S["what it costs<br/>bundant stats"]
-  Q --> E["what the engine did<br/>bundant events"]
-  Q --> U["all of it, locally<br/>bundant ui"]
+  subgraph surfaces["ask one of these"]
+    direction TB
+    PS["what exists<br/>bundant ps · status"]
+    L["what it said<br/>bundant logs"]
+    S["what it costs<br/>bundant stats"]
+    E["what the engine did<br/>bundant events"]
+    U["all of it, locally<br/>bundant ui"]
+    PS ~~~ L ~~~ S ~~~ E ~~~ U
+  end
+  Q -- "one ssh round trip" --> surfaces
+  subgraph notes["every answer is"]
+    direction LR
+    N1["read-only,<br/>pull-on-demand"]
+    N2["nothing runs on the host;<br/>ui binds 127.0.0.1"]
+    N1 ~~~ N2
+  end
+  surfaces -. "no side effects" .-> notes
+  classDef local fill:#143038,color:#40c4ff,stroke:#494848;
+  classDef neutral fill:#2e332e,color:#d9d9d4,stroke:#494848;
+  class Q,PS,L,S,E,U local;
+  class N1,N2 neutral;
 ```
+
+*Colour legend: blue = an action on your machine or a normal step · green = healthy or live · orange = the one irreversible step · purple = storage and state.*
 
 The columns are name, image, status and ports. Widths depend on your terminal, so the spacing below
 will not match exactly:
@@ -98,7 +116,7 @@ bundant exec 'shop.db' -f shop/db/accessory.yml -- hostname
 ceb403c30372
 ```
 
-## The local UI
+## The local UI 🖥️
 
 `bundant ui` serves one read-only page from your machine. It binds `127.0.0.1` by default, so
 the host exposes no new port:
@@ -117,7 +135,7 @@ bundant ui - http://127.0.0.1:8787
 It returns `200` on `http://127.0.0.1:8787/`; the containers, stats, logs, proxy and events
 tabs fill in as the page polls.
 
-## Diagnose a failed deploy
+## Diagnose a failed deploy ⚠️
 
 A config can be valid and still fail on the host. This complete file asks the health gate to probe
 a port nothing listens on:
@@ -167,7 +185,7 @@ A held lock stops a second deploy before it touches the host:
 bundant: deploy lock for default/hello is held by tutorial (age 0s; BUNDANT_LOCK_TTL_S reclaims stale locks)
 ```
 
-## When the host has nothing
+## When the host has nothing 📦
 
 On a host with only sshd, bootstrap installs podman, configures the registry search path, enables
 the restart unit and runs a smoke container. Every step is idempotent. This is the complete file
@@ -202,7 +220,7 @@ You should see `health gate failed` with the probe URL for a broken health check
 `no broken container left` afterwards, and `ready` from bootstrap. The deploy that failed
 never swapped the proxy, so the previous revision keeps serving.
 
-## What actually happens
+## What actually happens ⚙️
 
 Each read verb resolves the selector against container labels, opens one multiplexed ssh
 connection per host, and calls the engine API through the forwarded socket:
@@ -213,7 +231,7 @@ window instead of following forever. `bundant ui` is a local read-only HTTP serv
 `127.0.0.1:8787`; each tab triggers the same ssh calls, and nothing is installed on the host.
 The retention limits and the full surface are in [Monitoring](/bundant/docs/monitoring/).
 
-## Did it fail?
+## Did it fail? ⚠️
 
 - **`health gate failed`** — the URL and the port are in the message. Fix
   `healthcheck.port` (the port your app listens on) or the path, then redeploy.
