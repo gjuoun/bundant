@@ -70,14 +70,14 @@ def field_mask(rgb: Image.Image) -> set[tuple[int, int]]:
     w, h = rgb.size
     px = rgb.load()
     seen: set[tuple[int, int]] = set()
-    stack = [(x, y) for (x, y) in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)) if close(px[x, y], FIELD, 24)]
+    stack = [(x, y) for (x, y) in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)) if close(px[x, y], FIELD, 8)]
     while stack:
         cx, cy = stack.pop()
         if (cx, cy) in seen:
             continue
         seen.add((cx, cy))
         for nx, ny in ((cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)):
-            if 0 <= nx < w and 0 <= ny < h and (nx, ny) not in seen and close(px[nx, ny], FIELD, 24):
+            if 0 <= nx < w and 0 <= ny < h and (nx, ny) not in seen and close(px[nx, ny], FIELD, 8):
                 stack.append((nx, ny))
     return seen
 
@@ -127,7 +127,9 @@ def measure(size: int) -> dict[str, object]:
                     field += 1
         # Below 64 px the ink is 1-2 px wide and antialiased toward fur; widen the
         # tolerance there or the face reads as empty.
-        ink = ink_on_fur(rgb, tol=60 if size <= 32 else 20) if size <= 128 else 0
+        # The field flood must stay tight (8 levels): the ink is only 6 levels away from the
+        # field colour, so a loose flood swallows the nose and the face measures empty.
+        ink = ink_on_fur(rgb, tol=60 if size <= 128 else 20) if size <= 128 else 0
     total = w * h
     return {
         "size": size,

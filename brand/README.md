@@ -17,8 +17,8 @@ same four steps, and every step is a file in this directory.
 | 3. Trace | `vtracer` (colour, spline, stacked) | `brand/content-bear-master.svg` |
 | 4. Snap | `brand/snap-to-palette.py` — every fill to a Bigface palette value | in the master |
 
-The chosen candidate is `brand/candidates/v4.png`; the untouched generation is kept as provenance in
-`brand/content-bear-source.jpg`.
+The chosen candidate is `brand/candidates/v5.png` — the first one where **both ears** sit inside the
+frame. The untouched generation is kept as provenance in `brand/content-bear-source.jpg`.
 
 ### Step 1 — generate
 
@@ -35,10 +35,10 @@ the species. The key is injected by `opk` and never printed.
 
 ### Step 2 — pick
 
-Four prompts were written (`prompts/bear-bust.txt`, `v2`, `v3`, `v4`), all asking for the same thing in
-slightly different words. All four came back with the correct crop — measured, fur covers 0 % of the
-top and left edges and 42–81 % of the right and bottom. `v4` was chosen for the cleanest geometry: one
-ear, two level closed eyes, uniform stroke weight, no stray shapes.
+Seven prompts were written (`prompts/bear-bust.txt`, `v2`…`v7`). The first four all cropped the far ear
+out of frame; `v5` asked for "TWO clearly separated rounded ears … never crop an ear" and was the first
+candidate to deliver it while keeping the crop contract (top and left edges 0 % fur, bottom 60 %,
+right 43 %).
 
 ### Step 3 — trace
 
@@ -46,10 +46,14 @@ ear, two level closed eyes, uniform stroke weight, no stray shapes.
 uv run --with vtracer python3 -c "
 import vtracer
 vtracer.convert_image_to_svg_py('$PWD/brand/content-bear-source.jpg', '/tmp/trace.svg',
-  colormode='color', hierarchical='stacked', mode='spline', filter_speckle=8,
-  color_precision=6, layer_difference=24, corner_threshold=60, length_threshold=4.0,
-  max_iterations=10, splice_threshold=45, path_precision=2)"
+  colormode='color', hierarchical='stacked', mode='spline', filter_speckle=6,
+  color_precision=8, layer_difference=16, corner_threshold=80, length_threshold=3.5,
+  max_iterations=12, splice_threshold=45, path_precision=3)"
 ```
+
+`color_precision=6` produced visible wobble along the jaw and a notch in the nose; 8 with
+`path_precision=3` traces clean. Trace quality is worth one extra pass — it is the difference between
+"auto-traced" and "drawn".
 
 `vtracer` needs an absolute path, and it rejects a JPEG that has been renamed `.png` — the generator
 writes JPEG bytes, so the source file keeps the `.jpg` extension.
@@ -61,9 +65,12 @@ uv run python3 brand/snap-to-palette.py /tmp/trace.svg brand/content-bear-master
   "#252925" "#FF9800" "#FC5D23" "#D9D9D4" "#1F231F"
 ```
 
-134 traced colours collapse onto five palette values: field `#252925`, fur `#FC5D23` (with `#FF9800`
+188 traced colours collapse onto five palette values: field `#252925`, fur `#FC5D23` (with `#FF9800`
 available for a lighter tone), muzzle `#D9D9D4`, ink `#1F231F`. Restricting the target set matters: the
 full 33-colour palette scatters dark shades into unrelated hues.
+
+The validator's field flood must stay tight (8 levels): the ink `#1F231F` sits only 6 levels from the
+field `#252925`, so a loose flood swallows the nose and the face measures empty.
 
 ## Master
 
@@ -116,9 +123,9 @@ From `brand/content-bear-validation.json` (verbatim):
 - fur / field contrast **4.73:1** (threshold 3:1 for an icon)
 - ink / fur contrast **5.1:1** (threshold 4.5:1)
 - ink / muzzle contrast **11.25:1** (threshold 4.5:1)
-- fur coverage at 512 px **0.46**, field coverage **0.47**
-- crop at 512 px: right edge **81 %** fur, bottom **60 %**, top **0 %**, left **0 %**
-- ink coverage: **3.5 % at 16 px**, **2.0 % at 32 px**, **1.1 % at 64 px**
+- fur coverage at 512 px **≈ 0.47**
+- crop at 512 px: right edge **45 %** fur, bottom **59 %**, top **0 %**, left **0 %**
+- ink coverage: **2.7 % at 16 px**, **2.9 % at 32 px**, **1.5 % at 64 px**
 
 ## Known limits
 
