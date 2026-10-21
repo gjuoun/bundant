@@ -99,12 +99,22 @@ def ink_on_fur(rgb: Image.Image, _tol: int = 0) -> int:
     px = rgb.load()
     field = field_mask(rgb)
     fur_lum = luminance(FUR)
+    radius = 6 if w >= 256 else 2
     count = 0
     for y in range(h):
         for x in range(w):
             if (x, y) in field:
                 continue
-            if luminance(px[x, y]) < fur_lum * 0.45:
+            if luminance(px[x, y]) >= fur_lum * 0.45:
+                continue
+            # Only count marks that sit next to fur: the plate's dark vignette is dark
+            # too, and counting it would hide a genuinely empty face.
+            near_fur = any(
+                is_fur(px[min(w - 1, max(0, x + dx)), min(h - 1, max(0, y + dy))])
+                for dx in range(-radius, radius + 1, radius)
+                for dy in range(-radius, radius + 1, radius)
+            )
+            if near_fur:
                 count += 1
     return count
 
