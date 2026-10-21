@@ -11,7 +11,7 @@
     512,
     1024
   ],
-  "fur_to_field_contrast": "4.73:1",
+  "fur_to_field_contrast": "4.67:1",
   "ink_to_fur_contrast": "5.1:1",
   "ink_to_muzzle_contrast": "11.25:1",
   "rows": [
@@ -20,16 +20,16 @@
       "mode": "RGB",
       "width": 16,
       "height": 16,
-      "bytes": 422,
-      "fur_fraction": 0.5078,
-      "field_fraction": 0.3906,
-      "ink_pixels": 7,
-      "ink_fraction": 0.0273,
+      "bytes": 485,
+      "fur_fraction": 0.4727,
+      "field_fraction": 0.4609,
+      "ink_pixels": 6,
+      "ink_fraction": 0.0234,
       "edge_fur": {
         "top": 0.0,
         "bottom": 0.625,
         "left": 0.0,
-        "right": 0.5
+        "right": 0.812
       }
     },
     {
@@ -37,16 +37,16 @@
       "mode": "RGB",
       "width": 32,
       "height": 32,
-      "bytes": 810,
-      "fur_fraction": 0.4863,
-      "field_fraction": 0.4277,
-      "ink_pixels": 30,
-      "ink_fraction": 0.0293,
+      "bytes": 1021,
+      "fur_fraction": 0.4668,
+      "field_fraction": 0.46,
+      "ink_pixels": 24,
+      "ink_fraction": 0.0234,
       "edge_fur": {
         "top": 0.0,
         "bottom": 0.594,
         "left": 0.0,
-        "right": 0.469
+        "right": 0.812
       }
     },
     {
@@ -54,16 +54,16 @@
       "mode": "RGB",
       "width": 64,
       "height": 64,
-      "bytes": 1687,
-      "fur_fraction": 0.4768,
-      "field_fraction": 0.4441,
-      "ink_pixels": 60,
-      "ink_fraction": 0.0146,
+      "bytes": 2191,
+      "fur_fraction": 0.4641,
+      "field_fraction": 0.4634,
+      "ink_pixels": 94,
+      "ink_fraction": 0.0229,
       "edge_fur": {
         "top": 0.0,
-        "bottom": 0.594,
+        "bottom": 0.609,
         "left": 0.0,
-        "right": 0.453
+        "right": 0.812
       }
     },
     {
@@ -71,16 +71,16 @@
       "mode": "RGB",
       "width": 128,
       "height": 128,
-      "bytes": 3528,
-      "fur_fraction": 0.4703,
-      "field_fraction": 0.4555,
-      "ink_pixels": 154,
-      "ink_fraction": 0.0094,
+      "bytes": 4565,
+      "fur_fraction": 0.462,
+      "field_fraction": 0.4659,
+      "ink_pixels": 338,
+      "ink_fraction": 0.0206,
       "edge_fur": {
         "top": 0.0,
-        "bottom": 0.586,
+        "bottom": 0.602,
         "left": 0.0,
-        "right": 0.438
+        "right": 0.812
       }
     },
     {
@@ -88,16 +88,16 @@
       "mode": "RGB",
       "width": 180,
       "height": 180,
-      "bytes": 5056,
-      "fur_fraction": 0.468,
-      "field_fraction": 0.4585,
+      "bytes": 6634,
+      "fur_fraction": 0.4612,
+      "field_fraction": 0.4675,
       "ink_pixels": 0,
       "ink_fraction": 0.0,
       "edge_fur": {
         "top": 0.0,
-        "bottom": 0.589,
+        "bottom": 0.6,
         "left": 0.0,
-        "right": 0.433
+        "right": 0.811
       }
     },
     {
@@ -105,16 +105,16 @@
       "mode": "RGB",
       "width": 192,
       "height": 192,
-      "bytes": 5447,
-      "fur_fraction": 0.4678,
-      "field_fraction": 0.4592,
+      "bytes": 7182,
+      "fur_fraction": 0.4609,
+      "field_fraction": 0.4672,
       "ink_pixels": 0,
       "ink_fraction": 0.0,
       "edge_fur": {
         "top": 0.0,
-        "bottom": 0.589,
+        "bottom": 0.604,
         "left": 0.0,
-        "right": 0.432
+        "right": 0.812
       }
     },
     {
@@ -122,16 +122,16 @@
       "mode": "RGB",
       "width": 256,
       "height": 256,
-      "bytes": 7280,
-      "fur_fraction": 0.4672,
-      "field_fraction": 0.4607,
+      "bytes": 9629,
+      "fur_fraction": 0.4603,
+      "field_fraction": 0.4682,
       "ink_pixels": 0,
       "ink_fraction": 0.0,
       "edge_fur": {
         "top": 0.0,
-        "bottom": 0.586,
+        "bottom": 0.602,
         "left": 0.0,
-        "right": 0.43
+        "right": 0.812
       }
     },
     {
@@ -139,16 +139,16 @@
       "mode": "RGB",
       "width": 512,
       "height": 512,
-      "bytes": 15368,
-      "fur_fraction": 0.4661,
-      "field_fraction": 0.4627,
+      "bytes": 21114,
+      "fur_fraction": 0.4592,
+      "field_fraction": 0.4689,
       "ink_pixels": 0,
       "ink_fraction": 0.0,
       "edge_fur": {
         "top": 0.0,
-        "bottom": 0.586,
+        "bottom": 0.6,
         "left": 0.0,
-        "right": 0.428
+        "right": 0.811
       }
     },
     {
@@ -156,16 +156,16 @@
       "mode": "RGB",
       "width": 1024,
       "height": 1024,
-      "bytes": 32595,
-      "fur_fraction": 0.4658,
-      "field_fraction": 0.4634,
+      "bytes": 48672,
+      "fur_fraction": 0.4587,
+      "field_fraction": 0.4692,
       "ink_pixels": 0,
       "ink_fraction": 0.0,
       "edge_fur": {
         "top": 0.0,
-        "bottom": 0.587,
+        "bottom": 0.6,
         "left": 0.0,
-        "right": 0.427
+        "right": 0.812
       }
     }
   ],

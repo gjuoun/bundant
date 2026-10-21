@@ -1,8 +1,8 @@
 # bundant brand marks
 
-bundant's identity is one mark: **a content bear leaning into the frame from the lower right**, on a
-dark field. Bigface — the theme — is the polar bear; bundant is its warmer cousin: same family of
-shape, opposite temperament.
+bundant's identity is one mark: **a content bear leaning into the frame from the lower right**, on
+Bigface's blue field. Bigface — the theme — is the polar bear; bundant is its warmer cousin: same
+family of shape, opposite temperament.
 
 ## How it was made (the original process, reused)
 
@@ -15,10 +15,11 @@ same four steps, and every step is a file in this directory.
 | 1. Generate | Nano Banana 2 (`gemini-3.1-flash-image`) on the Gemini key | `brand/gen-image.sh`, `brand/prompts/*.txt` |
 | 2. Pick | vision review of the candidates against the brief | `brand/candidates/v1..v4.png` |
 | 3. Trace | `vtracer` (colour, spline, stacked) | `brand/content-bear-master.svg` |
-| 4. Snap | `brand/snap-to-palette.py` — every fill to a Bigface palette value | in the master |
+| 4. Snap | `brand/snap-to-palette.py` — every fill to a palette value | in the master |
+| 5. Field | `brand/blue-field.py` (raster) + `brand/blue-field-svg.py` (real gradient) | `content-bear-source.png` |
 
-The chosen candidate is `brand/candidates/v5.png` — the first one where **both ears** sit inside the
-frame. The untouched generation is kept as provenance in `brand/content-bear-source.jpg`.
+The chosen candidate is `brand/candidates/v4.png`. Its field is then swapped for Bigface's blue in
+step 5. `brand/content-bear-source.png` is the field-swapped raster that gets traced.
 
 ### Step 1 — generate
 
@@ -35,10 +36,9 @@ the species. The key is injected by `opk` and never printed.
 
 ### Step 2 — pick
 
-Seven prompts were written (`prompts/bear-bust.txt`, `v2`…`v7`). The first four all cropped the far ear
-out of frame; `v5` asked for "TWO clearly separated rounded ears … never crop an ear" and was the first
-candidate to deliver it while keeping the crop contract (top and left edges 0 % fur, bottom 60 %,
-right 43 %).
+Seven prompts were written (`prompts/bear-bust.txt`, `v2`…`v7`). `v4` was approved by Jun: one ear
+visible in frame, the other cropped by the right edge, which is what the bust composition asks for.
+Regenerating for a second ear (v5) produced a different animal, so the approved face wins.
 
 ### Step 3 — trace
 
@@ -58,7 +58,24 @@ vtracer.convert_image_to_svg_py('$PWD/brand/content-bear-source.jpg', '/tmp/trac
 `vtracer` needs an absolute path, and it rejects a JPEG that has been renamed `.png` — the generator
 writes JPEG bytes, so the source file keeps the `.jpg` extension.
 
-### Step 4 — snap to the palette
+### Step 4 — swap the field to Bigface blue
+
+```sh
+uv run --with pillow python3 brand/blue-field.py brand/candidates/v4.png brand/content-bear-source.png
+uv run --with vtracer python3 -c "…convert_image_to_svg_py('…/content-bear-source.png', '/tmp/trace.svg', …)"
+uv run --with cairosvg python3 brand/blue-field-svg.py /tmp/snapped.svg brand/content-bear-master.svg
+```
+
+Two passes, because a traced smooth ramp is worthless: `blue-field.py` paints the background with the
+three flat Bigface stops so the tracer can see them, and `blue-field-svg.py` then repaints those field
+layers with a real `<linearGradient>` (`#2E7BE6 → #1A54B4 → #08265C`). Deleting the field layers
+instead of repainting them does not work — a stacked trace draws every colour layer as a full-canvas
+path with holes, so the fur bleeds across the whole square.
+
+The three blues are Bigface's own (`bigface-theme/brand/bigface-avatar-master.svg`), not the vendored
+palette JSON, so `hex-audit` and `snap-to-palette.py` both carry them as an explicit exception.
+
+### Step 4b — snap to the palette
 
 ```sh
 uv run python3 brand/snap-to-palette.py /tmp/trace.svg brand/content-bear-master.svg \
@@ -120,12 +137,13 @@ DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib \
 
 From `brand/content-bear-validation.json` (verbatim):
 
-- fur / field contrast **4.73:1** (threshold 3:1 for an icon)
+- fur / field contrast **4.67:1** measured against the dark end of the gradient (threshold 3:1)
 - ink / fur contrast **5.1:1** (threshold 4.5:1)
 - ink / muzzle contrast **11.25:1** (threshold 4.5:1)
-- fur coverage at 512 px **≈ 0.47**
-- crop at 512 px: right edge **45 %** fur, bottom **59 %**, top **0 %**, left **0 %**
-- ink coverage: **2.7 % at 16 px**, **2.9 % at 32 px**, **1.5 % at 64 px**
+- fur coverage at 512 px **0.46**, field coverage **0.46**
+- crop at 512 px: right edge **81 %** fur, bottom **61 %**, top **0 %**, left **0 %**
+- feature coverage (pixels darker than 45 % of the fur luminance): **2.3 % at 16 px**,
+  **2.3 % at 32 px**, **2.3 % at 64 px**
 
 ## Known limits
 

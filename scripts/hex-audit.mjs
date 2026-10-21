@@ -21,6 +21,10 @@ for (const group of ['colors', 'ansi']) {
     if (typeof entry === 'object' && typeof entry.hex === 'string') allowed.add(entry.hex.toLowerCase());
   }
 }
+// Bigface's avatar field gradient: brand colours that live in bigface-theme's own
+// brand/bigface-avatar-master.svg, not in the vendored palette JSON.
+for (const hex of ['#2e7be6', '#1a54b4', '#08265c']) allowed.add(hex);
+
 if (allowed.size === 0) {
   console.error('hex-audit: no colours found in ' + palettePath);
   process.exit(1);

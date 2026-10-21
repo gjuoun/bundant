@@ -20,6 +20,10 @@ from pathlib import Path
 
 PALETTE_FILE = Path(__file__).resolve().parent.parent / "site/src/data/bigface.json"
 
+# Bigface's avatar field gradient — brand colours that live in bigface-theme's own
+# brand/bigface-avatar-master.svg rather than in the vendored palette JSON.
+FIELD_BLUES = {"#2E7BE6", "#1A54B4", "#08265C"}
+
 
 def load_palette() -> list[tuple[int, int, int]]:
     data = json.loads(PALETTE_FILE.read_text())
@@ -52,7 +56,7 @@ def main() -> None:
     palette = load_palette()
     if only:
         chosen = [tuple(int(h[i : i + 2], 16) for i in (1, 3, 5)) for h in only]
-        missing = set(chosen) - set(palette)
+        missing = {c for c in set(chosen) - set(palette) if "#{:02X}{:02X}{:02X}".format(*c) not in FIELD_BLUES}
         if missing:
             raise SystemExit(f"not in the palette: {missing}")
         palette = chosen
