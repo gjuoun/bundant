@@ -23,9 +23,10 @@ validate  deploy  rollback  scale  prune  delete  history
 start  stop  restart  rm
 status  logs  stats  inspect  exec  ps  events  runtime  bootstrap  ui
 group      { install | uninstall | status | rollback }
+sessiond   { install | status | remove }
 ```
 
-- `group` with no action defaults to `install`.
+- `group` with no action defaults to `install`; `sessiond` with no action defaults to `status`.
 - An accessory is driven by the flat verbs (`start`, `restart`, `stop`, `logs`, `status`, `rm`).
 - `exec … -- <cmd…>` forwards everything after `--` to the remote command.
 - `logs --follow` keeps the old SIGINT behaviour and closes its forwards.
@@ -150,6 +151,7 @@ switch on `code` alone.
 | `CONFIG_INVALID` | 1 | YAML does not parse or violates the v2 schema |
 | `CONFIG_VERSION_UNSUPPORTED` | 1 | `version:` names a module we do not ship |
 | `VALIDATION_FAILED` | 1 | preflight rejected the plan (collision, missing host, bad reference) |
+| `ARCH_MISMATCH` | 1 | the image os/arch differs from the target host (or emulation has no binfmt entry) |
 | `NO_MATCH` | 3 | a selector matched zero units |
 | `LOCK_HELD` | 2 | another deploy holds the group lock |
 | `ENGINE_UNAVAILABLE` | 1 | the engine socket cannot be reached or started |

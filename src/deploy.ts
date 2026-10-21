@@ -1,7 +1,10 @@
 import type { LoadedConfig } from "./config.ts";
 import type { DeployPlan } from "./planner.ts";
 import type { ContainerSpec } from "./adapters/types.ts";
+import type { Platform } from "./platform.ts";
+import type { Executor } from "./types.ts";
 import { groupLabels } from "./planner.ts";
+import { LABEL_EMULATED } from "./labels.ts";
 import { NETWORK } from "./commands/docker.ts";
 import { defaultControlDir } from "./host/session.ts";
 import { LocalExecutor } from "./exec/local.ts";
@@ -9,13 +12,16 @@ import { SshExecutor, connectOptionsFor } from "./exec/ssh.ts";
 import { connectionForTarget } from "./hosts.ts";
 import { acquireLock, releaseLock } from "./lock.ts";
 import { openOps, type PullPolicy, type RuntimeOps } from "./ops/index.ts";
-import { preflightGate } from "./validation.ts";
+import { assertPreflight } from "./validation.ts";
 import { runtimeFor } from "./runtime.ts";
+import { checkArch, emulationWarning, platformsMatch, type ArchVerdict } from "./preflight/arch.ts";
+import { defaultArchPreflight, type ArchPreflight } from "./preflight/probe.ts";
 import {
   resolveLocalImage,
   transferLocalImage,
   type TransferReport,
 } from "./transfer/transfer.ts";
+import { resolveLocalImagePlatform } from "./transfer/layers.ts";
 
 export interface DeployOptions {
   /** Test seam: the factory runs only after preflight passes. */
@@ -28,6 +34,25 @@ export interface DeployOptions {
   phases?: Record<string, number>;
   /** Receives the image-transfer report per host (delta or full). */
   onTransfer?: (host: string, report: TransferReport) => void;
+  /** --allow-emulation: downgrade ARCH_MISMATCH only when binfmt can execute it. */
+  allowEmulation?: boolean;
+  /** Test seam: the read-only arch probe that runs before the deploy lock. */
+  archPreflight?: ArchPreflight;
+  /** Written before any mutation, for --json / status reporting. */
+  outcome?: DeployOutcome;
+  /** Test seam: the local engine shell used for the image preflight. */
+  localExec?: Executor;
+  /** Test seam: the per-host ops factory that owns every mutation. */
+  openOps?: (
+    connection: ReturnType<typeof connectionForTarget>,
+    config: LoadedConfig["config"],
+  ) => Promise<RuntimeOps>;
+  /** Test seam: the transfer the deploy would run (counts calls in tests). */
+  localImageTransfer?: (ops: RuntimeOps, ref: string) => Promise<TransferReport>;
+}
+
+export interface DeployOutcome {
+  emulated?: boolean;
 }
 
 export interface DeployOnHostOptions {
@@ -38,6 +63,40 @@ export interface DeployOnHostOptions {
   /** --local-image over the engine API (delta stream, fallback inside). */
   localImageTransfer?: (ops: RuntimeOps) => Promise<TransferReport>;
   onTransfer?: (host: string, report: TransferReport) => void;
+  allowEmulation?: boolean;
+  /** Called once when the image is foreign but provably emulatable. */
+  onEmulation?: (verdict: ArchVerdict) => void;
+}
+
+/**
+ * Compare the image the host actually received with the host itself. This is
+ * the registry half of the preflight: a single-arch tag pulled onto a foreign
+ * host must fail as ARCH_MISMATCH, never as an engine start error.
+ */
+async function enforceImageArch(
+  ops: RuntimeOps,
+  image: string,
+  host: string,
+  allowEmulation: boolean,
+  /** The operator-facing ref (the engine id is not a useful error). */
+  label = image,
+): Promise<ArchVerdict | undefined> {
+  const [imagePlatform, hostPlatform] = await Promise.all([
+    ops.imagePlatform(image),
+    ops.hostPlatform(),
+  ]);
+  if (imagePlatform === undefined || hostPlatform === undefined) return undefined;
+  if (platformsMatch(imagePlatform, hostPlatform)) return undefined;
+  const binfmtPresent = allowEmulation ? await ops.binfmtPresent(imagePlatform.arch) : false;
+  const verdict = checkArch({
+    image: label,
+    imagePlatform,
+    hostPlatform,
+    allowEmulation,
+    binfmtPresent,
+  });
+  console.log("[" + host + "] " + emulationWarning(verdict, host));
+  return verdict;
 }
 
 function timed(phases: Record<string, number> | undefined, phase: string, start: number): void {
@@ -160,6 +219,17 @@ export async function deployOnHost(
     );
   }
 
+  // Must precede every container mutation: the image loads by diffID and the
+  // architecture only surfaces at start (or silently under qemu).
+  const emulated = await enforceImageArch(
+    ops,
+    imageForSpec,
+    host,
+    opts.allowEmulation === true,
+    m.localImage ?? m.image,
+  );
+  if (emulated !== undefined) opts.onEmulation?.(emulated);
+
   const networkStart = performance.now();
   await ops.ensureNetwork();
   timed(opts.phases, "network", networkStart);
@@ -170,11 +240,13 @@ export async function deployOnHost(
   try {
     for (let i = 0; i < m.containerNames.length; i++) {
       const name = m.containerNames[i]!;
+      const labels = groupLabels(loaded.config, m.revision, i + 1);
+      if (emulated !== undefined) labels[LABEL_EMULATED] = "true";
       const spec: ContainerSpec = {
         image: imageForSpec,
         name,
         env,
-        labels: groupLabels(loaded.config, m.revision, i + 1),
+        labels,
         network: NETWORK,
         restart: "unless-stopped",
       };
@@ -248,34 +320,64 @@ export async function deploy(
 
   // Preflight first: an invalid config must never create a connection or a lock.
   const preflightStart = performance.now();
-  const primary = preflightGate(loaded, () =>
-    opts.openPrimary !== undefined
-      ? opts.openPrimary()
-      : new SshExecutor({
-          ...connectOptionsFor(connectionForTarget(loaded.config, m.hosts[0]!)),
-          controlDir: defaultControlDir(),
-          controlPersistSec: 60,
-          persist: true,
-        }),
-  );
+  assertPreflight(loaded);
+
+  const local = m.localImage ? (opts.localExec ?? new LocalExecutor()) : null;
+  const rt = runtimeFor(loaded.config.runtime);
+  const transferOverride = opts.localImageTransfer;
+
+  // Local image facts are resolved BEFORE ssh and before any transfer. The
+  // image platform used to be read after the ssh session existed, and a podman
+  // inspect template failure (no .Variant) silently skipped the check until
+  // after the image had already been loaded into the host store.
+  let localPlatform: Platform | undefined;
+  if (m.localImage && local) {
+    localPlatform = await resolveLocalImagePlatform(m.localImage, rt, local);
+    try {
+      await resolveLocalImage(m.localImage, rt, local);
+    } catch {
+      throw new Error(
+        "local image not found: " + m.localImage + " - build or pull it first (" +
+          rt.bin + " images)",
+      );
+    }
+    if (localPlatform === undefined) {
+      throw new Error(
+        "cannot read the local image platform for " + m.localImage +
+          " - refusing to deploy before the host is touched",
+      );
+    }
+  }
+
+  const primary = opts.openPrimary !== undefined
+    ? opts.openPrimary()
+    : new SshExecutor({
+        ...connectOptionsFor(connectionForTarget(loaded.config, m.hosts[0]!)),
+        controlDir: defaultControlDir(),
+        controlPersistSec: 60,
+        persist: true,
+      });
   timed(opts.phases, "preflight", preflightStart);
   const execs = new Set<SshExecutor>([primary]);
   let locked = false;
 
-  const local = m.localImage ? new LocalExecutor() : null;
-
   try {
-    if (m.localImage && local) {
-      const rt = runtimeFor(loaded.config.runtime);
-      try {
-        await resolveLocalImage(m.localImage, rt, local);
-      } catch {
-        throw new Error(
-          "local image not found: " + m.localImage + " - build or pull it first (" +
-            rt.bin + " images)",
-        );
-      }
-    }
+    // Read-only arch preflight: the local side is already resolved above; the
+    // host side is one uname, and the verdict still lands before the lock and
+    // before any engine call or transfer.
+    const archStart = performance.now();
+    const archProbe = opts.archPreflight ?? defaultArchPreflight;
+    const arch = await archProbe({
+      image: m.localImage ?? m.image,
+      isLocal: m.localImage !== undefined,
+      allowEmulation: opts.allowEmulation === true,
+      exec: primary,
+      rt,
+      ...(local !== null ? { local } : {}),
+      ...(localPlatform !== undefined ? { imagePlatform: localPlatform } : {}),
+    });
+    timed(opts.phases, "arch", archStart);
+    if (arch?.emulated === true && opts.outcome !== undefined) opts.outcome.emulated = true;
 
     const lockStart = performance.now();
     await acquireLock(primary, m.lockKey);
@@ -294,18 +396,27 @@ export async function deploy(
     for (const host of m.hosts) {
       console.log("[" + host + "] deploying " + m.containerNames.join(", "));
       const connectStart = performance.now();
-      const ops = await openOps(connectionForTarget(loaded.config, host), loaded.config);
+      const ops = await (opts.openOps ?? openOps)(
+        connectionForTarget(loaded.config, host),
+        loaded.config,
+      );
       timed(opts.phases, "connect", connectStart);
       try {
         await deployOnHost(ops, plan, loaded, {
           host,
           localImageTransfer: m.localImage !== undefined
             ? (hosterOps) =>
-                transferLocalImage(hosterOps, m.localImage!, {
-                  rt: runtimeFor(loaded.config.runtime),
-                })
+                transferOverride !== undefined
+                  ? transferOverride(hosterOps, m.localImage!)
+                  : transferLocalImage(hosterOps, m.localImage!, {
+                      rt: runtimeFor(loaded.config.runtime),
+                    })
             : undefined,
           onTransfer: opts.onTransfer,
+          allowEmulation: opts.allowEmulation,
+          onEmulation: () => {
+            if (opts.outcome !== undefined) opts.outcome.emulated = true;
+          },
           allowCaseCollision: opts.allowCaseCollision,
           pullPolicy: opts.pullPolicy,
           phases: opts.phases,

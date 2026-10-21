@@ -1,4 +1,5 @@
 import type { ExecResult } from "../types.ts";
+import type { Platform } from "../platform.ts";
 import type { RuntimeKind } from "../runtime.ts";
 
 export type { ExecResult, RuntimeKind };
@@ -14,6 +15,14 @@ export interface ContainerSpec {
   /** Docker restart policy name (default unless-stopped). */
   restart?: "no" | "always" | "unless-stopped" | "on-failure";
   network?: string;
+  /** "host" shares the host pid namespace (sessiond watches host pids). */
+  pidMode?: "host";
+  /** "host" makes /sys/fs/cgroup show the host hierarchy (sessiond fallback). */
+  cgroupns?: "host";
+  /** Read-only root filesystem (only declared binds stay writable). */
+  readonly?: boolean;
+  /** Extra HostConfig.SecurityOpt entries, e.g. no-new-privileges. */
+  securityOpt?: string[];
   /** Published ports, "hostPort:containerPort[/proto]". */
   ports?: string[];
   /** Command/args appended to the image entrypoint (health probes). */
@@ -102,6 +111,8 @@ export interface RuntimeAdapter {
   imageId(ref: string): Promise<string | undefined>;
   /** One image's ordered layer diffIDs (GET /images/{ref}/json RootFS.Layers). */
   imageLayers(ref: string): Promise<string[]>;
+  /** The image's own os/arch (GET /images/{ref}/json Architecture + Os). */
+  imagePlatform(ref: string): Promise<Platform | undefined>;
   loadImage(stream: NodeJS.ReadableStream, opts?: { contentLength?: number }): Promise<void>;
   removeImage(ref: string): Promise<void>;
   /** Remove dangling image layers (the old `image prune -f`). */

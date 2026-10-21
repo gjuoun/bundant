@@ -1,5 +1,6 @@
 import type { ContainerInfo, ContainerSpec, ContainerSummary } from "../adapters/types.ts";
 import type { BundantConfig } from "../config.ts";
+import type { Platform } from "../platform.ts";
 import type { RevisionEntry } from "../revisions.ts";
 
 /** Image pull policy: missing (default), always, never. */
@@ -47,6 +48,12 @@ export interface RuntimeOps {
   imageLayers(): Promise<Set<string>>;
   /** Resolve a local tag to an image id; the id is create-safe where the tag is not. */
   imageId(image: string): Promise<string | undefined>;
+  /** The image's own os/arch, as the host engine sees it. */
+  imagePlatform(image: string): Promise<Platform | undefined>;
+  /** The host's own os/arch (one uname call, no engine). */
+  hostPlatform(): Promise<Platform | undefined>;
+  /** Whether /proc/sys/fs/binfmt_misc/qemu-<arch> is registered on the host. */
+  binfmtPresent(arch: string): Promise<boolean>;
   /** Stream a save/OCI archive into the engine's POST /images/load. */
   loadImage(stream: NodeJS.ReadableStream, opts?: { contentLength?: number }): Promise<void>;
   ensureNetwork(): Promise<void>;
@@ -85,6 +92,8 @@ export interface RuntimeOps {
   proxyRemove(serviceId: string): Promise<void>;
   /** Delete a rendered env file left on the host, when present. */
   removeEnv(remotePath: string): Promise<void>;
+  /** Read a bounded host file (sessiond event log); empty when absent. */
+  readFile(path: string): Promise<string>;
   /** Accessory logs (static tail). */
   logs(name: string, tail: number): Promise<string>;
   /** A bare TCP connect from a sidecar must succeed (accessory readiness). */

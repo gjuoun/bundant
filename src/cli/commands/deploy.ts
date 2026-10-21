@@ -5,7 +5,7 @@ import { buildDeployPlan } from "../../planner.ts";
 import { renderApiPlan } from "../../plan-render.ts";
 import type { PullPolicy } from "../../ops/index.ts";
 import { resolveRevision, sanitizeRevision } from "../../revision.ts";
-import { deploy as runDeploy } from "../../deploy.ts";
+import { deploy as runDeploy, type DeployOutcome } from "../../deploy.ts";
 import { recordData } from "../../agent/emit.ts";
 import { UsageError } from "../../agent/errors.ts";
 import { LocalExecutor } from "../../exec/local.ts";
@@ -62,6 +62,7 @@ export const deploy = Command.make("deploy", {}, () =>
       throw new UsageError({ message: "--pull must be 'missing', 'always' or 'never'" });
     }
     const phases: Record<string, number> = {};
+    const outcome: DeployOutcome = {};
     const reports: { host: string; report: TransferReport }[] = [];
     // CLI startup is part of the wall time an operator sees.
     phases.startup = performance.now();
@@ -73,6 +74,8 @@ export const deploy = Command.make("deploy", {}, () =>
       code = yield* runPromise(() =>
         runDeploy(plan, loaded, {
           allowCaseCollision: g["allow-case-collision"],
+          allowEmulation: g["allow-emulation"],
+          outcome,
           pullPolicy: g.pull as PullPolicy,
           phases,
           onTransfer: (host, report) => reports.push({ host, report }),
@@ -93,6 +96,7 @@ export const deploy = Command.make("deploy", {}, () =>
         status: code === 0 ? "deployed" : "failed",
         phases,
         totalMs: Math.round(totalMs),
+        ...(outcome.emulated === true ? { emulated: true } : {}),
         ...(reports.length > 0 ? { transfer: reports[0]!.report } : {}),
       });
     }

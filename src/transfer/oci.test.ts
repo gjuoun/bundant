@@ -68,7 +68,11 @@ interface FixtureLayer {
   gzip: boolean;
 }
 
-function ociFixture(layers: FixtureLayer[], tag = "app:t2"): Buffer {
+function ociFixture(
+  layers: FixtureLayer[],
+  tag = "app:t2",
+  platform: { architecture?: string; os?: string; variant?: string } = {},
+): Buffer {
   const blobs: { name: string; data: Buffer }[] = [];
   const manifestLayers: { mediaType: string; digest: string; size: number }[] = [];
   const diffIds: string[] = [];
@@ -85,8 +89,9 @@ function ociFixture(layers: FixtureLayer[], tag = "app:t2"): Buffer {
     diffIds.push(sha(layer.plain));
   }
   const config = Buffer.from(JSON.stringify({
-    architecture: "amd64",
-    os: "linux",
+    architecture: platform.architecture ?? "amd64",
+    os: platform.os ?? "linux",
+    ...(platform.variant !== undefined ? { variant: platform.variant } : {}),
     rootfs: { type: "layers", diff_ids: diffIds },
   }));
   const manifest = Buffer.from(JSON.stringify({
@@ -239,6 +244,27 @@ describe("OCI delta builder", () => {
     expect(index.manifests[0].annotations["org.opencontainers.image.ref.name"]).toBe("t2");
     expect(index.manifests[0].annotations["io.containerd.image.name"]).toBe("app:t2");
     expect(index.manifests[0].platform).toEqual({ os: "linux", architecture: "amd64" });
+  });
+
+  test("the rewritten index keeps the platform (including variant) from the config", async () => {
+    const layer = Buffer.from("multi-arch payload");
+    const { members } = await build(
+      ociFixture([{ plain: layer, gzip: true }], "app:t2", {
+        architecture: "arm64",
+        os: "linux",
+        variant: "v8",
+      }),
+      [],
+    );
+    const index = JSON.parse(members.get("index.json")!.toString());
+    // The trimmer rebuilds both manifest.json and index.json; dropping the
+    // platform here would make a multi-arch load resolve to no platform.
+    expect(index.manifests[0].platform).toEqual({
+      os: "linux",
+      architecture: "arm64",
+      variant: "v8",
+    });
+    expect(index.manifests).toHaveLength(1);
   });
 
   test("a manifest referencing a layer absent from the stream is a documented error", async () => {

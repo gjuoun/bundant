@@ -7,6 +7,8 @@ import type {
 } from "../adapters/types.ts";
 import { CURL_IMAGE, NETWORK, TCP_IMAGE } from "../commands/docker.ts";
 import type { BundantConfig } from "../config.ts";
+import type { Platform } from "../platform.ts";
+import { probeBinfmtPresent, probeHostPlatform } from "../preflight/probe.ts";
 import type { Executor } from "../types.ts";
 import { belongsToService, serviceLabels } from "../naming.ts";
 import { revisionOf, type RevisionEntry } from "../revisions.ts";
@@ -23,6 +25,10 @@ const containerSpecSchema = z.object({
   volumes: z.array(z.string()).optional(),
   restart: z.enum(["no", "always", "unless-stopped", "on-failure"]).optional(),
   network: z.string().optional(),
+  pidMode: z.literal("host").optional(),
+  cgroupns: z.literal("host").optional(),
+  readonly: z.boolean().optional(),
+  securityOpt: z.array(z.string()).optional(),
   ports: z.array(z.string()).optional(),
   cmd: z.array(z.string()).optional(),
   sysctl: z.record(z.string()).optional(),
@@ -94,6 +100,18 @@ export class ApiOps implements RuntimeOps {
 
   async imageId(image: string): Promise<string | undefined> {
     return await this.adapter.imageId(image);
+  }
+
+  async imagePlatform(image: string): Promise<Platform | undefined> {
+    return await this.adapter.imagePlatform(image);
+  }
+
+  async hostPlatform(): Promise<Platform | undefined> {
+    return await probeHostPlatform(this.exec);
+  }
+
+  async binfmtPresent(arch: string): Promise<boolean> {
+    return await probeBinfmtPresent(this.exec, arch);
   }
 
   async pull(image: string): Promise<void> {
@@ -330,6 +348,14 @@ export class ApiOps implements RuntimeOps {
     if (r.code !== 0 && !/not found|no such|unknown/i.test(r.stderr + r.stdout)) {
       throw new Error("proxy-remove failed: " + (r.stderr.trim() || r.stdout.trim()));
     }
+  }
+
+  async readFile(path: string): Promise<string> {
+    const r = await this.exec.run("cat " + JSON.stringify(path) + " 2>/dev/null || true");
+    if (r.code !== 0) {
+      throw new Error("read " + path + " failed: " + (r.stderr.trim() || "exit " + r.code));
+    }
+    return r.stdout;
   }
 
   async removeEnv(remotePath: string): Promise<void> {

@@ -56,6 +56,22 @@ describe("parseEngineVersion", () => {
     });
   });
 
+  test("keeps arch, os and kernel from /version", () => {
+    const engine = parseEngineVersion({
+      ...DOCKER_VERSION,
+      Arch: "aarch64",
+      Os: "linux",
+      KernelVersion: "6.8.0-45-generic",
+    });
+    expect(engine.arch).toBe("aarch64");
+    expect(engine.os).toBe("linux");
+    expect(engine.kernelVersion).toBe("6.8.0-45-generic");
+  });
+
+  test("a payload without platform fields keeps the old shape", () => {
+    expect(parseEngineVersion(DOCKER_VERSION)).not.toHaveProperty("arch");
+  });
+
   test("podman-shaped response wins on the component name", () => {
     const engine = parseEngineVersion(PODMAN_VERSION);
     expect(engine.kind).toBe("podman");

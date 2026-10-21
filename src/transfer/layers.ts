@@ -1,5 +1,6 @@
 import type { RuntimeAdapter } from "../adapters/types.ts";
-import type { Runtime } from "../runtime.ts";
+import { parsePlatform, type Platform } from "../platform.ts";
+import { runtimeFor, type Runtime } from "../runtime.ts";
 import type { Executor } from "../types.ts";
 
 /**
@@ -63,6 +64,47 @@ export async function localLayers(ref: string, rt: Runtime, exec: Executor): Pro
     throw new Error("local image inspect returned no layer list for " + ref);
   }
   return parsed.map((entry) => normalizeLayerId(String(entry))).filter((id) => id !== "");
+}
+
+/**
+ * The local image's os/arch, or undefined when the engine cannot inspect it.
+ * A missing platform must not block a deploy: the remote side still checks the
+ * image it actually received.
+ */
+export async function localImagePlatform(
+  ref: string,
+  rt: Runtime,
+  exec: Executor,
+): Promise<Platform | undefined> {
+  // Variant is deliberately not requested: podman's inspect template has no
+  // .Variant field and fails the whole command, which used to hide the local
+  // platform and let a foreign image reach the host store.
+  const format = "{{.Architecture}} {{.Os}}";
+  const r = await exec.run(
+    rt.bin + " image inspect --format '" + format + "' " + shellQuote(ref),
+  );
+  if (r.code !== 0) return undefined;
+  const parts = r.stdout.trim().split(/\s+/);
+  if (parts.length < 2) return undefined;
+  return parsePlatform(parts[1], parts[0]);
+}
+
+/**
+ * Local image platform across both engines. A docker build deployed to a
+ * podman host is the normal case, and the preflight must resolve it before it
+ * opens ssh or touches the host store.
+ */
+export async function resolveLocalImagePlatform(
+  ref: string,
+  rt: Runtime,
+  exec: Executor,
+): Promise<Platform | undefined> {
+  const other = runtimeFor(rt.kind === "docker" ? "podman" : "docker");
+  for (const candidate of [rt, other]) {
+    const platform = await localImagePlatform(ref, candidate, exec);
+    if (platform !== undefined) return platform;
+  }
+  return undefined;
 }
 
 /** Fold every layer of every image the host holds into one set. */

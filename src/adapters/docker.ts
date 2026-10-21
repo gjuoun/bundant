@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Readable } from "node:stream";
 import { ApiError, type ApiClient, type ApiQuery } from "./api.ts";
+import { parsePlatform, type Platform } from "../platform.ts";
 import { toEpochSeconds } from "./time.ts";
 import { demuxStream } from "./api.ts";
 import type { RuntimeKind } from "../runtime.ts";
@@ -164,6 +165,18 @@ export class DockerAdapter implements RuntimeAdapter {
         if (err instanceof SyntaxError) continue;
         throw err;
       }
+    }
+  }
+
+  async imagePlatform(ref: string): Promise<Platform | undefined> {
+    try {
+      const res = await this.client.request("GET", "/images/" + encodeURIComponent(ref) + "/json");
+      if (typeof res.json !== "object" || res.json === null) return undefined;
+      const raw = res.json as { Architecture?: unknown; Os?: unknown; Variant?: unknown };
+      return parsePlatform(raw.Os, raw.Architecture, raw.Variant);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) return undefined;
+      throw err;
     }
   }
 
@@ -489,6 +502,12 @@ export function createBody(spec: ContainerSpec): Record<string, unknown> {
   };
   if (spec.volumes !== undefined && spec.volumes.length > 0) hostConfig.Binds = spec.volumes;
   if (spec.network !== undefined) hostConfig.NetworkMode = spec.network;
+  if (spec.pidMode !== undefined) hostConfig.PidMode = spec.pidMode;
+  if (spec.cgroupns !== undefined) hostConfig.CgroupnsMode = spec.cgroupns;
+  if (spec.readonly === true) hostConfig.ReadonlyRootfs = true;
+  if (spec.securityOpt !== undefined && spec.securityOpt.length > 0) {
+    hostConfig.SecurityOpt = spec.securityOpt;
+  }
   if (Object.keys(bindings).length > 0) hostConfig.PortBindings = bindings;
   if (spec.sysctl !== undefined && Object.keys(spec.sysctl).length > 0) hostConfig.Sysctls = spec.sysctl;
 

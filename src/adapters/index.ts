@@ -176,6 +176,9 @@ export async function openAdapter(
             socketPath: preferred,
             state: "active",
             candidates: [{ socketPath: preferred, state: "active", engine }],
+            ...(engine.arch !== undefined ? { arch: engine.arch } : {}),
+            ...(engine.os !== undefined ? { os: engine.os } : {}),
+            ...(engine.kernelVersion !== undefined ? { kernelVersion: engine.kernelVersion } : {}),
           };
           const adapter: RuntimeAdapter =
             engine.kind === "podman"
