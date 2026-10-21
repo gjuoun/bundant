@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">bundant content bear mark</title>
+  <desc id="desc">A contented brown bear, eyes closed in a satisfied arc, on a deep blue field lit from behind. Bigface is the polar bear; this is the warmer cousin that ships software.</desc>
+  <defs>
+    <linearGradient id="field" gradientUnits="userSpaceOnUse" x1="30" y1="0" x2="482" y2="512">
+      <stop offset="0" stop-color="#333333"/>
+      <stop offset="0.55" stop-color="#252925"/>
+      <stop offset="1" stop-color="#1F231F"/>
+    </linearGradient>
+    <radialGradient id="glow" gradientUnits="userSpaceOnUse" cx="256" cy="214" r="300">
+      <stop offset="0" stop-color="#40C4FF" stop-opacity="0.30"/>
+      <stop offset="0.62" stop-color="#40C4FF" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#1F231F" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="fur" gradientUnits="userSpaceOnUse" x1="150" y1="150" x2="360" y2="480">
+      <stop offset="0" stop-color="#FF9800"/>
+      <stop offset="0.66" stop-color="#FC5D23"/>
+      <stop offset="1" stop-color="#FC5D23"/>
+    </linearGradient>
+    <linearGradient id="muzzle" gradientUnits="userSpaceOnUse" x1="180" y1="300" x2="330" y2="420">
+      <stop offset="0" stop-color="#FFEB3B" stop-opacity="0.62"/>
+      <stop offset="1" stop-color="#FF9800" stop-opacity="0.92"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="url(#field)"/>
+  <rect width="512" height="512" fill="url(#glow)"/>
+
+  <!-- Content marks: three soft puffs of satisfaction, outside the head silhouette -->
+  <g fill="#40C4FF">
+    <path d="M 74 96 C 78 110, 81 113, 95 117 C 81 121, 78 124, 74 138 C 70 124, 67 121, 53 117 C 67 113, 70 110, 74 96 Z" opacity="0.85"/>
+    <path d="M 436 150 C 439 160, 441 162, 451 165 C 441 168, 439 170, 436 180 C 433 170, 431 168, 421 165 C 431 162, 433 160, 436 150 Z" opacity="0.7"/>
+    <path d="M 448 372 C 450 379, 452 381, 459 383 C 452 385, 450 387, 448 394 C 446 387, 444 385, 437 383 C 444 381, 446 379, 448 372 Z" opacity="0.55"/>
+  </g>
+
+  <!-- Ears behind the head -->
+  <circle cx="150" cy="190" r="62" fill="url(#fur)"/>
+  <circle cx="362" cy="190" r="62" fill="url(#fur)"/>
+  <circle cx="150" cy="190" r="31" fill="#FC5D23" opacity="0.55"/>
+  <circle cx="362" cy="190" r="31" fill="#FC5D23" opacity="0.55"/>
+
+  <!-- Head -->
+  <path fill="url(#fur)" d="
+    M 86 300
+    C 86 214, 162 154, 256 154
+    C 350 154, 426 214, 426 300
+    L 426 352
+    C 426 428, 352 474, 256 474
+    C 160 474, 86 428, 86 352
+    Z"/>
+
+  <!-- Muzzle -->
+  <ellipse cx="256" cy="342" rx="96" ry="66" fill="url(#muzzle)"/>
+
+  <!-- Closed, satisfied eyes: two upward arcs -->
+  <g fill="none" stroke="#1F231F" stroke-width="17" stroke-linecap="round">
+    <path d="M 138 290 C 154 268, 190 268, 206 290"/>
+    <path d="M 306 290 C 322 268, 358 268, 374 290"/>
+  </g>
+
+  <!-- Nose and a small contented smile -->
+  <path d="M 256 310 C 274 310, 288 322, 288 336 C 288 352, 274 364, 256 364 C 238 364, 224 352, 224 336 C 224 322, 238 310, 256 310 Z" fill="#1F231F"/>
+  <g fill="none" stroke="#1F231F" stroke-width="11" stroke-linecap="round">
+    <path d="M 256 366 L 256 384"/>
+    <path d="M 256 384 C 242 400, 218 400, 206 386"/>
+    <path d="M 256 384 C 270 400, 294 400, 306 386"/>
+  </g>
+</svg>

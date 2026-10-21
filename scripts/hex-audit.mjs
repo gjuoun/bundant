@@ -26,8 +26,8 @@ if (allowed.size === 0) {
   process.exit(1);
 }
 
-const roots = ['site/src', 'docs'];
-const exts = new Set(['.css', '.ts', '.tsx', '.astro', '.mdx', '.json', '.mjs']);
+const roots = ['site/src', 'docs', 'brand'];
+const exts = new Set(['.css', '.ts', '.tsx', '.astro', '.mdx', '.json', '.mjs', '.svg']);
 const offenders = [];
 
 function walk(dir) {
@@ -73,4 +73,4 @@ if (offenders.length) {
   process.exit(1);
 }
 
-console.log(`HEX OK — every colour in site/src and docs is one of the ${allowed.size} palette values`);
+console.log(`HEX OK — every colour in site/src, docs and brand is one of the ${allowed.size} palette values`);

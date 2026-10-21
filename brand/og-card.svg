@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="t d">
+  <title id="t">bundant — ship to the box you already own</title>
+  <desc id="d">The content bear mark beside the bundant wordmark on a dark Bigface panel.</desc>
+  <defs>
+    <clipPath id="squircle">
+      <rect x="80" y="165" width="300" height="300" rx="68"/>
+    </clipPath>
+  </defs>
+
+  <rect width="1200" height="630" fill="#1F231F"/>
+  <rect x="40" y="40" width="1120" height="550" rx="28" fill="#252925" stroke="#333333" stroke-width="2"/>
+
+  <image href="exports/content-bear-512.png" x="80" y="165" width="300" height="300" clip-path="url(#squircle)"/>
+
+  <text x="440" y="272" fill="#D9D9D4" font-family="ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="104" font-weight="700" letter-spacing="-2">bundant</text>
+  <text x="444" y="336" fill="#9C9A8F" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="30">zero-downtime deploys over ssh</text>
+
+  <text x="444" y="404" fill="#40C4FF" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="27">bundant deploy -f deploy.yml</text>
+
+  <line x1="80" y1="500" x2="1120" y2="500" stroke="#333333" stroke-width="2"/>
+  <text x="80" y="546" fill="#6E6B68" font-family="ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="24">docker or podman · one CLI · no registry</text>
+  <text x="1120" y="546" text-anchor="end" fill="#40C4FF" font-family="ui-sans-serif, -apple-system, Segoe UI, Helvetica, Arial, sans-serif" font-size="24">gjuoun.github.io/bundant</text>
+</svg>

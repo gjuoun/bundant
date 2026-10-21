@@ -1,0 +1,110 @@
+{
+  "master": "brand/content-bear-master.svg",
+  "sizes": [
+    16,
+    32,
+    64,
+    128,
+    180,
+    192,
+    256,
+    512,
+    1024
+  ],
+  "face_to_field_contrast": "4.05:1",
+  "ink_to_fur_contrast": "5.1:1",
+  "rows": [
+    {
+      "size": 16,
+      "mode": "RGB",
+      "width": 16,
+      "height": 16,
+      "bytes": 608,
+      "fur_fraction": 0.3828,
+      "field_fraction": 0.4414,
+      "ink_blobs": 1
+    },
+    {
+      "size": 32,
+      "mode": "RGB",
+      "width": 32,
+      "height": 32,
+      "bytes": 1571,
+      "fur_fraction": 0.3789,
+      "field_fraction": 0.4453,
+      "ink_blobs": 4
+    },
+    {
+      "size": 64,
+      "mode": "RGB",
+      "width": 64,
+      "height": 64,
+      "bytes": 4073,
+      "fur_fraction": 0.3667,
+      "field_fraction": 0.4663,
+      "ink_blobs": 7
+    },
+    {
+      "size": 128,
+      "mode": "RGB",
+      "width": 128,
+      "height": 128,
+      "bytes": 10145,
+      "fur_fraction": 0.3668,
+      "field_fraction": 0.4778,
+      "ink_blobs": 0
+    },
+    {
+      "size": 180,
+      "mode": "RGB",
+      "width": 180,
+      "height": 180,
+      "bytes": 15853,
+      "fur_fraction": 0.3646,
+      "field_fraction": 0.482,
+      "ink_blobs": 0
+    },
+    {
+      "size": 192,
+      "mode": "RGB",
+      "width": 192,
+      "height": 192,
+      "bytes": 17032,
+      "fur_fraction": 0.3647,
+      "field_fraction": 0.4822,
+      "ink_blobs": 0
+    },
+    {
+      "size": 256,
+      "mode": "RGB",
+      "width": 256,
+      "height": 256,
+      "bytes": 24330,
+      "fur_fraction": 0.3633,
+      "field_fraction": 0.4841,
+      "ink_blobs": 0
+    },
+    {
+      "size": 512,
+      "mode": "RGB",
+      "width": 512,
+      "height": 512,
+      "bytes": 55142,
+      "fur_fraction": 0.363,
+      "field_fraction": 0.4866,
+      "ink_blobs": 0
+    },
+    {
+      "size": 1024,
+      "mode": "RGB",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 122992,
+      "fur_fraction": 0.3625,
+      "field_fraction": 0.4879,
+      "ink_blobs": 0
+    }
+  ],
+  "failures": [],
+  "status": "pass"
+}

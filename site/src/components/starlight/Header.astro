@@ -13,7 +13,14 @@ const links = [
 <div class="bf-header">
   <div class="bf-bar">
     <a href={base + '/'} class="bf-brand" aria-label="bundant home">
-      <span class="bf-mark">b</span>
+      <img
+        class="bf-mark"
+        src={`${import.meta.env.BASE_URL}/img/content-bear.svg`}
+        alt=""
+        width="32"
+        height="32"
+        aria-hidden="true"
+      />
       <span class="bf-name">bundant</span>
       <span class="bf-version">0.1.0</span>
     </a>
@@ -83,16 +90,10 @@ const links = [
   }
 
   .bf-mark {
-    display: grid;
-    place-items: center;
     width: 2rem;
     height: 2rem;
     border-radius: 0.375rem;
-    background: #40c4ff;
-    color: #1f231f;
-    font-family: var(--font-mono);
-    font-size: 0.9375rem;
-    font-weight: 700;
+    display: block;
   }
 
   .bf-name {
