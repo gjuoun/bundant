@@ -2,40 +2,83 @@
 
 bundant's identity is one mark: **a content bear leaning into the frame from the lower right**, on a
 dark field. Bigface — the theme — is the polar bear; bundant is its warmer cousin: same family of
-shape, opposite temperament. Closed, happy eyes and a small smile; it has shipped the thing and it is
-fine.
+shape, opposite temperament.
 
-The pose is borrowed from the Guardian crocodile mark: a bust, not an avatar. The head runs out of the
-right and bottom edges the way the crocodile does, so the animal is *in* the frame rather than
-*centred* in it. No sparkles, no props, nothing floating: one face on one flat colour.
+## How it was made (the original process, reused)
+
+The blue-bear and guardian-crocodile marks in `~/code/gjuoun/notebook/hermes/projects/` were not drawn
+by hand. They were **generated, picked, traced, then snapped to the palette**. This mark follows the
+same four steps, and every step is a file in this directory.
+
+| Step | Tool | Artefact |
+|---|---|---|
+| 1. Generate | Nano Banana 2 (`gemini-3.1-flash-image`) on the Gemini key | `brand/gen-image.sh`, `brand/prompts/*.txt` |
+| 2. Pick | vision review of the candidates against the brief | `brand/candidates/v1..v4.png` |
+| 3. Trace | `vtracer` (colour, spline, stacked) | `brand/content-bear-master.svg` |
+| 4. Snap | `brand/snap-to-palette.py` — every fill to a Bigface palette value | in the master |
+
+The chosen candidate is `brand/candidates/v4.png`; the untouched generation is kept as provenance in
+`brand/content-bear-source.jpg`.
+
+### Step 1 — generate
+
+```sh
+cd ~/code/gjuoun/bundant
+OUT=brand/candidates/v4 PROMPT_FILE=brand/prompts/v4.txt \
+  REF="$HOME/code/gjuoun/notebook/hermes/projects/guardian-crocodile-logo/guardian-crocodile-selected.png" \
+  opk get GEMINI_API_KEY -- bash brand/gen-image.sh
+```
+
+The crocodile PNG is passed as a **composition reference only** — it teaches the model the bust crop
+(head running out of the right and bottom edges, snout toward the upper left, flat colour behind), not
+the species. The key is injected by `opk` and never printed.
+
+### Step 2 — pick
+
+Four prompts were written (`prompts/bear-bust.txt`, `v2`, `v3`, `v4`), all asking for the same thing in
+slightly different words. All four came back with the correct crop — measured, fur covers 0 % of the
+top and left edges and 42–81 % of the right and bottom. `v4` was chosen for the cleanest geometry: one
+ear, two level closed eyes, uniform stroke weight, no stray shapes.
+
+### Step 3 — trace
+
+```sh
+uv run --with vtracer python3 -c "
+import vtracer
+vtracer.convert_image_to_svg_py('$PWD/brand/content-bear-source.jpg', '/tmp/trace.svg',
+  colormode='color', hierarchical='stacked', mode='spline', filter_speckle=8,
+  color_precision=6, layer_difference=24, corner_threshold=60, length_threshold=4.0,
+  max_iterations=10, splice_threshold=45, path_precision=2)"
+```
+
+`vtracer` needs an absolute path, and it rejects a JPEG that has been renamed `.png` — the generator
+writes JPEG bytes, so the source file keeps the `.jpg` extension.
+
+### Step 4 — snap to the palette
+
+```sh
+uv run python3 brand/snap-to-palette.py /tmp/trace.svg brand/content-bear-master.svg \
+  "#252925" "#FF9800" "#FC5D23" "#D9D9D4" "#1F231F"
+```
+
+134 traced colours collapse onto five palette values: field `#252925`, fur `#FC5D23` (with `#FF9800`
+available for a lighter tone), muzzle `#D9D9D4`, ink `#1F231F`. Restricting the target set matters: the
+full 33-colour palette scatters dark shades into unrelated hues.
 
 ## Master
 
-- File: `brand/content-bear-master.svg`
-- Canvas: `512 × 512`, `viewBox="0 0 512 512"`, opaque, no external fonts, filters or linked assets
-- Structure: 1 flat field, 2 ears + 2 inner ears, 1 head ellipse, 1 muzzle ellipse, 2 closed-eye arcs,
-  1 nose, 1 smile stroke — 10 shapes in total
-- Geometry: everything is drawn in **face-local coordinates** (origin at the head centre) and placed
-  once with `translate(398 322) rotate(-9)`, so the features cannot drift out of alignment
-- Colours, all from the Bigface palette:
-  - field `#252925` (bg), flat
-  - fur `#FF9800 → #FC5D23` (orange → burntOrange)
-  - muzzle `#D9D9D4` (fg), solid
-  - ink `#1F231F` (bgDeep)
-
-The master is the single source. Nothing below edits it; every raster is rendered from it.
+- File: `brand/content-bear-master.svg` — 1024 × 1024 viewBox, traced splines, palette-only fills
+- Provenance: `brand/content-bear-source.jpg` (the untouched 1024 × 1024 generation)
+- Composition: bust — fur covers ~81 % of the right edge and ~60 % of the bottom edge, 0 % of the top
+  and left. The validator asserts this; it is not assumed.
 
 ## Concept
 
 - **A bear, not a second polar bear.** Bigface is cold and white; bundant is warm and orange. The
-  silhouette is the same family, the colour and the expression are the opposite.
-- **Bust, not badge.** The head is cropped by the right and bottom edges. That crop is the whole
-  composition, so the validator asserts it: fur must cover ≥25 % of the right and bottom edges and
-  0 % of the top and left.
-- **Expression carries the name.** "bundant" is a full, satisfied system: closed eyes, one small
-  smile, no fangs, no props.
-- **The head fills the frame** (~36 % of the pixels are fur), so the same file works as favicon,
-  header mark and social avatar without a second icon variant.
+  silhouette is the same family; the colour and the expression are the opposite.
+- **Bust, not badge.** Borrowed from the Guardian crocodile: the head runs out of the right and bottom
+  edges, so the animal is *in* the frame rather than *centred* in it. No sparkles, no props.
+- **Expression carries the name.** "bundant" is a full, satisfied system: closed eyes, one small smile.
 
 ## Exports
 
@@ -43,7 +86,7 @@ The master is the single source. Nothing below edits it; every raster is rendere
 
 | Output | Size | Used by |
 |---|---|---|
-| `exports/content-bear-16.png` | 16 | press kit only (see limits) |
+| `exports/content-bear-16.png` | 16 | press kit (see limits) |
 | `exports/content-bear-32.png` | 32 | `site/public/favicon-32.png` |
 | `exports/content-bear-64.png` | 64 | press kit |
 | `exports/content-bear-128.png` | 128 | press kit |
@@ -73,17 +116,16 @@ From `brand/content-bear-validation.json` (verbatim):
 - fur / field contrast **4.73:1** (threshold 3:1 for an icon)
 - ink / fur contrast **5.1:1** (threshold 4.5:1)
 - ink / muzzle contrast **11.25:1** (threshold 4.5:1)
-- fur coverage at 512 px **0.363**, field coverage **0.522**
-- crop at 512 px: right edge **65.6 %** fur, bottom **29.7 %**, top **0 %**, left **0 %**
-- ink coverage: **2.7 % at 16 px**, **1.7 % at 32 px**, **1.4 % at 64 px**
+- fur coverage at 512 px **0.46**, field coverage **0.47**
+- crop at 512 px: right edge **81 %** fur, bottom **60 %**, top **0 %**, left **0 %**
+- ink coverage: **3.5 % at 16 px**, **2.0 % at 32 px**, **1.1 % at 64 px**
 
 ## Known limits
 
-- **16 px does not read as a bear.** It collapses to an orange shape with a pale muzzle; the eye
-  arcs are sub-pixel there. 32 px is borderline — silhouette, ears and muzzle read, the expression
-  does not. 64 px and up is the full mark. This is measured, not promised: see
-  `brand/content-bear-contact-sheet.png`.
-- The mark is **flat and hand-authored**. There is no pixel-fidelity target to report — the checks
-  above are the whole story.
-- No light-mode variant exists. On a light surface the dark field still gives the shape a border, but
-  it has not been contrast-tested against white.
+- **16 px does not read as a bear.** It collapses to an orange block with a pale muzzle; the face needs
+  the 32 px raster at minimum. Measured — see `brand/content-bear-contact-sheet.png`.
+- The master is a **trace, not a redraw**. Curves carry spline-fitting error from the raster; a human
+  redraw would be crisper at very large sizes. Nothing here is a pixel-fidelity replica of the
+  generation.
+- No light-mode variant exists. On a light surface the dark field gives the shape a border, but it has
+  not been contrast-tested against white.
