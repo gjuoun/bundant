@@ -53,9 +53,14 @@ def cut_out(im: Image.Image) -> Image.Image:
 
 
 def main() -> None:
-    subject_path, plate_path = Path(sys.argv[1]), Path(sys.argv[2])
+    subject_path, plate_arg = Path(sys.argv[1]), sys.argv[2]
     subject = Image.open(subject_path).convert("RGB")
-    plate = Image.open(plate_path).convert("RGB").resize(subject.size, Image.LANCZOS)
+    if plate_arg.startswith("#"):
+        # A flat Bigface colour instead of a generated plate.
+        rgb = tuple(int(plate_arg[i : i + 2], 16) for i in (1, 3, 5))
+        plate = Image.new("RGB", subject.size, rgb)
+    else:
+        plate = Image.open(plate_arg).convert("RGB").resize(subject.size, Image.LANCZOS)
 
     bear = cut_out(subject)
     master = plate.convert("RGBA")
