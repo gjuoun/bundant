@@ -55,7 +55,7 @@ if (existsSync(home)) {
     ['apple touch icon', 'rel="apple-touch-icon"'],
     ['og:image', 'property="og:image"'],
     ['twitter card', 'name="twitter:card"'],
-    ['header mark', 'img/content-bear.png'],
+    ['header mark', 'img/content-bear.svg'],
   ]) {
     html.includes(needle) ? ok(label) : fail(label, `no ${needle} in index.html`);
   }
