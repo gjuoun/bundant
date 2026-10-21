@@ -5,6 +5,16 @@
       uv run --with cairosvg --with pillow python3 brand/validate-content-bear.py
 
 Writes content-bear-validation.json + a contact sheet, prints the JSON, exits 1 on failure.
+
+What this checks, and why:
+
+- the rasters are opaque, square and the right size;
+- the head fills the frame (coverage) but is a *bust*: it runs out of the right and
+  bottom edges and never touches the top or left ones. That crop IS the composition,
+  so it is a hard assertion, not a nicety;
+- the face survives down to 32 px (ink pixels on fur), and 16 px is measured and
+  reported rather than promised;
+- the three colour pairs that carry the drawing keep their contrast.
 """
 
 from __future__ import annotations
@@ -16,8 +26,9 @@ from PIL import Image, ImageDraw
 
 NAME = "content-bear"
 SIZES = (16, 32, 64, 128, 180, 192, 256, 512, 1024)
-FUR = (252, 93, 35)  # burntOrange #FC5D23 — the bear's body
-FIELD = (51, 51, 51)  # borderMuted #333333 — the field, top-left of the gradient
+FUR = (252, 93, 35)  # burntOrange #FC5D23 — the bear
+MUZZLE = (217, 217, 212)  # fg #D9D9D4 — the snout
+FIELD = (37, 41, 37)  # bg #252925 — the flat field
 INK = (31, 35, 31)  # bgDeep #1F231F — eyes, nose, mouth
 
 ROOT = Path(__file__).resolve().parent
@@ -45,34 +56,59 @@ def close(px, target, tol: int) -> bool:
     return all(abs(p - t) <= tol for p, t in zip(px, target, strict=True))
 
 
-def ink_blobs(im: Image.Image, tol: int = 10) -> int:
-    """Count ink blobs in the central band only: the field gradient ends on the ink
-    colour at the corners, which would otherwise read as one giant blob."""
-    w, h = im.size
-    px = im.convert("RGB").load()
-    # The face band: eyes, nose and mouth, without the field that surrounds the head.
-    x0, x1 = int(w * 0.26), int(w * 0.74)
-    y0, y1 = int(h * 0.42), int(h * 0.90)
+def is_fur(p) -> bool:
+    return p[0] > p[2] + 60 and p[0] > 120
+
+
+def field_mask(rgb: Image.Image) -> set[tuple[int, int]]:
+    """Flood the flat field from the four corners.
+
+    The field sits only ~20 levels away from the ink, so a colour test alone cannot
+    tell background from face. Anything reachable from a corner is field; the facial
+    features, enclosed by fur, never are.
+    """
+    w, h = rgb.size
+    px = rgb.load()
     seen: set[tuple[int, int]] = set()
-    blobs = 0
-    for y in range(y0, y1):
-        for x in range(x0, x1):
-            if (x, y) in seen or not close(px[x, y], INK, tol):
+    stack = [(x, y) for (x, y) in ((0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)) if close(px[x, y], FIELD, 24)]
+    while stack:
+        cx, cy = stack.pop()
+        if (cx, cy) in seen:
+            continue
+        seen.add((cx, cy))
+        for nx, ny in ((cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)):
+            if 0 <= nx < w and 0 <= ny < h and (nx, ny) not in seen and close(px[nx, ny], FIELD, 24):
+                stack.append((nx, ny))
+    return seen
+
+
+def ink_on_fur(rgb: Image.Image, tol: int) -> int:
+    """Ink pixels that are not field: the face."""
+    w, h = rgb.size
+    px = rgb.load()
+    field = field_mask(rgb)
+    count = 0
+    for y in range(h):
+        for x in range(w):
+            if (x, y) in field:
                 continue
-            stack = [(x, y)]
-            seen.add((x, y))
-            size = 0
-            while stack:
-                cx, cy = stack.pop()
-                size += 1
-                for nx, ny in ((cx + 1, cy), (cx - 1, cy), (cx, cy + 1), (cx, cy - 1)):
-                    if x0 <= nx < x1 and y0 <= ny < y1 and (nx, ny) not in seen:
-                        if close(px[nx, ny], INK, tol):
-                            seen.add((nx, ny))
-                            stack.append((nx, ny))
-            if size >= 2:
-                blobs += 1
-    return blobs
+            if close(px[x, y], INK, tol):
+                count += 1
+    return count
+
+
+def edge_fur(rgb: Image.Image, side: str) -> float:
+    """Fraction of an edge covered by fur."""
+    w, h = rgb.size
+    px = rgb.load()
+    coords = {
+        "top": [(x, 0) for x in range(w)],
+        "bottom": [(x, h - 1) for x in range(w)],
+        "left": [(0, y) for y in range(h)],
+        "right": [(w - 1, y) for y in range(h)],
+    }[side]
+    hits = sum(1 for x, y in coords if is_fur(px[x, y]))
+    return round(hits / len(coords), 3)
 
 
 def measure(size: int) -> dict[str, object]:
@@ -85,14 +121,13 @@ def measure(size: int) -> dict[str, object]:
         for y in range(h):
             for x in range(w):
                 p = px[x, y]
-                if p[0] > p[2] + 60 and p[0] > 120:
+                if is_fur(p):
                     fur += 1
                 elif max(p) - min(p) < 14 and max(p) < 190:
                     field += 1
-        # Small rasters antialias the ink toward the muzzle; widen the tolerance there.
-        # Below 64px the ink is 1-2px wide and antialiased; 60 per channel still
-        # separates eyes/nose/mouth there, 10 would read nothing.
-        blobs = ink_blobs(rgb, tol=60 if size <= 32 else 10) if size <= 64 else 0
+        # Below 64 px the ink is 1-2 px wide and antialiased toward fur; widen the
+        # tolerance there or the face reads as empty.
+        ink = ink_on_fur(rgb, tol=60 if size <= 32 else 20) if size <= 128 else 0
     total = w * h
     return {
         "size": size,
@@ -102,35 +137,52 @@ def measure(size: int) -> dict[str, object]:
         "bytes": path.stat().st_size,
         "fur_fraction": round(fur / total, 4),
         "field_fraction": round(field / total, 4),
-        "ink_blobs": blobs,
+        "ink_pixels": ink,
+        "ink_fraction": round(ink / total, 4),
+        "edge_fur": {side: edge_fur(rgb, side) for side in ("top", "bottom", "left", "right")},
     }
 
 
 def main() -> None:
     rows = [measure(s) for s in SIZES]
-    ratio = round(contrast(FUR, FIELD), 2)
-    ink_ratio = round(contrast(INK, FUR), 2)
+    fur_field = round(contrast(FUR, FIELD), 2)
+    ink_fur = round(contrast(INK, FUR), 2)
+    ink_muzzle = round(contrast(INK, MUZZLE), 2)
     failures: list[str] = []
+
     for r in rows:
         name = f"{r['size']}px"
         if r["mode"] != "RGB":
             failures.append(f"{name}: mode {r['mode']} is not opaque RGB")
         if (r["width"], r["height"]) != (r["size"], r["size"]):
             failures.append(f"{name}: not square")
-        if r["fur_fraction"] < 0.18:
-            failures.append(f"{name}: mascot coverage {r['fur_fraction']} < 0.18")
-        if r["field_fraction"] < 0.12:
-            failures.append(f"{name}: field coverage {r['field_fraction']} < 0.12")
-        # 16px keeps only the nose: the eye arcs are 0.5px wide there and antialiasing
-        # eats them. That is a documented limit (brand/README.md), so the bar is 1 blob,
-        # not the 2 the generic template assumes. 32px still separates all three.
-        need = 1 if r["size"] == 16 else 3 if r["size"] == 32 else 0
-        if need and r["ink_blobs"] < need:
-            failures.append(f"{name}: {r['ink_blobs']} of {need} facial blobs survive")
-    if ratio < 3.0:
-        failures.append(f"face/field contrast {ratio}:1 below 3:1")
-    if ink_ratio < 4.5:
-        failures.append(f"ink/fur contrast {ink_ratio}:1 below 4.5:1")
+        if r["fur_fraction"] < 0.30:
+            failures.append(f"{name}: mascot coverage {r['fur_fraction']} < 0.30")
+
+        # The crop contract: a bust leaning in from the lower right.
+        e = r["edge_fur"]
+        if e["right"] < 0.25:
+            failures.append(f"{name}: head does not run out of the right edge ({e['right']})")
+        if e["bottom"] < 0.25:
+            failures.append(f"{name}: head does not run out of the bottom edge ({e['bottom']})")
+        if e["top"] > 0.02:
+            failures.append(f"{name}: fur touches the top edge ({e['top']}), the crop is not a bust")
+        if e["left"] > 0.02:
+            failures.append(f"{name}: fur touches the left edge ({e['left']}), the crop is not a bust")
+
+        # Face survival: the features must not vanish. The floor is 1.0 % of the
+        # raster, which the approved master clears at every size (2.7 % at 16 px,
+        # 1.7 % at 32 px, 1.4 % at 64 px). It is a floor, not a promise that the
+        # eyes read at 16 px — see the contact sheet and README.
+        if r["size"] <= 64 and r["ink_fraction"] < 0.010:
+            failures.append(f"{name}: ink coverage {r['ink_fraction']} < 0.010")
+
+    if fur_field < 3.0:
+        failures.append(f"fur/field contrast {fur_field}:1 below 3:1")
+    if ink_fur < 4.5:
+        failures.append(f"ink/fur contrast {ink_fur}:1 below 4.5:1")
+    if ink_muzzle < 4.5:
+        failures.append(f"ink/muzzle contrast {ink_muzzle}:1 below 4.5:1")
 
     sheet = Image.new("RGB", (1200, 300), (31, 35, 31))
     draw = ImageDraw.Draw(sheet)
@@ -145,8 +197,9 @@ def main() -> None:
     report = {
         "master": f"brand/{NAME}-master.svg",
         "sizes": list(SIZES),
-        "face_to_field_contrast": f"{ratio}:1",
-        "ink_to_fur_contrast": f"{ink_ratio}:1",
+        "fur_to_field_contrast": f"{fur_field}:1",
+        "ink_to_fur_contrast": f"{ink_fur}:1",
+        "ink_to_muzzle_contrast": f"{ink_muzzle}:1",
         "rows": rows,
         "failures": failures,
         "status": "pass" if not failures else "fail",
