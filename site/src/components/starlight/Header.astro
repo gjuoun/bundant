@@ -14,7 +14,7 @@ const links = [
   <div class="bf-bar">
     <a href={base + '/'} class="bf-brand" aria-label="bundant home">
       <span class="bf-mark" aria-hidden="true">
-        <img src={`${import.meta.env.BASE_URL}/img/content-bear.png`} alt="" width="46" height="46" />
+        <img src={`${import.meta.env.BASE_URL}/img/content-bear.png`} alt="" width="32" height="32" />
       </span>
       <span class="bf-name">bundant</span>
       <span class="bf-version">0.1.0</span>
@@ -88,17 +88,23 @@ const links = [
      icon shows it: a rounded tile with the head bleeding past the tile edges. */
   .bf-mark {
     display: block;
+    flex: none;
     width: 2rem;
     height: 2rem;
     border-radius: 0.5rem;
     overflow: hidden;
   }
 
+  /* Square tile, square image: `object-fit: cover` scales uniformly, so the mark can
+     never be stretched by the tile's box the way the old negative-margin crop did
+     (the img was clamped to the parent width and ended up 32x46 — visibly flat). */
   .bf-mark img {
     display: block;
-    width: 2.875rem;
-    height: 2.875rem;
-    margin: -0.4375rem;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scale(1.35);
+    transform-origin: 72% 50%;
   }
 
   .bf-name {
