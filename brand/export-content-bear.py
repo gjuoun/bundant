@@ -46,10 +46,17 @@ def main() -> None:
         render(MASTER, target, size)
         print(f"  {target.relative_to(REPO)}  {size}x{size}")
 
-    # The master is real vector again (flat accent field), so the site can serve it as-is.
-    shutil.copyfile(MASTER, SITE_PUBLIC / "favicon.svg")
-    shutil.copyfile(MASTER, SITE_PUBLIC / "img" / f"{NAME}.svg")
-    shutil.copyfile(EXPORTS / f"{NAME}-256.png", SITE_PUBLIC / "img" / f"{NAME}.png")
+    # The master is a 1024 composite; embedding it whole makes a 600 KiB favicon. Ship a
+    # 256 px wrapper instead - the browser never needs more for a tab icon.
+    small = EXPORTS / f"{NAME}-256.png"
+    payload = base64.b64encode(small.read_bytes()).decode()
+    wrapper = (
+        '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">'
+        f'<image href="data:image/png;base64,{payload}" width="256" height="256"/></svg>\n'
+    )
+    (SITE_PUBLIC / "favicon.svg").write_text(wrapper)
+    (SITE_PUBLIC / "img" / f"{NAME}.svg").write_text(wrapper)
+    shutil.copyfile(small, SITE_PUBLIC / "img" / f"{NAME}.png")
     shutil.copyfile(EXPORTS / f"{NAME}-32.png", SITE_PUBLIC / "favicon-32.png")
     shutil.copyfile(EXPORTS / f"{NAME}-180.png", SITE_PUBLIC / "apple-touch-icon.png")
     print("  favicon.svg, favicon-32.png, apple-touch-icon.png, img/%s.svg" % NAME)

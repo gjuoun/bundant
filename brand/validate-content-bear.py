@@ -28,7 +28,7 @@ NAME = "content-bear"
 SIZES = (16, 32, 64, 128, 180, 192, 256, 512, 1024)
 FUR = (252, 93, 35)  # burntOrange #FC5D23 — the bear
 MUZZLE = (217, 217, 212)  # fg #D9D9D4 — the snout
-FIELD_BLUE = (0x40, 0xC4, 0xFF)  # #40C4FF — Bigface's accent blue (lightBlue)
+FIELD_BLUE = (0x1A, 0x54, 0xB4)  # #1A54B4 — Bigface's own field blue
 INK = (31, 35, 31)  # bgDeep #1F231F — eyes, nose, mouth
 
 ROOT = Path(__file__).resolve().parent
@@ -109,13 +109,12 @@ def ink_on_fur(rgb: Image.Image, _tol: int = 0) -> int:
                 continue
             # Only count marks that sit next to fur: the plate's dark vignette is dark
             # too, and counting it would hide a genuinely empty face.
-            near_face = any(
+            near_fur = any(
                 is_fur(px[min(w - 1, max(0, x + dx)), min(h - 1, max(0, y + dy))])
-                or close(px[min(w - 1, max(0, x + dx)), min(h - 1, max(0, y + dy))], MUZZLE, 40)
                 for dx in range(-radius, radius + 1, radius)
                 for dy in range(-radius, radius + 1, radius)
             )
-            if near_face:
+            if near_fur:
                 count += 1
     return count
 
@@ -195,16 +194,16 @@ def main() -> None:
         if e["left"] > 0.02:
             failures.append(f"{name}: fur touches the left edge ({e['left']}), the crop is not a bust")
 
-        # Face survival: the features must not vanish. The floor is 1.0 % of the raster and
-        # the vector master measures 1.2 % at 16 px, 1.7 % at 32 px, 2.0 % at 64 px. A floor,
-        # not a promise that the expression reads at 16 px — it does not.
-        if r["size"] <= 64 and r["ink_fraction"] < 0.010:
-            failures.append(f"{name}: feature coverage {r['ink_fraction']} < 0.010")
+        # Face survival: the features must not vanish. The floor is 1.5 % of the raster;
+        # the approved master measures 2.3 % at 16 px, 2.3 % at 32 px and 2.3 % at 64 px.
+        # It is a floor, not a promise that the expression reads at 16 px.
+        if r["size"] <= 64 and r["ink_fraction"] < 0.015:
+            failures.append(f"{name}: feature coverage {r['ink_fraction']} < 0.015")
 
-    # Jun chose the theme accent (#40C4FF), which is an orange-on-cyan mark at 1.29:1.
-    # 3:1 is the text/UI bar and does not apply to a graphic mark whose separation comes
-    # from hue; the floor here only catches an accidental near-invisible field.
-    if fur_field < 1.2:
+    # 3:1 is the text/UI bar. An icon is a graphic object, and Bigface's own field blue
+    # (#1A54B4) only reaches 2.26:1 against the fur - held at 2.2 so the mark is allowed to
+    # use the theme's blue instead of being pushed to near-black for a number.
+    if fur_field < 2.2:
         failures.append(f"fur/field contrast {fur_field}:1 below 2.2:1")
     if ink_fur < 4.5:
         failures.append(f"ink/fur contrast {ink_fur}:1 below 4.5:1")
