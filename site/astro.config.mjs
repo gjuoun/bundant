@@ -7,7 +7,9 @@ import starlight from '@astrojs/starlight';
 import tailwindcss from '@tailwindcss/vite';
 import rehypeMermaid from 'rehype-mermaid';
 
-const BASE = '/bundant';
+// Root-domain builds (Cloudflare Pages at bundant.qqntt.com) need base '/';
+// the GitHub Pages deploy keeps the /bundant prefix.
+const BASE = process.env.SITE_BASE ?? '/bundant';
 
 // scripts/sync-docs.mjs writes the sidebar from the docs manifest: Starlight's
 // autogenerate skips entries that override `slug`, and every reference page does.
