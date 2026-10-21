@@ -1,6 +1,7 @@
 ---
 import { Github, Menu } from 'lucide-react';
 import { withBase } from '@/lib/utils';
+import { asset } from "@/lib/assets";
 
 const links = [
   { href: withBase('#features'), label: 'Features' },
@@ -15,7 +16,7 @@ const links = [
     <a href={withBase('')} class="flex items-center gap-2.5" aria-label="bundant home">
       <span class="block size-8 shrink-0 overflow-hidden rounded-[4px]" aria-hidden="true">
         <img
-          src={`${import.meta.env.BASE_URL}/img/content-bear.png`}
+          src={asset("img/content-bear.png")}
           alt=""
           width="32"
           height="32"

@@ -135,6 +135,13 @@ async function main() {
   if (!homepage) failures.push('missing dist/index.html');
   else if (!/deploy/i.test(homepage)) failures.push('homepage lost its deploy headline');
 
+  // `${BASE_URL}/img/x` yields "//img/x" when the site is built at the root
+  // (protocol-relative -> https://img/x, a broken image). The build must never
+  // ship a protocol-relative asset URL; compose through src/lib/assets.ts.
+  if (homepage && /(?:src|href)="\/\//.test(homepage)) {
+    failures.push('built HTML has a protocol-relative asset URL ("//...") - use asset() from src/lib/assets.ts');
+  }
+
   const manifest = JSON.parse(await read(manifestPath) || '{}');
   const docs = manifest.docs || [];
   const tutorial = docs.filter((doc) => doc.group === 'Tutorial');

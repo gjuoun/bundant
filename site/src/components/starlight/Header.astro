@@ -1,5 +1,6 @@
 ---
 import Search from '@astrojs/starlight/components/Search.astro';
+import { asset } from "@/lib/assets";
 
 const base = import.meta.env.BASE_URL.replace(/\/+$/, '');
 const links = [
@@ -14,7 +15,7 @@ const links = [
   <div class="bf-bar">
     <a href={base + '/'} class="bf-brand" aria-label="bundant home">
       <span class="bf-mark" aria-hidden="true">
-        <img src={`${import.meta.env.BASE_URL}/img/content-bear.png`} alt="" width="32" height="32" />
+        <img src={asset("img/content-bear.png")} alt="" width="32" height="32" />
       </span>
       <span class="bf-name">bundant</span>
       <span class="bf-version">0.1.0</span>
