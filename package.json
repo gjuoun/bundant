@@ -3,7 +3,14 @@
   "version": "0.1.0",
   "description": "Zero-downtime single-host deploys over SSH — docker/podman + kamal-proxy + a thin Bun control plane. No Kubernetes.",
   "type": "module",
-  "module": "src/cli.ts",
+  "module": "src/sdk/mod.ts",
+  "types": "./src/sdk/mod.ts",
+  "exports": {
+    ".": {
+      "types": "./src/sdk/mod.ts",
+      "import": "./src/sdk/mod.ts"
+    }
+  },
   "bin": {
     "bundant": "bin/bundant",
     "bundant-bun": "bin/bundant-bun"

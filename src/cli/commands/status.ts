@@ -1,7 +1,6 @@
 import { Effect } from "effect";
 import { Argument, Command } from "effect/cli";
-import { ServiceIdentity } from "../../domain/identity.ts";
-import { unitPath } from "../../select/selector.ts";
+import { statusRows } from "../../status-rows.ts";
 import { recordData } from "../../agent/emit.ts";
 import { rootCommand } from "../root.ts";
 import { finish, runPromise } from "./common.ts";
@@ -21,28 +20,7 @@ export const status = Command.make(
       );
       const units = yield* runPromise(() =>
         withFlatUnits(loaded, pattern, resolutionOptions(g), async (ctx) =>
-          ctx.units.map((unit) => {
-            const live = unit.containers.filter((c) => c.state === "running").length;
-            const emulated = unit.containers.some((c) => c.emulated === true);
-            const identity = ServiceIdentity.from(loaded.config);
-            const configPath = unitPath({
-              group: identity.group,
-              service: identity.service,
-              role: identity.role,
-              kind: identity.kind,
-            });
-            const expected =
-              unit.path === configPath ? identity.replicas : unit.containers.length;
-            return {
-              path: unit.path,
-              kind: unit.kind,
-              revision: unit.revision,
-              expected,
-              live,
-              containers: unit.containers.map((c) => c.name),
-              ...(emulated ? { emulated: true } : {}),
-            };
-          }),
+          statusRows(ctx.units, loaded.config),
         ),
       );
       if (g.json) {
