@@ -42,6 +42,24 @@ curl -H 'Host: hello.example.com' http://box.example.com/
 bundant rollback -f deploy.yml           # back to the previous revision
 ```
 
+### The same deployment as code
+
+`src/sdk/` is the public surface: a spec is a validated TS value, and every operation is an
+`Effect` with a one-line bridge for plain programs.
+
+```ts
+import { bundant, defineDeployment, runSdk } from "bundant";
+
+const api = defineDeployment({
+  group: "shop", service: "api", image: "traefik/whoami:v1.10",
+  hosts: ["root@box.example.com"], port: 80, proxy: { host: "api.shop.test" },
+});
+
+await runSdk(bundant.deploy(api));      // deploy, status, scale, rollback
+```
+
+`examples/sdk-usage` runs deploy → rollback → scale against a real host.
+
 Anything ssh can reach works — LAN, VPN, cloud, tailscale. The login user comes from
 the host itself (`root@10.0.0.5`) or from `ssh.user`; a per-host prefix wins. Use `--local-image
 <name:tag>` when the image lives only on your machine (it is streamed, not pushed to a
